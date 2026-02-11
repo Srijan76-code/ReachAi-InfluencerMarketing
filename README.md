@@ -17,47 +17,60 @@ _From deep lead discovery to hyper-personalized outreach — fully automated._
 
 ## Overview
 
-**Reach AI** is an end-to-end agentic platform that automates the influencer marketing funnel. It replaces manual spreadsheet scouting with an LangGraph pipeline that discovers, qualifies, and ranks influencers (like YouTube creators, Instagram influencers, etc.) — using real-time metrics, semantic analysis, brand-fit & safety analysis.
+**Reach AI** is an end-to-end agentic platform that automates the influencer marketing funnel. It replaces manual spreadsheet scouting with an intelligent LangGraph pipeline that discovers, qualifies, and ranks influencers — using real-time metrics, semantic analysis, and brand-fit & safety analysis.
 
-| What it replaces           | What Reach AI does                           |
-| -------------------------- | -------------------------------------------- |
-| Manual keyword searching   | AI-generated strategic search queries        |
-| Spreadsheet-based vetting  | Automated scoring based on brand-fit analysis|
-| Generic outreach templates | Hyper-personalized, context-aware drafts     |
-| Gut-feel creator selection | Hybrid semantic + LLM reranking              |
+The platform understands your **actual campaign context** — your brand's industry, price point, target persona, and goals — and uses that understanding to find creators who are a genuine strategic fit, not just names that match a hashtag.
+
+|                     | Traditional Platforms (Modash, Upfluence, etc.)                        | Reach AI                                                                                                                                                |
+| ------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Discovery**       | Browse a static database filtered by tags, category, or follower count | AI reads your full campaign brief and generates dozens of strategic search queries — finds creators by _what they actually talk about_, not just labels |
+| **Evaluation**      | Surface-level metrics: followers, avg likes, engagement %              | Deep performance intelligence: fair-price valuation, consistency scores, trust analysis, expected ROI per video                                         |
+| **Brand Safety**    | Little to no safety screening                                          | Real-time risk detection — automatically flags dead channels, fake engagement, and underperforming creators                                             |
+| **Ranking Logic**   | Hidden algorithm or basic sorting by follower count                    | Every creator comes with a **written explanation** of why they ranked where they did — fully transparent, no black box                                  |
+| **Brand Fit**       | Keyword/tag matching (e.g., "fitness", "tech")                         | Understands your campaign _context_ — your price point, audience pain points, and goals — then matches creators on strategic relevance                  |
+| **Pricing Insight** | Generic rate cards or no pricing data                                  | Per-creator valuation adjusted for industry, geography, and actual video performance                                                                    |
 
 ---
 
 ## Core Features
 
-### 🔍 Deep Lead Discovery
+### 🔍 Deep Campaign-Aware Discovery
 
-Uses Gemini-powered keyword expansion and YouTube Data API search to surface creators you'd never find manually. The system generates **topic**, **pain-point**, **cultural**, and **format** keyword variants from your campaign brief.
+Reach AI doesn't just search for your industry name. It reads your full campaign brief — brand, product, audience pain points, price tier — and generates **dozens of strategic search queries** across four dimensions: topic niches, audience struggles, community slang, and video formats. This surfaces creators that manual keyword searches would never find.
 
-### 📊 Performance Intelligence
+### 📊 Performance Intelligence — Metrics That Actually Matter
 
-Calculates "Moneyball" metrics beyond vanity numbers:
+Forget vanity metrics. Reach AI calculates the numbers a brand **actually needs** before writing a check:
 
-| Metric                | Description                                         |
-| --------------------- | --------------------------------------------------- |
-| **Volatility Score**  | Std deviation / mean views — measures consistency   |
-| **Trust Score**       | Comment-to-like ratio — gauges authentic engagement |
-| **Reliability Grade** | High / Medium / Low based on volatility thresholds  |
-| **Estimated CPM**     | Industry × geo-tier adjusted cost-per-mille         |
-| **Channel Valuation** | Fair sponsorship price = (avg views / 1000) × CPM   |
-| **Engagement Rate**   | (Likes + Comments) / Total Views                    |
+| Metric                      | What it tells you                                                                                                     |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| **Creator Valuation**       | How much a sponsorship with this creator should realistically cost, adjusted for their industry and geography         |
+| **Estimated Ad Cost (CPM)** | What you can expect to pay per 1,000 views, calibrated by niche (FinTech is costlier than Gaming) and audience region |
+| **Trust Score**             | Are the creator's followers actually engaged, or just passive? Measures how much the audience _talks back_            |
+| **Consistency Score**       | Does this creator hit reliable view counts, or are they a one-hit wonder? Flags volatile, unpredictable channels      |
+| **Engagement Rate**         | Real interaction depth — not just subscriber count, but how actively the audience responds                            |
+| **Expected Clicks**         | Projected clicks per sponsored video based on industry-specific click-through benchmarks                              |
 
-### 🤖 Agentic Reranking
+### 🛡️ Real-Time Risk & Safety Detection
 
-A batched, concurrent LLM judge that grades every candidate on **brand fit** and **content relevance** — completely independent of metrics. This ensures the final list reflects strategic alignment, not just big numbers.
+Before a creator ever reaches your shortlist, Reach AI automatically filters out:
 
-### 🧮 Fusion Scoring
+- **Dead channels** — Creators who haven't uploaded in 6+ months
+- **Zombie engagement** — Channels with suspiciously low interaction relative to their subscriber count
+- **Underperforming creators** — Channels that don't meet the minimum view threshold for your industry and price tier
+- **Geo mismatches** — Creators whose audience country doesn't align with your target market
 
-Final score = `(LLM Relevance × 0.60) + (Health Score × 0.40)`, with risk penalties applied per reliability grade. Outputs a deal status: **Strong Buy**, **Consider**, or **Avoid**.
+### � Brand-Fit Ranking — Not a Black Box
+
+Most tools rank creators by subscriber count or a hidden score. Reach AI is different. An AI strategist evaluates each creator on **actual content relevance** to your brand — looking at their recent videos, channel description, and niche positioning — completely independent of their metrics. Every creator in your final list comes with a **written reasoning** explaining exactly why they're a strategic fit for your campaign.
+
+### 📋 Transparent Deal Recommendations
+
+Every creator gets a clear deal status: **Strong Buy**, **Consider**, or **Avoid** — along with a full score breakdown showing the strategy score, health score, and risk assessment. No guesswork, no hidden logic.
 
 ### 🌓 Light & Dark Mode
 
-A premium, dashboard-centric frontend built with Next.js 16, featuring system-aware theme switching via `next-themes` and polished UI with Radix primitives.
+A premium, dashboard-centric frontend with system-aware theme switching for a clean, professional experience.
 
 ---
 
@@ -253,7 +266,6 @@ APIFY_API_TOKEN=your_apify_token
 | **Styling**       | Tailwind CSS v4         | Utility-first responsive design                                |
 | **Animation**     | Framer Motion           | Micro-interactions and transitions                             |
 | **Theming**       | next-themes             | System-aware light/dark mode switching                         |
-
 
 ---
 
