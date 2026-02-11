@@ -269,18 +269,7 @@ APIFY_API_TOKEN=your_apify_token
 
 ---
 
-## Roadmap
 
-- [ ] **FastAPI Integration** — Expose the LangGraph pipeline via REST endpoints
-- [ ] **Agentic Outreach Subgraph** — LangGraph-driven email drafting with creator-specific personalization
-- [ ] **Human-in-the-Loop Review Gate** — Interrupt-based approval flow before outreach goes live
-- [ ] **Results Dashboard** — Visual display of ranked creators with score breakdowns
-- [ ] **Multi-Platform Support** — Extend beyond YouTube to Instagram, TikTok, and X
-- [ ] **Campaign History** — Persistent storage with PostgreSQL for past runs and A/B comparison
-- [ ] **Export & CRM Sync** — CSV/JSON export and direct CRM integration (HubSpot, Salesforce)
-- [ ] **Real-Time Streaming** — LangGraph event streaming for live pipeline progress in the UI
-
----
 
 <div align="center">
 
