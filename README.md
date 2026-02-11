@@ -2,7 +2,7 @@
 
 # Reach AI
 
-### Agentic Influencer Marketing Platform
+### End-to-End Influencer Marketing Automation
 
 _From deep lead discovery to hyper-personalized outreach — fully automated._
 
