@@ -1,0 +1,10 @@
+langgraph
+langchain
+langchain-google-genai
+python-dotenv
+apify-client
+numpy
+isodate
+google-api-python-client
+pydantic
+scikit-learn
