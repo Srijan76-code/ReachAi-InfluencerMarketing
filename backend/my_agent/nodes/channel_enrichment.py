@@ -4,7 +4,7 @@ import numpy as np
 import isodate
 from datetime import datetime, timezone
 from core.get_youtube_client import get_youtube_client
-from utils.state import LLMState
+from ..utils.state import LLMState
 
 try:
     from apify_client import ApifyClient
@@ -79,10 +79,10 @@ def calculate_advanced_metrics(videos, industry):
 
     return {
         "avg_views": avg_views,
-        "volatility": round(volatility, 2),
+        "volatility": round(float(volatility), 2),
         "reliability": reliability,
-        "engagement_rate": round(engagement_rate * 100, 2),
-        "raw_engagement": engagement_rate,
+        "engagement_rate": round(float(engagement_rate * 100), 2),
+        "raw_engagement": float(engagement_rate),
         "trust_score": trust_score,
         "forecast": f"~{est_clicks} clicks/video",
     }
@@ -176,7 +176,7 @@ def process_channel(youtube, data, campaign_ctx):
             **data,
             "metrics": metrics,
             "socials": socials,
-            "valuation": round(fair_price, 2),
+            "valuation": round(float(fair_price), 2),
             "recent_videos": [
                 {"title": v["title"], "views": v["views"]} for v in video_data
             ],

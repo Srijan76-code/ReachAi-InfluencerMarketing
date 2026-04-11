@@ -6,7 +6,7 @@ from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from dotenv import load_dotenv
 
 
-from utils.state import LLMState
+from ..utils.state import LLMState
 
 load_dotenv()
 
@@ -16,7 +16,7 @@ def cosine_similarity(a, b):
     norm_b = np.linalg.norm(b)
     if norm_a == 0 or norm_b == 0:
         return 0.0
-    return np.dot(a, b) / (norm_a * norm_b)
+    return float(np.dot(a, b) / (norm_a * norm_b))
 
 
 def tokenize(text):
@@ -73,7 +73,7 @@ def semantic_processor(state: LLMState):
 
         hybrid_score = (v_score * 0.7) + (k_score * 0.3)
 
-        candidate["semantic_score"] = round(hybrid_score, 3)
+        candidate["semantic_score"] = round(float(hybrid_score), 3)
         final_ranked.append(candidate)
 
     final_ranked.sort(key=lambda x: x["semantic_score"], reverse=True)

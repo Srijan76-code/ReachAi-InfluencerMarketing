@@ -1,7 +1,7 @@
 import asyncio
 from core.get_youtube_client import get_youtube_client
 
-from utils.state import LLMState
+from ..utils.state import LLMState
 
 MAX_CONCURRENT_REQUESTS = 3
 

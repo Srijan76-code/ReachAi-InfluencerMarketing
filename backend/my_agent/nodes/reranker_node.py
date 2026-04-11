@@ -8,7 +8,7 @@ import asyncio
 
 
 from core.model import model
-from utils.state import LLMState
+from ..utils.state import LLMState
 MAX_CONCURRENT_LLM_CALLS = 5
 BATCH_SIZE = 15
 

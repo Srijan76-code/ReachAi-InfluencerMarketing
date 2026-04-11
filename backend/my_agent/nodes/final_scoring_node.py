@@ -1,5 +1,5 @@
 
-from utils.state import LLMState
+from ..utils.state import LLMState
 
 
 def final_scoring_node(state: LLMState):
@@ -16,13 +16,13 @@ def final_scoring_node(state: LLMState):
     for c in candidates:
         metrics = c.get("metrics", {})
 
-        llm_score = c.get("relevance_score", 0)
-        trust_score = metrics.get("trust_score", 0)
+        llm_score = float(c.get("relevance_score", 0))
+        trust_score = float(metrics.get("trust_score", 0))
         reliability = metrics.get("reliability", "Medium")
 
-        health_score = trust_score * risk_factor.get(reliability, 0.85)
+        health_score = float(trust_score * risk_factor.get(reliability, 0.85))
 
-        final_score = (llm_score * 0.60) + (health_score * 0.40)
+        final_score = float((llm_score * 0.60) + (health_score * 0.40))
 
         if final_score >= 80:
             status = "Strong Buy"
@@ -35,7 +35,7 @@ def final_scoring_node(state: LLMState):
         c["deal_status"] = status
 
         c["score_breakdown"] = {
-            "strategy_score": llm_score,
+            "strategy_score": round(llm_score, 1),
             "health_score": int(health_score),
             "risk_penalty": reliability,
         }
@@ -49,3 +49,11 @@ def final_scoring_node(state: LLMState):
     )
 
     return {"final_ranked_leads": scored_leads}
+
+
+
+
+
+
+
+

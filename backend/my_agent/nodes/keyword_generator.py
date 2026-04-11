@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 
 from langchain_core.messages import SystemMessage, HumanMessage
 from core.model import model
-from utils.state import LLMState
+from ..utils.state import LLMState
 
 
 class TargetedKeywords(BaseModel):

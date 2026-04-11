@@ -1,80 +1,71 @@
 <div align="center">
+  <br>
+  <h1>R E A C H &nbsp; A I</h1>
+  <p>
+    <b>End-to-End Influencer Marketing Automation</b>
+  </p>
+  <p>
+    <sub>
+      From deep lead discovery to hyper-personalized outreach — fully automated.
+    </sub>
+  </p>
+  <br>
+  <p>
+    <img src="https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python">
+    <img src="https://img.shields.io/badge/LangGraph-Agentic_Framework-1C3C3C?style=for-the-badge&logo=langchain&logoColor=white" alt="LangGraph">
+    <img src="https://img.shields.io/badge/Next.js-111111?style=for-the-badge&logo=nextdotjs&logoColor=white" alt="Next.js">
+    <img src="https://img.shields.io/badge/Gemini-2.5_Flash-4285F4?style=for-the-badge&logo=google&logoColor=white" alt="Gemini">
+  </p>
 
-# Reach AI
-
-### End-to-End Influencer Marketing Automation
-
-_From deep lead discovery to hyper-personalized outreach — fully automated._
-
-[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
-[![LangGraph](https://img.shields.io/badge/LangGraph-Agentic_Framework-1C3C3C?style=flat-square&logo=langchain&logoColor=white)](https://langchain-ai.github.io/langgraph/)
-[![Next.js](https://img.shields.io/badge/Next.js_16-React_19-000000?style=flat-square&logo=next.js&logoColor=white)](https://nextjs.org)
-[![Gemini](https://img.shields.io/badge/Google_Gemini-2.5_Flash-4285F4?style=flat-square&logo=google&logoColor=white)](https://ai.google.dev/)
-
+  <br>
+  <a href="#-project-overview">Project Overview</a> ✦
+  <a href="#-core-features">Key Features</a> ✦
+  <a href="#-traditional-platforms-vs-reach-ai">Comparison</a> ✦
+  <a href="#-system-architecture">Architecture</a> ✦
+  <a href="#-project-structure">Structure</a> ✦
+  <a href="#-installation">Installation</a> ✦
+  <a href="#-api-configuration">API</a> ✦
+  <a href="#-tech-stack">Tech Stack</a>
+  <br>
 </div>
 
----
+<hr>
 
-## Overview
+## ◈ Project Overview
 
 **Reach AI** is an end-to-end agentic platform that automates the influencer marketing funnel. It replaces manual spreadsheet scouting with an intelligent LangGraph pipeline that discovers, qualifies, and ranks influencers — using real-time metrics, semantic analysis, and brand-fit & safety analysis.
 
 The platform understands your **actual campaign context** — your brand's industry, price point, target persona, and goals — and uses that understanding to find creators who are a genuine strategic fit, not just names that match a hashtag.
 
-|                     | Traditional Platforms (Modash, Upfluence, etc.)                        | Reach AI                                                                                                                                                |
-| ------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Discovery**       | Browse a static database filtered by tags, category, or follower count | AI reads your full campaign brief and generates dozens of strategic search queries — finds creators by _what they actually talk about_, not just labels |
-| **Evaluation**      | Surface-level metrics: followers, avg likes, engagement %              | Deep performance intelligence: fair-price valuation, consistency scores, trust analysis, expected ROI per video                                         |
-| **Brand Safety**    | Little to no safety screening                                          | Real-time risk detection — automatically flags dead channels, fake engagement, and underperforming creators                                             |
-| **Ranking Logic**   | Hidden algorithm or basic sorting by follower count                    | Every creator comes with a **written explanation** of why they ranked where they did — fully transparent, no black box                                  |
-| **Brand Fit**       | Keyword/tag matching (e.g., "fitness", "tech")                         | Understands your campaign _context_ — your price point, audience pain points, and goals — then matches creators on strategic relevance                  |
-| **Pricing Insight** | Generic rate cards or no pricing data                                  | Per-creator valuation adjusted for industry, geography, and actual video performance                                                                    |
+<br>
 
----
+## ◈ Core Features
 
-## Core Features
+### Core Capabilities
 
-### 🔍 Deep Campaign-Aware Discovery
+| <kbd>01</kbd> Deep Campaign-Aware Discovery                                                                                                                                  | <kbd>02</kbd> Brand-Fit Ranking                                                                                                                 |
+| :------------------------------------------------------------------------------------------------------------------------------------------------------------ | :----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Reads your full campaign brief and generates dozens of strategic search queries across niches, audience struggles, and formats to surface creators manual searches miss. | Evaluates each creator on actual content relevance to your brand, independent of metrics, with a written reasoning explaining exactly why they're a fit. |
 
-Reach AI doesn't just search for your industry name. It reads your full campaign brief — brand, product, audience pain points, price tier — and generates **dozens of strategic search queries** across four dimensions: topic niches, audience struggles, community slang, and video formats. This surfaces creators that manual keyword searches would never find.
+| <kbd>03</kbd> Performance Intelligence                                                                                                                                 | <kbd>04</kbd> Real-Time Risk Detection                                                                                                                        |
+| :--------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------- |
+| Metrics that matter: Fair valuation, estimated CPM, trust scores, consistency, and expected link clicks per video based on industry-specific benchmarks. | Automatically filters out dead channels, zombie engagement, geo-mismatches, and channels not meeting your view thresholds. |
 
-### 📊 Performance Intelligence — Metrics That Actually Matter
+<br>
 
-Forget vanity metrics. Reach AI calculates the numbers a brand **actually needs** before writing a check:
+## ◈ Traditional Platforms vs Reach AI
 
-| Metric                      | What it tells you                                                                                                     |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| **Creator Valuation**       | How much a sponsorship with this creator should realistically cost, adjusted for their industry and geography         |
-| **Estimated Ad Cost (CPM)** | What you can expect to pay per 1,000 views, calibrated by niche (FinTech is costlier than Gaming) and audience region |
-| **Trust Score**             | Are the creator's followers actually engaged, or just passive? Measures how much the audience _talks back_            |
-| **Consistency Score**       | Does this creator hit reliable view counts, or are they a one-hit wonder? Flags volatile, unpredictable channels      |
-| **Engagement Rate**         | Real interaction depth — not just subscriber count, but how actively the audience responds                            |
-| **Expected Clicks**         | Projected clicks per sponsored video based on industry-specific click-through benchmarks                              |
+| Domain             | Traditional Platforms (Modash, Upfluence)                             | Reach AI                                     |
+| :----------------- | :------------------------------------------------ | :------------------------------------------- |
+| **Discovery**      | Browse static database filtered by tags, category | AI generates strategic queries to find what creators *actually* talk about     |
+| **Evaluation**     | Surface-level: followers, avg likes              | Deep: fair-price valuation, consistency, expected ROI per video  |
+| **Brand Safety**   | Little to no safety screening        | Real-time risk detection (flags dead channels, fake engagement)          |
+| **Ranking**        | Hidden algorithm or basic sorting by follower count  | Every creator has a written explanation of their strategic relevance |
+| **Pricing**        | Generic rate cards or no pricing data  | Per-creator valuation adjusted for industry, geo, and actual performance |
 
-### 🛡️ Real-Time Risk & Safety Detection
+<br>
 
-Before a creator ever reaches your shortlist, Reach AI automatically filters out:
-
-- **Dead channels** — Creators who haven't uploaded in 6+ months
-- **Zombie engagement** — Channels with suspiciously low interaction relative to their subscriber count
-- **Underperforming creators** — Channels that don't meet the minimum view threshold for your industry and price tier
-- **Geo mismatches** — Creators whose audience country doesn't align with your target market
-
-### � Brand-Fit Ranking — Not a Black Box
-
-Most tools rank creators by subscriber count or a hidden score. Reach AI is different. An AI strategist evaluates each creator on **actual content relevance** to your brand — looking at their recent videos, channel description, and niche positioning — completely independent of their metrics. Every creator in your final list comes with a **written reasoning** explaining exactly why they're a strategic fit for your campaign.
-
-### 📋 Transparent Deal Recommendations
-
-Every creator gets a clear deal status: **Strong Buy**, **Consider**, or **Avoid** — along with a full score breakdown showing the strategy score, health score, and risk assessment. No guesswork, no hidden logic.
-
-### 🌓 Light & Dark Mode
-
-A premium, dashboard-centric frontend with system-aware theme switching for a clean, professional experience.
-
----
-
-## System Architecture
+## ◈ System Architecture
 
 The backend is a **linear LangGraph StateGraph** with 8 nodes, each with automatic retry policies and in-memory caching.
 
@@ -102,138 +93,57 @@ graph LR
     style H fill:#ec4899,stroke:#db2777,color:#fff
 ```
 
-### Node Breakdown
+<br>
 
-| #   | Node                     | Type    | Purpose                                                                           |
-| --- | ------------------------ | ------- | --------------------------------------------------------------------------------- |
-| 1   | `campaign_understanding` | 🧠 LLM  | Expands brand brief into strategic topics, formats, pain points, and safety level |
-| 2   | `keyword_generator`      | 🧠 LLM  | Translates strategy into 4 categories of native YouTube search queries            |
-| 3   | `youtube_search_gate`    | 🌐 API  | Async-concurrent YouTube search across top 10 keywords (semaphore-limited)        |
-| 4   | `subscriber_filter`      | 🌐 API  | Batch filters by subscriber count, country, and minimum content health            |
-| 5   | `channel_enrichment`     | 🌐 API  | Fetches recent videos, calculates metrics, validates health, extracts socials     |
-| 6   | `semantic_processor`     | 🧮 Math | Hybrid BM25 + Gemini embedding cosine similarity (70/30 vector/keyword blend)     |
-| 7   | `reranker_node`          | 🧠 LLM  | Batched async LLM judge scoring brand-fit relevance (0–100)                       |
-| 8   | `final_scoring_node`     | 🧮 Math | Weighted fusion of LLM score + health metrics with risk penalty                   |
+## ◈ Project Structure
 
-### State Schema
-
-The pipeline uses a progressive enrichment pattern — each node extends the channel data model:
-
-```
-ChannelData → EnrichedChannel → AnalyzedChannel → RankedChannel → FinalScoredChannel
-```
-
-All state is managed via `Pydantic` models and `TypedDict` classes in `backend/my_agent/utils/state.py`.
-
----
-
-## Project Structure
-
-```
-ReachAi-InfluencerMarketing/
-│
+```text
+/
 ├── backend/
-│   ├── main.py                  # FastAPI entry point (WIP)
-│   ├── requirements.txt         # Python dependencies
-│   ├── langgraph.json           # LangGraph deployment config
-│   │
-│   ├── core/
-│   │   ├── model.py             # Gemini 2.5 Flash initialization
-│   │   └── get_youtube_client.py
-│   │
-│   ├── my_agent/
-│   │   ├── agent.py             # Graph definition & compilation
-│   │   ├── utils/
-│   │   │   └── state.py         # Pydantic state schema
-│   │   └── nodes/
-│   │       ├── campaign_understanding.py
-│   │       ├── keyword_generator.py
-│   │       ├── youtube_search_gate.py
-│   │       ├── subscriber_filter.py
-│   │       ├── channel_enrichment.py
-│   │       ├── semantic_processor.py
-│   │       ├── reranker_node.py
-│   │       └── final_scoring_node.py
-│   │
-│   ├── api/
-│   │   └── routes.py
-│   └── scripts/
-│
+│   ├── main.py                  — FastAPI entry point (WIP)
+│   ├── my_agent/                — Core LangGraph node processing and ranking logic
+│   └── scripts/                 — CLI utilities
 ├── frontend/
-│   ├── app/
-│   │   ├── layout.tsx           # Root layout with ThemeProvider
-│   │   ├── page.tsx             # Dashboard — BrandDetails, Campaign, Audience, Constraints
-│   │   ├── globals.css
-│   │   └── _components/         # Page-level form sections
-│   │
-│   ├── components/
-│   │   ├── ui/                  # Radix-based primitives (Badge, Button, Dialog, etc.)
-│   │   ├── kibo-ui/             # Status indicators
-│   │   ├── theme-provider.tsx   # next-themes wrapper
-│   │   ├── CampaignGoal.tsx
-│   │   ├── CreatorAuthority.tsx
-│   │   ├── SearchAndSelectInput.tsx
-│   │   ├── RangeSlider.tsx
-│   │   └── ...
-│   │
-│   ├── data/                    # Static ontologies & datasets
-│   ├── hooks/                   # Custom React hooks
-│   ├── lib/                     # Utility functions
-│   └── public/                  # Static assets
-│
-└── .gitignore
+│   ├── app/                     — Next.js React Dashboard and UI components
+│   └── data/                    — Static ontologies & datasets
 ```
 
----
+<br>
 
-## Installation
+## ◈ Installation
 
-### Prerequisites
+**Prerequisites:** Python 3.11+, Node.js 20+, Google Cloud Project (YouTube Data API v3), Google AI Studio Key.
 
-- **Python** 3.11+
-- **Node.js** 20+
-- **npm** 10+
-- A [Google Cloud](https://console.cloud.google.com/) project with YouTube Data API v3 enabled
-- A [Google AI Studio](https://aistudio.google.com/) API key for Gemini
+<details>
+<summary><b>Quick Setup</b></summary>
 
-### Backend Setup
+<br>
+
+**1. Backend Setup**
 
 ```bash
-# Navigate to the backend directory
 cd backend
-
-# Create and activate a virtual environment
 python -m venv .venv
-source .venv/bin/activate    # macOS/Linux
-# .venv\Scripts\activate     # Windows
-
-# Install dependencies
+source .venv/bin/activate
 pip install -r requirements.txt
-
-# Configure environment variables (see section below)
 cp .env.example .env
 ```
 
-### Frontend Setup
+**2. Frontend Setup**
 
 ```bash
-# Navigate to the frontend directory
 cd frontend
-
-# Install dependencies
 npm install
-
-# Start the development server
 npm run dev
 ```
 
-The frontend will be available at `http://localhost:3000`.
+</details>
 
----
+<br>
 
-## API Configuration
+## ◈ API Configuration
 
-Create a `.env` file in the `backend/` directory with the following keys:
+Create a `.env` file in the `backend/` directory:
 
 | Variable          | Description                               | Required |
 | ----------------- | ----------------------------------------- | -------- |
@@ -241,38 +151,24 @@ Create a `.env` file in the `backend/` directory with the following keys:
 | `YOUTUBE_API_KEY` | YouTube Data API v3 key                   | ✅       |
 | `APIFY_API_TOKEN` | Apify client token (for social scraping)  | Optional |
 
-```env
-GOOGLE_API_KEY=your_gemini_api_key
-YOUTUBE_API_KEY=your_youtube_data_api_key
-APIFY_API_TOKEN=your_apify_token
-```
-
 > [!IMPORTANT]
-> The YouTube Data API has a daily quota of **10,000 units**. Each search query costs ~100 units. Running the full pipeline with 10 keywords consumes ~1,000 units from search alone, plus additional units for channel and video detail fetches. Monitor your usage in the [Google Cloud Console](https://console.cloud.google.com/apis/dashboard).
+> The YouTube Data API has a daily quota of **10,000 units**. Each search query costs ~100 units. Running the full pipeline with 10 keywords consumes ~1,000 units from search alone, plus additional units for channel and video detail fetches. Monitor your usage in the Google Cloud Console.
+
+<br>
+
+## ◈ Tech Stack
+
+| Domain          | Technology          | Implementation Objective                                             |
+| :-------------- | :------------------ | :------------------------------------------------------------------- |
+| **Frontend**    | Next.js & Tailwind  | Delivering a premium, dark-themed, data-dense React interface.       |
+| **Backend**     | Python & FastAPI    | LangGraph orchestration and semantic search algorithms.    |
+| **AI Engine**   | Gemini 2.5 Flash    | Campaign strategy, keyword gen, brand-fit reranking.    |
+| **Type Safety** | TypeScript/Pydantic | Structuring rigid data contracts across the pipeline.                |
+
+<br>
 
 ---
-
-## Tech Stack
-
-| Layer             | Technology              | Role                                                           |
-| ----------------- | ----------------------- | -------------------------------------------------------------- |
-| **Orchestration** | LangGraph               | Agentic StateGraph with retry policies, caching, checkpointing |
-| **AI / LLM**      | Google Gemini 2.5 Flash | Campaign strategy, keyword gen, brand-fit reranking            |
-| **Embeddings**    | Gemini Embedding 001    | Semantic similarity for channel matching                       |
-| **Search**        | BM25Okapi (rank-bm25)   | Keyword relevance scoring                                      |
-| **Data**          | YouTube Data API v3     | Channel stats, video metadata, playlist data                   |
-| **State**         | Pydantic + TypedDict    | Strongly-typed pipeline state management                       |
-| **Frontend**      | Next.js 16 / React 19   | Dashboard UI with server components                            |
-| **Styling**       | Tailwind CSS v4         | Utility-first responsive design                                |
-| **Animation**     | Framer Motion           | Micro-interactions and transitions                             |
-| **Theming**       | next-themes             | System-aware light/dark mode switching                         |
-
----
-
-
 
 <div align="center">
-
-Built by [Srijan Patel](https://github.com/Srijan76-code)
-
+  <i>Built by <a href="https://github.com/Srijan76-code">Srijan Patel</a></i>
 </div>

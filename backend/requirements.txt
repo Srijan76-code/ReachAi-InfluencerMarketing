@@ -8,3 +8,4 @@ isodate
 google-api-python-client
 pydantic
 scikit-learn
+rank_bm25

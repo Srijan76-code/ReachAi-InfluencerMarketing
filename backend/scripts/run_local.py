@@ -1,6 +1,13 @@
 from dotenv import load_dotenv
 import asyncio
 from pprint import pprint
+import sys
+from pathlib import Path
+
+# Ensure the `backend/` folder (parent of `scripts/`) is on sys.path so local
+# packages such as `my_agent` can be imported when this script is executed
+# directly with `python scripts/run_local.py`.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from langchain_core.runnables import RunnableConfig
 from my_agent.agent import workflow

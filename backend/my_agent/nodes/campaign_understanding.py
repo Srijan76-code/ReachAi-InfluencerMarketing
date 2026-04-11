@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import List, Literal
-from core.model import model
-from utils.state import LLMState
+from core.model import model  # Reverted back to absolute import
+from ..utils.state import LLMState  # Changed from "from utils.state"
 
 
 class CampaignContextModel(BaseModel):
