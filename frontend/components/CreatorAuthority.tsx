@@ -1,3 +1,5 @@
+"use client";
+
 import { useId } from "react";
 
 import { Label } from "@/components/ui/label";
@@ -15,8 +17,13 @@ import {
   Users,
 } from "lucide-react";
 
+import { useCampaignStore } from "@/store/campaignStore";
+
 export default function CreatorAuthority() {
   const id = useId();
+  const creatorAuthority = useCampaignStore((state) => state.creatorAuthority);
+  const setField = useCampaignStore((state) => state.setField);
+
   return (
     <fieldset className="space-y-4">
       <legend className="font-medium text-foreground text-sm leading-none">
@@ -28,7 +35,7 @@ export default function CreatorAuthority() {
           </p>
         </div>
       </legend>
-      <RadioGroup className="gap-2" defaultValue="1">
+      <RadioGroup className="gap-2" value={creatorAuthority} onValueChange={(val) => setField("creatorAuthority", val)} defaultValue="1">
         {/* Radio card #1 */}
         <div className="relative flex w-full items-start gap-2 rounded-md border border-input p-4 shadow-xs outline-none has-data-[state=checked]:border-primary/50">
           <RadioGroupItem

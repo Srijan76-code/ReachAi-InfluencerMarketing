@@ -22,10 +22,13 @@ import { countries } from "@/data/countries";
 
 
 
+import { useCampaignStore } from "@/store/campaignStore";
+
 export default function FlagAndSearchCountry() {
   const id = useId();
+  const audienceLocation = useCampaignStore((state) => state.audienceLocation);
+  const setField = useCampaignStore((state) => state.setField);
   const [open, setOpen] = useState<boolean>(false);
-  const [value, setValue] = useState<string>("");
 
   return (
     <div className="*:not-first:mt-2">
@@ -39,18 +42,18 @@ export default function FlagAndSearchCountry() {
             role="combobox"
             variant="outline"
           >
-            {value ? (
+            {audienceLocation ? (
               <span className="flex min-w-0 items-center gap-2">
                 <span className="text-lg leading-none">
                   {
                     countries
                       .map((group) =>
-                        group.items.find((item) => item.value === value),
+                        group.items.find((item) => item.value === audienceLocation),
                       )
                       .filter(Boolean)[0]?.flag
                   }
                 </span>
-                <span className="truncate">{value}</span>
+                <span className="truncate">{audienceLocation}</span>
               </span>
             ) : (
               <span className="text-muted-foreground">Select country</span>
@@ -77,7 +80,7 @@ export default function FlagAndSearchCountry() {
                       <CommandItem
                         key={country.value}
                         onSelect={(currentValue) => {
-                          setValue(currentValue);
+                          setField("audienceLocation", currentValue);
                           setOpen(false);
                         }}
                         value={country.value}
@@ -86,7 +89,7 @@ export default function FlagAndSearchCountry() {
                           {country.flag}
                         </span>{" "}
                         {country.value}
-                        {value === country.value && (
+                        {audienceLocation === country.value && (
                           <CheckIcon className="ml-auto" size={16} />
                         )}
                       </CommandItem>

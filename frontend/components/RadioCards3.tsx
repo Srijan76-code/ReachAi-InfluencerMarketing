@@ -8,10 +8,14 @@ export default function RadioCards3({
   items,
   label,
   sublabel,
+  value,
+  onChange
 }: {
   items: { label: string; value: string }[];
   label: string;
   sublabel?: string;
+  value?: string;
+  onChange?: (val: string) => void;
 }) {
   const id = useId();
 
@@ -20,7 +24,7 @@ export default function RadioCards3({
       <legend className="font-medium text-foreground text-sm leading-none">
         {label} <span className="text-destructive">*</span>
       </legend>
-      <RadioGroup className="flex flex-wrap gap-4" defaultValue="1">
+      <RadioGroup className="flex flex-wrap gap-4" value={value} onValueChange={onChange} defaultValue={value || "1"}>
         {items.map((item) => (
           <div
             className="relative flex flex-col items-start gap-4 rounded-md border border-input p-3 shadow-xs outline-none has-data-[state=checked]:border-primary/50"

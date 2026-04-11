@@ -28,12 +28,16 @@ const INDUSTRY_DEFAULTS: Record<Industry, string[]> = {
   saas: ["Project Management", "CRM", "AI Tool", "Email Marketing"],
 };
 
+import { useCampaignStore } from "@/store/campaignStore";
+
 export function SmartAudienceInput2() {
   const [selectedIndustry, setSelectedIndustry] = useState<Industry>("edtech");
-  const [pitchText, setPitchText] = useState("");
+  
+  const targetAudience = useCampaignStore((state) => state.targetAudience);
+  const setField = useCampaignStore((state) => state.setField);
 
   const handleChipClick = (chipText: string) => {
-    setPitchText((prev) => (prev ? `${prev} ${chipText}` : chipText));
+    setField("targetAudience", targetAudience ? `${targetAudience} ${chipText}` : chipText);
   };
 
   const chips = INDUSTRY_ONTOLOGY.edtech.chips_persona;
@@ -68,8 +72,8 @@ export function SmartAudienceInput2() {
       <div>
         <Textarea
           id="pitch"
-          value={pitchText}
-          onChange={(e) => setPitchText(e.target.value)}
+          value={targetAudience}
+          onChange={(e) => setField("targetAudience", e.target.value)}
           placeholder="e.g. Final-year college students looking for internships"
         />
 

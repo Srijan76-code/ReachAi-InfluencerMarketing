@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 
-export default function RangeSlider() {
+export default function RangeSlider({ value, onChange, label = "Creator Size (Subscriber count)" }: { value?: number[], onChange?: (val: number[]) => void, label?: string }) {
   const maxValue = 13;
   const minValue = 1;
   const skipInterval = 1; // Set to 1 to allow no text skipping
@@ -24,10 +24,12 @@ export default function RangeSlider() {
   };
   return (
     <div className="*:not-first:mt-4">
-      <Label htmlFor="creator-size-slider">Creator Size (Subscriber count)</Label>
+      <Label htmlFor="creator-size-slider">{label}</Label>
       <div>
         <Slider
           aria-label="Slider with ticks"
+          value={value}
+          onValueChange={onChange}
           defaultValue={[3, 8]}
           max={maxValue}
           min={minValue}

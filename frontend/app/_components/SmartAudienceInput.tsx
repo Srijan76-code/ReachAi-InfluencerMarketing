@@ -27,12 +27,16 @@ const INDUSTRY_DEFAULTS: Record<Industry, string[]> = {
   saas: ["Project Management", "CRM", "AI Tool", "Email Marketing"],
 };
 
+import { useCampaignStore } from "@/store/campaignStore";
+
 export function SmartAudienceInput() {
   const [selectedIndustry, setSelectedIndustry] = useState<Industry>("edtech");
-  const [pitchText, setPitchText] = useState("");
+
+  const pitch = useCampaignStore((state) => state.pitch);
+  const setField = useCampaignStore((state) => state.setField);
 
   const handleChipClick = (chipText: string) => {
-    setPitchText((prev) => (prev ? `${prev} ${chipText}` : chipText));
+    setField("pitch", pitch ? `${pitch} ${chipText}` : chipText);
   };
 
   const chips = INDUSTRY_DEFAULTS[selectedIndustry];
@@ -68,8 +72,8 @@ export function SmartAudienceInput() {
 
       <Textarea
         id="pitch"
-        value={pitchText}
-        onChange={(e) => setPitchText(e.target.value)}
+        value={pitch}
+        onChange={(e) => setField("pitch", e.target.value)}
         placeholder="e.g. A comprehensive Python bootcamp that helps students get hired at top tech companies..."
       />
 

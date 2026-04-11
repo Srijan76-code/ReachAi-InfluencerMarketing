@@ -1,3 +1,5 @@
+"use client";
+
 import { Brush, Eraser, Scissors, SwatchBook, Youtube } from "lucide-react";
 import { useId } from "react";
 
@@ -6,14 +8,26 @@ import { Label } from "@/components/ui/label";
 import { RiInstagramFill, RiYoutubeFill } from "@remixicon/react";
 import { color } from "framer-motion";
 
+import { useCampaignStore } from "@/store/campaignStore";
+
 export default function MultiPlatform() {
   const id = useId();
+  const platforms = useCampaignStore((state) => state.platforms);
+  const setField = useCampaignStore((state) => state.setField);
 
   const items = [
     { defaultChecked: true, Icon: RiYoutubeFill, label: "YouTube", value: "1",disabled:false  },
     { Icon: RiInstagramFill, label: "Instagram", value: "2" ,disabled:true },
 
   ];
+
+  const handleCheckedChange = (value: string, checked: boolean) => {
+    if (checked) {
+      setField("platforms", [...platforms, value]);
+    } else {
+      setField("platforms", platforms.filter((p) => p !== value));
+    }
+  };
 
   return (
     <div className="*:not-first:mt-2">
@@ -31,7 +45,8 @@ export default function MultiPlatform() {
           </div>
           <Checkbox
             className="order-1 after:absolute after:inset-0"
-            defaultChecked={item.defaultChecked}
+            checked={platforms.includes(item.value)}
+            onCheckedChange={(checked) => handleCheckedChange(item.value, checked as boolean)}
             id={`${id}-${item.value}`}
             value={item.value}
             disabled={item?.disabled}

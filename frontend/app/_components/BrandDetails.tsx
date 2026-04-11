@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Status,
   StatusIndicator,
@@ -10,7 +12,15 @@ import { Badge } from "@/components/ui/badge";
 
 import { INDUSTRY_ONTOLOGY } from "@/data/INDUSTRY_ONTOLOGY";
 
+import { useCampaignStore } from "@/store/campaignStore";
+
 const BrandDetails = () => {
+  const brandName = useCampaignStore((state) => state.brandName);
+  const industry = useCampaignStore((state) => state.industry);
+  const businessModel = useCampaignStore((state) => state.businessModel);
+  const productPriceRange = useCampaignStore((state) => state.productPriceRange);
+  const setField = useCampaignStore((state) => state.setField);
+
   function formatCategory(str: string): string {
     if (!str.includes("_")) {
       return str.charAt(0).toUpperCase() + str.slice(1);
@@ -50,18 +60,22 @@ const BrandDetails = () => {
         </Status>
       </div>
 
-      <NormalInputComponent />
+      <NormalInputComponent value={brandName} onChange={(val) => setField("brandName", val)} />
       <div className=" grid grid-cols-1 lg:grid-cols-2 gap-16 w-full">
         <SearchAndSelectInput
           label="Industry"
           frameworks={formattedIndustryFrameworks}
+          value={industry}
+          onChange={(val) => setField("industry", val)}
         />
-        <RadioCards3 label="Business Model" items={businessModels} />
+        <RadioCards3 label="Business Model" items={businessModels} value={businessModel} onChange={(val) => setField("businessModel", val)} />
       </div>
       <RadioCards3
         label="Product Price Range"
         sublabel="How much does your product cost for a single customer?"
         items={offerPricePoints}
+        value={productPriceRange}
+        onChange={(val) => setField("productPriceRange", val)}
       />
     </div>
   );

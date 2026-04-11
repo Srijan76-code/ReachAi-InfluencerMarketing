@@ -49,3 +49,38 @@ async def main():
     pprint(final_state, width=120, depth=None)
 
 asyncio.run(main())
+
+
+
+
+
+
+
+
+
+{
+    "brandName": "DataLaunch",
+    "industry": "edtech",
+    "businessModel": "2",
+    "productPriceRange": "3",
+    "campaignGoal": "2",
+    "creatorAuthority": "2",
+    "platforms": [
+        "1"
+    ],
+    "audienceLocation": "India",
+    "pitch": "A 12-week intensive Data Science bootcamp that guarantees a job or refunds tuition.",
+    "targetAudience": "Junior developers and fresh CS graduates looking to switch into AI/ML roles.",
+    "creatorSize": [
+        3,
+        8
+    ],
+    "maxPricePerVideo": [
+        3,
+        8
+    ],
+    "totalBudget": "5000",
+    "numberOfCreators": [
+        5
+    ]
+}

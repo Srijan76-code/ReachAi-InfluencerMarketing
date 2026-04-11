@@ -5,6 +5,7 @@ import { Skiper26 } from "@/components/ui/skiper-ui/skiper26";
 
 import AudienceDetails from "./_components/AudienceDetails";
 import Constraints from "./_components/Constraints";
+import SubmitCampaignButton from "@/components/SubmitCampaignButton";
 
 const page = () => {
   return (
@@ -17,6 +18,7 @@ const page = () => {
         <CampaignDetails />
         <AudienceDetails />
         <Constraints />
+        <SubmitCampaignButton />
       </div>
     </div>
   );

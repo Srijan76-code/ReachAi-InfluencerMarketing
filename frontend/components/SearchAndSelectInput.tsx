@@ -22,15 +22,14 @@ import {
 
 interface SearchAndSelectInputProps {
   frameworks: { label: string; value: string }[],
-  label: string
+  label: string,
+  value?: string,
+  onChange?: (val: string) => void
 }
 
-
-
-export default function SearchAndSelectInput({frameworks,label}:SearchAndSelectInputProps ) {
+export default function SearchAndSelectInput({frameworks,label, value, onChange}: SearchAndSelectInputProps ) {
   const id = useId();
   const [open, setOpen] = useState<boolean>(false);
-  const [value, setValue] = useState<string>("");
 
   return (
     <div className="*:not-first:mt-2 ">
@@ -70,7 +69,7 @@ export default function SearchAndSelectInput({frameworks,label}:SearchAndSelectI
                   <CommandItem
                     key={framework.value}
                     onSelect={(currentValue) => {
-                      setValue(currentValue === value ? "" : currentValue);
+                      onChange?.(currentValue === value ? "" : currentValue);
                       setOpen(false);
                     }}
                     value={framework.value}

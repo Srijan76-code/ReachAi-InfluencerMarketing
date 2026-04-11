@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 
-export default function NumberOfCreator() {
+export default function NumberOfCreator({ value, onChange }: { value?: number[], onChange?: (val: number[]) => void }) {
   const maxValue = 20;
 
   const skipInterval = 2; // Set to 1 to allow no text skipping
@@ -14,6 +14,8 @@ export default function NumberOfCreator() {
       <div>
         <Slider
           aria-label="Slider with ticks"
+          value={value}
+          onValueChange={onChange}
           defaultValue={[3]}
           max={maxValue}
 
