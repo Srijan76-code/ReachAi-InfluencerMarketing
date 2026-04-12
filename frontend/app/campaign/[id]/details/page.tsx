@@ -1,10 +1,10 @@
 import React from "react";
-import BrandDetails from "./_components/BrandDetails";
-import CampaignDetails from "./_components/CampaignDetails";
+import BrandDetails from "@/app/_components/BrandDetails";
+import CampaignDetails from "@/app/_components/CampaignDetails";
 import { Skiper26 } from "@/components/ui/skiper-ui/skiper26";
 
-import AudienceDetails from "./_components/AudienceDetails";
-import Constraints from "./_components/Constraints";
+import AudienceDetails from "@/app/_components/AudienceDetails";
+import Constraints from "@/app/_components/Constraints";
 import SubmitCampaignButton from "@/components/SubmitCampaignButton";
 
 const page = () => {

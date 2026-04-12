@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 
 const Skiper26 = () => {
   const [variant, setVariant] = useState<AnimationVariant>("circle");
-  const [start, setStart] = useState<AnimationStart>("top-center");
+  const [start, setStart] = useState<AnimationStart>("top-right");
   const [blur, setBlur] = useState<boolean>(true);
   const [gifType, setGifType] = useState<"1" | "2" | "3" | "custom">("1");
   const [gifUrl, setGifUrl] = useState<string>(
@@ -76,7 +76,7 @@ const Options = ({
   return (
     <motion.div
       drag
-      className="top-30 border-foreground/10 bg-muted2 absolute right-1/2 flex w-[245px] translate-x-1/2 flex-col gap-3 rounded-3xl border p-3 backdrop-blur-sm lg:right-4 lg:translate-x-0"
+      className="top-30 border-foreground/10 bg-muted2 absolute right-1/2 flex w-16 translate-x-1/2 flex-col gap-3 rounded-3xl border p-3 backdrop-blur-sm lg:right-4 lg:translate-x-0"
     >
       <div className="flex items-center justify-between">
         <span className="size-4 cursor-grab active:cursor-grabbing">
@@ -597,7 +597,7 @@ export const ThemeToggleButton = ({
     <button
       type="button"
       className={cn(
-        "size-10 cursor-pointer rounded-full bg-black p-0 transition-all duration-300 active:scale-95",
+        "size-6 cursor-pointer rounded-full bg-black p-0 transition-all duration-300 active:scale-95",
         className,
       )}
       onClick={toggleTheme}

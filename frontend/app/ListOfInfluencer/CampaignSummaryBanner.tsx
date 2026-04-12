@@ -89,14 +89,14 @@ export const CampaignSummaryBanner = ({
   };
 
   return (
-    <div className="bg-white dark:bg-transparent rounded-xl text-sm font-sans text-[13px] relative overflow-visible">
+    <div className=" rounded-xl text-sm font-sans text-[13px] relative overflow-visible">
       {/* Aesthetic Top Lighting Line (Linear Style) */}
       <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-zinc-200 dark:via-zinc-700/50 to-transparent opacity-50 hidden lg:block" />
 
       {/* Ultra Minimal Banner Header */}
       <div className="flex items-center justify-between mb-4 px-1 lg:pt-3">
         <div className="flex items-center gap-2">
-          <div className="w-1 h-1 rounded-full bg-blue-500" />
+          <div className="w-1 h-1 animate-pulse rounded-full bg-blue-500" />
           <h2 className="text-[12px] font-medium text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
             Estimated campaign results
             <span className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-[#111111] border border-zinc-200 dark:border-zinc-800 px-1.5 py-0.5 rounded-md tracking-wider shadow-sm">
@@ -107,10 +107,11 @@ export const CampaignSummaryBanner = ({
       </div>
 
       <TooltipProvider delayDuration={150}>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 px-1 lg:pb-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 px-1 lg:pb-3 ">
           {/* Scale Metrics Card */}
-          <div className="flex flex-col gap-3 p-4 rounded-xl border border-zinc-200/60 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-[#111111]/80 shadow-[0_1px_3px_0_rgba(0,0,0,0.02)] dark:shadow-none transition-colors hover:border-zinc-300 dark:hover:border-zinc-700/50">
-            <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 p-4 rounded-xl border border-zinc-200/60 dark:border-zinc-800/60
+           bg-zinc-50 dark:bg-[#0c0d0e] hover:bg-zinc-100 dark:hover:bg-[#121314] shadow-[0_1px_3px_0_rgba(0,0,0,0.02)] dark:shadow-none transition-colors hover:border-zinc-300 dark:hover:border-zinc-700/50">
+            <div className="flex items-center justify-between  ">
               <span className="text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
                 Total Reach
                 <Tooltip>
@@ -159,7 +160,8 @@ export const CampaignSummaryBanner = ({
           </div>
 
           {/* Return Metrics Card */}
-          <div className="flex flex-col gap-3 p-4 rounded-xl border border-zinc-200/60 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-[#111111]/80 shadow-[0_1px_3px_0_rgba(0,0,0,0.02)] dark:shadow-none transition-colors hover:border-zinc-300 dark:hover:border-zinc-700/50">
+          <div className="flex flex-col gap-3 p-4 rounded-xl border border-zinc-200/60 dark:border-zinc-800/60
+      bg-zinc-50 dark:bg-[#0c0d0e] hover:bg-zinc-100 dark:hover:bg-[#121314]  shadow-[0_1px_3px_0_rgba(0,0,0,0.02)] dark:shadow-none transition-colors hover:border-zinc-300 dark:hover:border-zinc-700/50">
             <div className="flex items-center justify-between">
               <span className="text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
                 Est. Clicks
@@ -208,7 +210,8 @@ export const CampaignSummaryBanner = ({
           </div>
 
           {/* Cost & Strategy Card */}
-          <div className="flex flex-col gap-3 p-4 rounded-xl border border-zinc-200/60 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-[#111111]/80 shadow-[0_1px_3px_0_rgba(0,0,0,0.02)] dark:shadow-none transition-colors hover:border-zinc-300 dark:hover:border-zinc-700/50">
+          <div className="flex flex-col gap-3 p-4 rounded-xl border border-zinc-200/60 dark:border-zinc-800/60
+           bg-zinc-50 dark:bg-[#0c0d0e] hover:bg-zinc-100 dark:hover:bg-[#121314]  shadow-[0_1px_3px_0_rgba(0,0,0,0.02)] dark:shadow-none transition-colors hover:border-zinc-300 dark:hover:border-zinc-700/50">
             <div className="flex items-center justify-between">
               <span className="text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
                 Total Cost
@@ -258,7 +261,8 @@ export const CampaignSummaryBanner = ({
           </div>
 
           {/* AI Confidence Card */}
-          <div className="flex flex-col gap-3 p-4 rounded-xl border border-zinc-200/60 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-[#111111]/80 shadow-[0_1px_3px_0_rgba(0,0,0,0.02)] dark:shadow-none transition-colors hover:border-zinc-300 dark:hover:border-zinc-700/50">
+          <div className="flex flex-col gap-3 p-4 rounded-xl border border-zinc-200/60 dark:border-zinc-800/60
+           bg-zinc-50 dark:bg-[#0c0d0e] hover:bg-zinc-100 dark:hover:bg-[#121314]  shadow-[0_1px_3px_0_rgba(0,0,0,0.02)] dark:shadow-none transition-colors hover:border-zinc-300 dark:hover:border-zinc-700/50">
             <div className="flex items-center justify-between">
               <span className="text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
                 Brand Fit

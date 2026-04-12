@@ -27,12 +27,18 @@ import { Sheet, SheetTrigger } from "@/components/ui/sheet";
 import { InfluencerDetailSheet } from "./InfluencerDetailSheet";
 import { ExportDialog } from "@/components/ExportDialog";
 import { CampaignSummaryBanner } from "./CampaignSummaryBanner";
+import { final_ranked_leads } from "@/data/influencerList";
+
+import { StaggerFadeRise } from "@/components/animations/StaggerFadeRise";
+import { motion } from "motion/react"
+import { staggerItemVariants } from "@/components/animations/variants";
 
 const InfluencerPage = () => {
   const isGenerating = useCampaignStore((state) => state.isGenerating);
-  const final_ranked_leads = useCampaignStore(
-    (state) => state.finalInfluencers,
-  );
+
+  // const final_ranked_leads = useCampaignStore(
+  //   (state) => state.finalInfluencers,
+  // );
 
   // Sorting and Filtering states
   const [sortBy, setSortBy] = useState("optimal");
@@ -46,7 +52,7 @@ const InfluencerPage = () => {
     if (!final_ranked_leads) return [];
 
     // 1. FILTERING
-    let filtered = final_ranked_leads.filter((lead) => {
+    const filtered = final_ranked_leads.filter((lead) => {
       // Confidence
       if (filterConfidence !== "All") {
         if (lead.deal_status !== filterConfidence) return false;
@@ -147,283 +153,303 @@ const InfluencerPage = () => {
   };
 
   return (
-    <TooltipProvider delayDuration={150}>
-      <div className="min-h-screen bg-zinc-50 dark:bg-[#08090a] text-zinc-600 dark:text-zinc-400 p-8 font-sans selection:bg-blue-500/30">
-        <div className="max-w-7xl mx-auto space-y-4">
-          {/* --- HEADER SECTION --- */}
-          <div className="flex items-center justify-between px-1 py-3 mb-2">
-            <div className="flex items-center">
-              
-              {/* Master Checkbox (w-10 precisely aligns with the row checkboxes below) */}
-              <div
-                onClick={toggleSelectAll}
-                className="w-10 flex items-center justify-center cursor-pointer group"
-              >
+    <StaggerFadeRise className="">
+      <TooltipProvider delayDuration={150}>
+        <div className="min-h-screen bg-zinc-50 dark:bg-[#08090a] text-zinc-600 dark:text-zinc-400 p-8 font-sans selection:bg-blue-500/30">
+          <div className="max-w-7xl mx-auto space-y-4">
+            {/* --- HEADER SECTION --- */}
+            <motion.div variants={staggerItemVariants}  className="flex items-center justify-between px-1 py-3 mb-2">
+              <div className="flex items-center">
+                {/* Master Checkbox (w-10 precisely aligns with the row checkboxes below) */}
                 <div
-                  className={`w-[13px] h-[13px] rounded-[3px] border flex items-center justify-center transition-colors group-hover:border-zinc-400 dark:group-hover:border-white/30 ${selectedIds.size > 0 ? "border-zinc-900 bg-zinc-900 dark:border-[#ededed] dark:bg-[#ededed]" : "border-zinc-300 dark:border-white/10 bg-white dark:bg-transparent"}`}
+                  onClick={toggleSelectAll}
+                  className="w-10 flex items-center justify-center cursor-pointer group"
                 >
-                  {selectedIds.size > 0 && selectedIds.size === displayedLeads.length && (
-                    <svg width="8" height="6" viewBox="0 0 9 7" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-white dark:text-[#0a0a0a]">
-                      <path d="M1 3.5L3.5 6L8 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  )}
-                  {selectedIds.size > 0 && selectedIds.size !== displayedLeads.length && (
-                    <div className="w-1.5 h-[1.5px] bg-white dark:text-black dark:bg-[#0a0a0a] rounded-full" />
+                  <div
+                    className={`w-[13px] h-[13px] rounded-[3px] border flex items-center justify-center transition-colors group-hover:border-zinc-400 dark:group-hover:border-white/30 ${selectedIds.size > 0 ? "border-zinc-900 bg-zinc-900 dark:border-[#ededed] dark:bg-[#ededed]" : "border-zinc-300 dark:border-white/10 bg-white dark:bg-transparent"}`}
+                  >
+                    {selectedIds.size > 0 &&
+                      selectedIds.size === displayedLeads.length && (
+                        <svg
+                          width="8"
+                          height="6"
+                          viewBox="0 0 9 7"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="text-white dark:text-[#0a0a0a]"
+                        >
+                          <path
+                            d="M1 3.5L3.5 6L8 1"
+                            stroke="currentColor"
+                            strokeWidth="1.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      )}
+                    {selectedIds.size > 0 &&
+                      selectedIds.size !== displayedLeads.length && (
+                        <div className="w-1.5 h-[1.5px] bg-white dark:text-black dark:bg-[#0a0a0a] rounded-full" />
+                      )}
+                  </div>
+                </div>
+
+                {/* Title & Contextual Counter */}
+                <div className="flex items-center gap-2 border-l border-transparent pl-1">
+                  {selectedIds.size > 0 ? (
+                    <span className="text-[13px] font-medium text-zinc-900 dark:text-zinc-100">
+                      {selectedIds.size} selected
+                    </span>
+                  ) : (
+                    <>
+                      <h1 className="text-[14px] font-medium text-zinc-900 dark:text-zinc-100 tracking-tight">
+                        Influencer Leads
+                      </h1>
+                      {/* <div className="px-1.5 py-0.5 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white/50 dark:bg-zinc-900/50 flex items-center justify-center">
+                        <span className="text-[11px] font-mono font-medium text-zinc-500 dark:text-zinc-400 leading-none">
+                          {String(displayedLeads.length).padStart(2, "0")}
+                        </span>
+                      </div> */}
+                    </>
                   )}
                 </div>
               </div>
 
-              {/* Title & Contextual Counter */}
-              <div className="flex items-center gap-2 border-l border-transparent pl-1">
-                {selectedIds.size > 0 ? (
-                  <span className="text-[13px] font-medium text-zinc-900 dark:text-zinc-100">
-                    {selectedIds.size} selected
-                  </span>
-                ) : (
-                  <>
-                    <h1 className="text-[14px] font-medium text-zinc-900 dark:text-zinc-100 tracking-tight">
-                      Influencer Leads
-                    </h1>
-                    <div className="px-1.5 py-0.5 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white/50 dark:bg-zinc-900/50 flex items-center justify-center">
-                      <span className="text-[11px] font-mono font-medium text-zinc-500 dark:text-zinc-400 leading-none">
-                        {String(displayedLeads.length).padStart(2, "0")}
-                      </span>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              {/* Sort & Filter */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md border border-zinc-200 dark:border-zinc-800 transition-colors">
-                    <ArrowUpDown size={14} />
-                    Sort
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  align="end"
-                  className="w-48 bg-white dark:bg-[#0c0d0e] border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400"
-                >
-                  <DropdownMenuLabel>Priority</DropdownMenuLabel>
-                  <DropdownMenuSeparator className="bg-zinc-200 dark:bg-zinc-800" />
-                  <DropdownMenuRadioGroup
-                    value={sortBy}
-                    onValueChange={setSortBy}
+              <div className="flex items-center gap-2">
+                {/* Sort & Filter */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md border border-zinc-200 dark:border-zinc-800 transition-colors">
+                      <ArrowUpDown size={14} />
+                      Sort
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="end"
+                    className="w-48 bg-white dark:bg-[#0c0d0e] border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400"
                   >
-                    <DropdownMenuRadioItem
-                      className="focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-900 dark:focus:text-zinc-100 cursor-pointer"
-                      value="optimal"
+                    <DropdownMenuLabel>Priority</DropdownMenuLabel>
+                    <DropdownMenuSeparator className="bg-zinc-200 dark:bg-zinc-800" />
+                    <DropdownMenuRadioGroup
+                      value={sortBy}
+                      onValueChange={setSortBy}
                     >
-                      Optimal (AI Rank)
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem
-                      className="focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-900 dark:focus:text-zinc-100 cursor-pointer"
-                      value="yield"
-                    >
-                      High Intent (Yield)
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem
-                      className="focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-900 dark:focus:text-zinc-100 cursor-pointer"
-                      value="authority"
-                    >
-                      Authority (Trust)
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem
-                      className="focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-900 dark:focus:text-zinc-100 cursor-pointer"
-                      value="budget"
-                    >
-                      Fair Value (Budget First)
-                    </DropdownMenuRadioItem>
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md border border-zinc-200 dark:border-zinc-800 transition-colors">
-                    <ListFilter size={14} />
-                    Filter
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  align="end"
-                  className="w-48 bg-white dark:bg-[#0c0d0e] border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400"
-                >
-                  <DropdownMenuLabel>Confidence</DropdownMenuLabel>
-                  <DropdownMenuRadioGroup
-                    value={filterConfidence}
-                    onValueChange={setFilterConfidence}
-                  >
-                    <DropdownMenuRadioItem
-                      className="focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-900 dark:focus:text-zinc-100 cursor-pointer"
-                      value="All"
-                    >
-                      All
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem
-                      className="focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-900 dark:focus:text-zinc-100 cursor-pointer"
-                      value="Strong Buy"
-                    >
-                      Strong Buy Only
-                    </DropdownMenuRadioItem>
-                  </DropdownMenuRadioGroup>
-
-                  <DropdownMenuSeparator className="bg-zinc-200 dark:bg-zinc-800" />
-
-                  <DropdownMenuLabel>Reliability</DropdownMenuLabel>
-                  <DropdownMenuRadioGroup
-                    value={filterReliability}
-                    onValueChange={setFilterReliability}
-                  >
-                    <DropdownMenuRadioItem
-                      className="focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-900 dark:focus:text-zinc-100 cursor-pointer"
-                      value="All"
-                    >
-                      All
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem
-                      className="focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-900 dark:focus:text-zinc-100 cursor-pointer"
-                      value="High"
-                    >
-                      High
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem
-                      className="focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-900 dark:focus:text-zinc-100 cursor-pointer"
-                      value="Stable"
-                    >
-                      Stable
-                    </DropdownMenuRadioItem>
-                  </DropdownMenuRadioGroup>
-
-                  <DropdownMenuSeparator className="bg-zinc-200 dark:bg-zinc-800" />
-
-                  <DropdownMenuLabel>Price Tier</DropdownMenuLabel>
-                  <DropdownMenuRadioGroup
-                    value={filterPrice}
-                    onValueChange={setFilterPrice}
-                  >
-                    <DropdownMenuRadioItem
-                      className="focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-900 dark:focus:text-zinc-100 cursor-pointer"
-                      value="All"
-                    >
-                      All
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem
-                      className="focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-900 dark:focus:text-zinc-100 cursor-pointer"
-                      value="Micro"
-                    >
-                      Micro (&lt;$300)
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem
-                      className="focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-900 dark:focus:text-zinc-100 cursor-pointer"
-                      value="Mid"
-                    >
-                      Mid ($300-$1K)
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem
-                      className="focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-900 dark:focus:text-zinc-100 cursor-pointer"
-                      value="Premium"
-                    >
-                      Premium (&gt;$1K)
-                    </DropdownMenuRadioItem>
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              {/* Export Advanced Module */}
-              <ExportDialog
-                influencers={
-                  selectedIds.size > 0
-                    ? displayedLeads.filter((l) => selectedIds.has(l.id))
-                    : displayedLeads
-                }
-              />
-            </div>
-          </div>
-
-          {/* --- CAMPAIGN SUMMARY BANNER --- */}
-          <div className="flex items-stretch gap-2 mb-4">
-            <div className="w-10 flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <CampaignSummaryBanner 
-                influencers={selectedIds.size > 0 ? displayedLeads.filter(l => selectedIds.has(l.id)) : displayedLeads} 
-              />
-            </div>
-          </div>
-
-          {/* --- INFLUENCER LIST --- */}
-          <div className="flex flex-col gap-2">
-            {displayedLeads.length === 0 ? (
-              <div className="flex flex-col items-center justify-center p-12 text-center bg-zinc-100/50 dark:bg-zinc-900/50 rounded-xl border border-dashed border-zinc-200 dark:border-zinc-800">
-                <p className="text-zinc-500">
-                  No influencers match these strict guardrails.
-                </p>
-              </div>
-            ) : (
-              displayedLeads.map((influencer, index) => {
-                const isSelected = selectedIds.has(influencer.id);
-                return (
-                  <div
-                    key={influencer.id}
-                    className="group flex items-stretch gap-2"
-                  >
-                    {/* Independent Checkbox Column (Hidden by default) */}
-                    <div
-                      onClick={() => toggleSelection(influencer.id)}
-                      className={`w-10 rounded-lg border flex items-center justify-center cursor-pointer transition-all duration-200 ${isSelected ? "opacity-100 scale-100 border-zinc-300 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-800/20" : "opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 border-zinc-200/50 dark:border-zinc-800/50 bg-white dark:bg-[#0c0d0e] hover:border-zinc-300/50 dark:hover:border-zinc-700/50"}`}
-                    >
-                      <div
-                        className={`w-[13px] h-[13px] rounded-[3px] border flex items-center justify-center transition-colors ${isSelected ? "border-zinc-900 bg-zinc-900 dark:border-[#ededed] dark:bg-[#ededed]" : "border-zinc-300 dark:border-white/10 bg-white dark:bg-transparent hover:border-zinc-400 dark:hover:border-white/30"}`}
+                      <DropdownMenuRadioItem
+                        className="focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-900 dark:focus:text-zinc-100 cursor-pointer"
+                        value="optimal"
                       >
-                        {isSelected && (
-                          <svg
-                            width="8"
-                            height="6"
-                            viewBox="0 0 9 7"
-                            fill="none"
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="text-white dark:text-[#0a0a0a]"
-                          >
-                            <path
-                              d="M1 3.5L3.5 6L8 1"
-                              stroke="currentColor"
-                              strokeWidth="1.5"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                          </svg>
-                        )}
-                      </div>
-                    </div>
+                        Optimal (AI Rank)
+                      </DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem
+                        className="focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-900 dark:focus:text-zinc-100 cursor-pointer"
+                        value="yield"
+                      >
+                        High Intent (Yield)
+                      </DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem
+                        className="focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-900 dark:focus:text-zinc-100 cursor-pointer"
+                        value="authority"
+                      >
+                        Authority (Trust)
+                      </DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem
+                        className="focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-900 dark:focus:text-zinc-100 cursor-pointer"
+                        value="budget"
+                      >
+                        Fair Value (Budget First)
+                      </DropdownMenuRadioItem>
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
-                    {/* Sheet Trigger Column */}
-                    <div className="flex-1 min-w-0">
-                      <Sheet>
-                        <SheetTrigger asChild>
-                          <div
-                            className={`h-full rounded-lg border overflow-hidden cursor-pointer transition-colors ${isSelected ? "border-zinc-300 dark:border-zinc-600" : "border-zinc-200/50 dark:border-zinc-800/50 hover:border-zinc-300/50 dark:hover:border-zinc-700/50"}`}
-                          >
-                            <InfluencerRow
-                              influencer={influencer}
-                              rank={index + 1}
-                              isSelected={isSelected}
-                            />
-                          </div>
-                        </SheetTrigger>
-                        <InfluencerDetailSheet influencer={influencer} />
-                      </Sheet>
-                    </div>
-                  </div>
-                );
-              })
-            )}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md border border-zinc-200 dark:border-zinc-800 transition-colors">
+                      <ListFilter size={14} />
+                      Filter
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="end"
+                    className="w-48 bg-white dark:bg-[#0c0d0e] border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400"
+                  >
+                    <DropdownMenuLabel>Confidence</DropdownMenuLabel>
+                    <DropdownMenuRadioGroup
+                      value={filterConfidence}
+                      onValueChange={setFilterConfidence}
+                    >
+                      <DropdownMenuRadioItem
+                        className="focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-900 dark:focus:text-zinc-100 cursor-pointer"
+                        value="All"
+                      >
+                        All
+                      </DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem
+                        className="focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-900 dark:focus:text-zinc-100 cursor-pointer"
+                        value="Strong Buy"
+                      >
+                        Strong Buy Only
+                      </DropdownMenuRadioItem>
+                    </DropdownMenuRadioGroup>
+
+                    <DropdownMenuSeparator className="bg-zinc-200 dark:bg-zinc-800" />
+
+                    <DropdownMenuLabel>Reliability</DropdownMenuLabel>
+                    <DropdownMenuRadioGroup
+                      value={filterReliability}
+                      onValueChange={setFilterReliability}
+                    >
+                      <DropdownMenuRadioItem
+                        className="focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-900 dark:focus:text-zinc-100 cursor-pointer"
+                        value="All"
+                      >
+                        All
+                      </DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem
+                        className="focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-900 dark:focus:text-zinc-100 cursor-pointer"
+                        value="High"
+                      >
+                        High
+                      </DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem
+                        className="focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-900 dark:focus:text-zinc-100 cursor-pointer"
+                        value="Stable"
+                      >
+                        Stable
+                      </DropdownMenuRadioItem>
+                    </DropdownMenuRadioGroup>
+
+                    <DropdownMenuSeparator className="bg-zinc-200 dark:bg-zinc-800" />
+
+                    <DropdownMenuLabel>Price Tier</DropdownMenuLabel>
+                    <DropdownMenuRadioGroup
+                      value={filterPrice}
+                      onValueChange={setFilterPrice}
+                    >
+                      <DropdownMenuRadioItem
+                        className="focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-900 dark:focus:text-zinc-100 cursor-pointer"
+                        value="All"
+                      >
+                        All
+                      </DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem
+                        className="focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-900 dark:focus:text-zinc-100 cursor-pointer"
+                        value="Micro"
+                      >
+                        Micro (&lt;$300)
+                      </DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem
+                        className="focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-900 dark:focus:text-zinc-100 cursor-pointer"
+                        value="Mid"
+                      >
+                        Mid ($300-$1K)
+                      </DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem
+                        className="focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-900 dark:focus:text-zinc-100 cursor-pointer"
+                        value="Premium"
+                      >
+                        Premium (&gt;$1K)
+                      </DropdownMenuRadioItem>
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {/* Export Advanced Module */}
+                <ExportDialog
+                  influencers={
+                    selectedIds.size > 0
+                      ? displayedLeads.filter((l) => selectedIds.has(l.id))
+                      : displayedLeads
+                  }
+                />
+              </div>
+            </motion.div>
+
+            {/* --- CAMPAIGN SUMMARY BANNER --- */}
+            <motion.div variants={staggerItemVariants}  className="flex items-stretch gap-2 mb-4">
+              <div className="w-10 flex-shrink-0" />
+              <div className="flex-1 min-w-0  ">
+                <CampaignSummaryBanner
+                  influencers={
+                    selectedIds.size > 0
+                      ? displayedLeads.filter((l) => selectedIds.has(l.id))
+                      : displayedLeads
+                  }
+                />
+              </div>
+            </motion.div>
+
+            {/* --- INFLUENCER LIST --- */}
+            <div className="flex flex-col gap-2">
+              {displayedLeads.length === 0 ? (
+                <div className="flex flex-col items-center justify-center p-12 text-center bg-zinc-100/50 dark:bg-zinc-900/50 rounded-xl border border-dashed border-zinc-200 dark:border-zinc-800">
+                  <p className="text-zinc-500">
+                    No influencers match these strict guardrails.
+                  </p>
+                </div>
+              ) : (
+                displayedLeads.map((influencer, index) => {
+                  const isSelected = selectedIds.has(influencer.id);
+                  return (
+                    <motion.div variants={staggerItemVariants}
+                      key={influencer.id}
+                      className="group flex items-stretch gap-2"
+                    >
+                      {/* Independent Checkbox Column (Hidden by default) */}
+                      <div
+                        onClick={() => toggleSelection(influencer.id)}
+                        className={`w-10 rounded-lg border flex items-center justify-center cursor-pointer transition-all duration-200 ${isSelected ? "opacity-100 scale-100 border-zinc-300 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-800/20" : "opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 border-zinc-200/50 dark:border-zinc-800/50 bg-white dark:bg-[#0c0d0e] hover:border-zinc-300/50 dark:hover:border-zinc-700/50"}`}
+                      >
+                        <div
+                          className={`w-[13px] h-[13px] rounded-[3px] border flex items-center justify-center transition-colors ${isSelected ? "border-zinc-900 bg-zinc-900 dark:border-[#ededed] dark:bg-[#ededed]" : "border-zinc-300 dark:border-white/10 bg-white dark:bg-transparent hover:border-zinc-400 dark:hover:border-white/30"}`}
+                        >
+                          {isSelected && (
+                            <svg
+                              width="8"
+                              height="6"
+                              viewBox="0 0 9 7"
+                              fill="none"
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="text-white dark:text-[#0a0a0a]"
+                            >
+                              <path
+                                d="M1 3.5L3.5 6L8 1"
+                                stroke="currentColor"
+                                strokeWidth="1.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Sheet Trigger Column */}
+                      <div className="flex-1 min-w-0">
+                        <Sheet>
+                          <SheetTrigger asChild>
+                            <div
+                              className={`h-full rounded-lg border overflow-hidden cursor-pointer transition-colors ${isSelected ? "border-zinc-300 dark:border-zinc-600" : "border-zinc-200/50 dark:border-zinc-800/50 hover:border-zinc-300/50 dark:hover:border-zinc-700/50"}`}
+                            >
+                              <InfluencerRow
+                                influencer={influencer}
+                                rank={index + 1}
+                                isSelected={isSelected}
+                              />
+                            </div>
+                          </SheetTrigger>
+                          <InfluencerDetailSheet influencer={influencer} />
+                        </Sheet>
+                      </div>
+                    </motion.div>
+                  );
+                })
+              )}
+            </div>
           </div>
         </div>
-      </div>
-    </TooltipProvider>
+      </TooltipProvider>
+    </StaggerFadeRise>
   );
 };
 
