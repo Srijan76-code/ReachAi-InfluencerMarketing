@@ -112,8 +112,9 @@ def validate_channel_health(metrics, brand_details, last_upload_date):
     return True, "Pass"
 
 
-def process_channel(youtube, data, campaign_ctx):
+def process_channel(data, campaign_ctx):
     try:
+        youtube = get_youtube_client()
         brand = campaign_ctx.get("brand", {})
         industry = brand.get("industry", "other")
 
@@ -192,11 +193,11 @@ def process_channel(youtube, data, campaign_ctx):
         return None
 
 
-async def process_channel_safe(semaphore, youtube, c_data, campaign_ctx):
+async def process_channel_safe(semaphore, c_data, campaign_ctx):
     async with semaphore:
         try:
             return await asyncio.to_thread(
-                process_channel, youtube, c_data, campaign_ctx
+                process_channel, c_data, campaign_ctx
             )
         except Exception as e:
             return None
@@ -205,7 +206,6 @@ async def process_channel_safe(semaphore, youtube, c_data, campaign_ctx):
 async def channel_enrichment(state: LLMState):
     print("\n--- 3. ENRICHMENT ENGINE (Dynamic Health Check) ---")
 
-    youtube = get_youtube_client()
     channels = state["filtered_channels"]
     campaign_ctx = state["campaign_context"]
 
@@ -213,7 +213,7 @@ async def channel_enrichment(state: LLMState):
 
     tasks = [
         asyncio.create_task(
-            process_channel_safe(semaphore, youtube, c_data, campaign_ctx)
+            process_channel_safe(semaphore, c_data, campaign_ctx)
         )
         for c_data in channels.values()
     ]

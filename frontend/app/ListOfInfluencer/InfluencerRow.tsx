@@ -12,7 +12,17 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-export const InfluencerRow = ({ influencer }: { influencer: Influencer }) => {
+export const InfluencerRow = ({
+  influencer,
+  rank,
+  isSelected = false,
+  onToggleSelection = () => {}
+}: {
+  influencer: Influencer;
+  rank: number;
+  isSelected?: boolean;
+  onToggleSelection?: (id: string) => void;
+}) => {
   const { title, subscribers, metrics, deal_status, final_score } = influencer;
 
   const statusStyles = {
@@ -23,16 +33,27 @@ export const InfluencerRow = ({ influencer }: { influencer: Influencer }) => {
 
   return (
     // Removed border-b and added internal bg to match the Linear "Backlog" card look
-    <div className="group flex items-center gap-6 px-4 py-3 bg-white dark:bg-[#0c0d0e] hover:bg-zinc-100 dark:hover:bg-[#121314] transition-all cursor-pointer text-[13px]">
+    <div className={`group flex items-center gap-5 px-4 py-3 hover:bg-zinc-100 dark:hover:bg-[#121314] transition-all cursor-pointer text-[13px] ${isSelected ? "bg-zinc-50 dark:bg-zinc-800/20" : "bg-white dark:bg-[#0c0d0e]"}`}>
+      
+      {/* --- ZONE -1: SELECTION (Migrated to Parent) --- */}
+      {/* --- ZONE 0: RANK --- */}
+      <div className="w-7 flex justify-end pr-2 items-center flex-shrink-0 select-none">
+        <span className={`text-[11px] font-medium font-mono tracking-wider ${
+          rank === 1 ? "text-amber-500 dark:text-amber-400/90" : 
+          rank === 2 ? "text-slate-500 dark:text-slate-300/90" : 
+          rank === 3 ? "text-amber-700 dark:text-amber-600/80" : 
+          "text-zinc-400 dark:text-zinc-600"
+        }`}>
+          {String(rank).padStart(2, '0')}
+        </span>
+      </div>
+
       {/* --- ZONE 1: IDENTITY --- */}
       <div className="flex items-center gap-3 min-w-[240px] flex-1">
-        <div className="relative flex-shrink-0">
-          <div className="w-9 h-9 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center border border-zinc-300 dark:border-zinc-700">
-            <User size={16} className="text-zinc-600 dark:text-zinc-400" />
-          </div>
-          <div
-            className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-[#0c0d0e] ${deal_status === "Strong Buy" ? "bg-emerald-500" : "bg-zinc-400"}`}
-          />
+        <div className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-[6px] border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/50 shadow-sm">
+          <span className="text-[12px] font-medium text-zinc-900 dark:text-[#ededed]">
+            {title.charAt(0).toUpperCase()}
+          </span>
         </div>
 
         <div className="flex flex-col gap-1 leading-none">
@@ -137,12 +158,18 @@ export const InfluencerRow = ({ influencer }: { influencer: Influencer }) => {
         {/* Block 2: Fair Value */}
         <div className="hidden lg:flex flex-col  justify-center min-w-[80px]">
           <span className="text-[9px] font-bold  tracking-widest uppercase flex items-center gap-1 mb-1">
-            Fair Value
+            Est. price
             <Tooltip>
               <TooltipTrigger asChild>
-                <Info size={10} className="text-zinc-400/70 dark:text-zinc-600/70 hover:text-zinc-600 dark:hover:text-zinc-400 cursor-help" />
+                <Info
+                  size={10}
+                  className="text-zinc-400/70 dark:text-zinc-600/70 hover:text-zinc-600 dark:hover:text-zinc-400 cursor-help"
+                />
               </TooltipTrigger>
-              <TooltipContent side="top" className="bg-zinc-100 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700 text-xs text-zinc-800 dark:text-zinc-200 shadow-xl">
+              <TooltipContent
+                side="top"
+                className="bg-zinc-100 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700 text-xs text-zinc-800 dark:text-zinc-200 shadow-xl"
+              >
                 The exact budget you need to set aside to sponsor 1 video.
               </TooltipContent>
             </Tooltip>
@@ -155,18 +182,25 @@ export const InfluencerRow = ({ influencer }: { influencer: Influencer }) => {
         {/* Block 3: Yield */}
         <div className="hidden xl:flex flex-col  justify-center min-w-[80px] border-r border-zinc-200/60 dark:border-zinc-800/60 ">
           <span className="text-[9px] font-bold tracking-widest uppercase flex items-center gap-1 mb-1">
-            Yield
+            Clicks
             <Tooltip>
               <TooltipTrigger asChild>
-                <Info size={10} className="text-zinc-400/70 dark:text-zinc-600/70 hover:text-zinc-600 dark:hover:text-zinc-400 cursor-help" />
+                <Info
+                  size={10}
+                  className="text-zinc-400/70 dark:text-zinc-600/70 hover:text-zinc-600 dark:hover:text-zinc-400 cursor-help"
+                />
               </TooltipTrigger>
-              <TooltipContent side="top" className="bg-zinc-100 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700 text-xs text-zinc-800 dark:text-zinc-200 shadow-xl">
-                The estimated number of people who will click your link to buy or sign up.
+              <TooltipContent
+                side="top"
+                className="bg-zinc-100 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700 text-xs text-zinc-800 dark:text-zinc-200 shadow-xl"
+              >
+                The estimated number of people who will click your link to buy
+                or sign up.
               </TooltipContent>
             </Tooltip>
           </span>
           <span className="font-mono text-[12px] font-bold text-emerald-400 leading-none">
-            ~{metrics.forecast.split(" ")[0].replace('~', '')}
+            ~{metrics.forecast.split(" ")[0].replace("~", "")}
           </span>
         </div>
 
@@ -176,31 +210,54 @@ export const InfluencerRow = ({ influencer }: { influencer: Influencer }) => {
             IMPACT
             <Tooltip>
               <TooltipTrigger asChild>
-                <Info size={10} className="text-zinc-400/70 dark:text-zinc-600/70 hover:text-zinc-600 dark:hover:text-zinc-400 cursor-help" />
+                <Info
+                  size={10}
+                  className="text-zinc-400/70 dark:text-zinc-600/70 hover:text-zinc-600 dark:hover:text-zinc-400 cursor-help"
+                />
               </TooltipTrigger>
-              <TooltipContent side="top" className="bg-zinc-100 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700 text-xs text-zinc-800 dark:text-zinc-200 shadow-xl">
-                Tells you how much this creator will move the needle for your business.
+              <TooltipContent
+                side="top"
+                className="bg-zinc-100 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700 text-xs text-zinc-800 dark:text-zinc-200 shadow-xl"
+              >
+                Tells you how much this creator will move the needle for your
+                business.
               </TooltipContent>
             </Tooltip>
           </span>
           <div className="relative w-8 h-8 flex items-center justify-center -mt-0.5">
             <svg className="w-8 h-8 transform -rotate-90">
-              <circle className="text-zinc-200 dark:text-zinc-800" strokeWidth="2.5" stroke="currentColor" fill="transparent" r="14" cx="16" cy="16" />
-              <circle 
-                className={final_score >= 80 ? "text-emerald-500" : final_score >= 60 ? "text-amber-500" : "text-rose-500"} 
-                strokeWidth="2.5" 
-                strokeDasharray="100" 
-                strokeDashoffset={100 - final_score} 
-                strokeLinecap="round" 
-                stroke="currentColor" 
-                fill="transparent" 
-                r="14" 
-                cx="16" 
-                cy="16" 
-                pathLength="100" 
+              <circle
+                className="text-zinc-200 dark:text-zinc-800"
+                strokeWidth="2.5"
+                stroke="currentColor"
+                fill="transparent"
+                r="14"
+                cx="16"
+                cy="16"
+              />
+              <circle
+                className={
+                  final_score >= 80
+                    ? "text-emerald-500"
+                    : final_score >= 60
+                      ? "text-amber-500"
+                      : "text-rose-500"
+                }
+                strokeWidth="2.5"
+                strokeDasharray="100"
+                strokeDashoffset={100 - final_score}
+                strokeLinecap="round"
+                stroke="currentColor"
+                fill="transparent"
+                r="14"
+                cx="16"
+                cy="16"
+                pathLength="100"
               />
             </svg>
-            <span className="absolute text-[10px] font-mono font-bold text-zinc-800 dark:text-zinc-200">{final_score}</span>
+            <span className="absolute text-[10px] font-mono font-bold text-zinc-800 dark:text-zinc-200">
+              {final_score}
+            </span>
           </div>
         </div>
 

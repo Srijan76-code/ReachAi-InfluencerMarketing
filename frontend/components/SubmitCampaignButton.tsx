@@ -72,12 +72,19 @@ function transformPayload(store: CampaignState) {
   };
 }
 
+import { useRouter } from "next/navigation";
+
 export default function SubmitCampaignButton() {
   const store = useCampaignStore();
+  const router = useRouter();
   
   const handleSubmit = async () => {
     const finalPayload = transformPayload(store);
-    console.log("Campaign Details Submitting:\n", JSON.stringify(finalPayload, null, 2));
+    
+    // Switch to generating state and immediately surf the user to the list page
+    store.setField("isGenerating", true);
+    store.setField("finalInfluencers", null);
+    router.push("/ListOfInfluencer");
 
     try {
       const response = await fetch("http://localhost:8000/api/campaigns/generate", {
@@ -86,9 +93,14 @@ export default function SubmitCampaignButton() {
         body: JSON.stringify(finalPayload)
       });
       const data = await response.json();
-      console.log("Backend Response:", data);
+      
+      if (data.success) {
+         store.setField("finalInfluencers", data.data.final_ranked_leads || []);
+      }
     } catch (error) {
       console.error("Error submitting to backend:", error);
+    } finally {
+      store.setField("isGenerating", false);
     }
   };
 

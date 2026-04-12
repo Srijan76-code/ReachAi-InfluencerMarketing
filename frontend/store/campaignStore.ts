@@ -14,6 +14,11 @@ export interface CampaignState {
   creatorSize: number[];
   totalBudget: string;
   numberOfCreators: number[];
+  
+  // API Integration states
+  isGenerating: boolean;
+  finalInfluencers: any[] | null;
+  
   setField: (field: keyof Omit<CampaignState, "setField">, value: any) => void;
 }
 
@@ -31,5 +36,7 @@ export const useCampaignStore = create<CampaignState>((set) => ({
   creatorSize: [3, 8],
   totalBudget: "",
   numberOfCreators: [3],
+  isGenerating: false,
+  finalInfluencers: null,
   setField: (field, value) => set({ [field]: value }),
 }));
