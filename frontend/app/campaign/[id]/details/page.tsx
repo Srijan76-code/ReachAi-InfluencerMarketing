@@ -1,13 +1,16 @@
 import React from "react";
 import BrandDetails from "@/app/_components/BrandDetails";
 import CampaignDetails from "@/app/_components/CampaignDetails";
-import { Skiper26 } from "@/components/ui/skiper-ui/skiper26";
+
 
 import AudienceDetails from "@/app/_components/AudienceDetails";
 import Constraints from "@/app/_components/Constraints";
-import SubmitCampaignButton from "@/components/SubmitCampaignButton";
+import SubmitCampaignButton from "@/app/campaign/[id]/details/SubmitCampaignButton";
 
-const page = () => {
+export default async function Page({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  if (!id) return <div>Id not found</div>;
+
   return (
     <div>
    
@@ -21,11 +24,10 @@ const page = () => {
         <CampaignDetails />
         <AudienceDetails />
         <Constraints />
-        <SubmitCampaignButton />
+        <SubmitCampaignButton id={id} />
       </div>
     </div>
      </div>
   );
 };
 
-export default page;

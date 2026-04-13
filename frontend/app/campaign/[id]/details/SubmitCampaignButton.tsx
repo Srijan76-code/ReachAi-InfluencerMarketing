@@ -74,7 +74,7 @@ function transformPayload(store: CampaignState) {
 
 import { useRouter } from "next/navigation";
 
-export default function SubmitCampaignButton() {
+export default function SubmitCampaignButton({ id }: { id: string }) {
   const store = useCampaignStore();
   const router = useRouter();
   
@@ -84,7 +84,7 @@ export default function SubmitCampaignButton() {
     // Switch to generating state and immediately surf the user to the list page
     store.setField("isGenerating", true);
     store.setField("finalInfluencers", null);
-    router.push("/ListOfInfluencer");
+    router.push(`/campaign/${id}/leads`);
 
     try {
       const response = await fetch("http://localhost:8000/api/campaigns/generate", {
@@ -110,3 +110,4 @@ export default function SubmitCampaignButton() {
     </Button>
   );
 }
+

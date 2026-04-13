@@ -1,5 +1,5 @@
 export const NavbarData = [{
     logo: "",
-    organisationName: "Haven",
-    organisationEmail: "abhishekpatel12131@gmail.com",  
+    organisationName: "Codeboost",
+    organisationEmail: "codeboost@gmail.com",  
 }]

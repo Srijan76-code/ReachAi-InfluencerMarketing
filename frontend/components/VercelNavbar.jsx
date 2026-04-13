@@ -8,6 +8,7 @@ import {
   Building,
   Home,
   LogOut,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +29,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skiper26 } from "./ui/skiper-ui/skiper26";
+import Link from "next/link";
+import { HoverButton } from "./buttons/HoverButton";
 
 export default function Dashboard() {
   return (
@@ -52,7 +55,7 @@ export default function Dashboard() {
                 ) : (
                   <div className="w-5 h-5 rounded-full bg-cyan-500 shadow-[0_0_0_2px_rgba(255,255,255,0.9)] dark:shadow-[0_0_0_2px_rgba(9,9,9,0.9)]"></div>
                 )}
-                <span className="text-sm font-medium text-neutral-600 dark:text-neutral-300">
+                <span  className="text-sm font-medium text-neutral-600 dark:text-neutral-300">
                   {item.organisationName}'s campaigns
                 </span>
               </div>
@@ -60,7 +63,7 @@ export default function Dashboard() {
           </div>
 
           {/* Right section */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-6">
             {/* <Button
                             variant="outline"
                             size="sm"
@@ -70,16 +73,25 @@ export default function Dashboard() {
                         </Button> */}
 
             {/* <Feedback label="Feedback" /> */}
-            <div className="w-16">
+            <div className="">
               <Skiper26 />
             </div>
 
-            <button className="text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200 transition-colors">
+            <Link href="/campaign/1234/details">
+              <HoverButton>
+                <div className="flex gap-2 items-center">
+                  <Users className="w-4 h-4" />
+                  <p>New Campaign</p>
+                </div>
+              </HoverButton>
+            </Link>
+
+            {/* <button className="text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200 transition-colors">
               <Bell size={20} />
             </button>
             <button className="text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200 transition-colors">
               <BookOpen size={20} />
-            </button>
+            </button> */}
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

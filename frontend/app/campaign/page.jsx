@@ -40,9 +40,9 @@ const CampaignPage = () => {
     })
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-[#08090a] text-neutral-900 dark:text-neutral-200">
+    <div className=" bg-zinc-50 dark:bg-[#08090a] text-neutral-900 dark:text-neutral-200">
      
-      <div>
+      {/* <div>
         <div className="px-6 py-4 font-raleway max-w-[1400px] mx-auto flex items-center gap-3">
           <div className="flex-1">
             <Input
@@ -112,8 +112,8 @@ const CampaignPage = () => {
             Create Campaign
           </Button>
         </div>
-      </div>
-      <div className="px-6 py-8 font-raleway max-w-[1400px] mx-auto">
+      </div> */}
+      <div className="px-6 py-16 font-raleway max-w-[1400px] mx-auto">
         {filteredCampaigns.length === 0 ? (
           <div className="h-64 flex flex-col items-center justify-center rounded-xl border border-dashed border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#0c0d0e] text-neutral-500">
             <p className="text-[14px] font-medium text-neutral-900 dark:text-neutral-200">No campaigns found</p>

@@ -153,7 +153,7 @@ const InfluencerPage = () => {
   };
 
   return (
-    <StaggerFadeRise className="">
+    // <StaggerFadeRise className="">
       <TooltipProvider delayDuration={150}>
         <div className="min-h-screen bg-zinc-50 dark:bg-[#08090a] text-zinc-600 dark:text-zinc-400 p-8 font-sans selection:bg-blue-500/30">
           <div className="max-w-7xl mx-auto space-y-4">
@@ -449,7 +449,7 @@ const InfluencerPage = () => {
           </div>
         </div>
       </TooltipProvider>
-    </StaggerFadeRise>
+    // </StaggerFadeRise>
   );
 };
 
