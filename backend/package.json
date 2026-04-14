@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "inngest-cli": "^1.17.9"
+  }
+}

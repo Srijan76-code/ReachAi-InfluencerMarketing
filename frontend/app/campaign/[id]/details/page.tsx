@@ -15,11 +15,11 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     <div>
    
    
-    <div className="max-w-full overflow-x-hidden my-36 font-raleway text-[13px]">
+    <div className="max-w-full overflow-x-hidden my-36 font-raleway text-[13px] bg-zinc-50 dark:bg-[#08090a]">
       <div className=" ">
         {/* <Skiper26 /> */}
       </div>
-      <div className="max-w-4xl px-16 lg:px-0 flex flex-col flex-wrap mx-auto space-y-16 ">
+      <div className="max-w-4xl px-16 lg:px-0 flex flex-col flex-wrap mx-auto space-y-16 bg-zinc-50 dark:bg-[#08090a] ">
         <BrandDetails />
         <CampaignDetails />
         <AudienceDetails />

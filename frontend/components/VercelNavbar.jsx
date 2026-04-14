@@ -34,7 +34,7 @@ import { HoverButton } from "./buttons/HoverButton";
 
 export default function Dashboard() {
   return (
-    <div className="bg-white dark:bg-[#0c0d0e] text-neutral-900 dark:text-neutral-200 border-b border-neutral-200 dark:border-neutral-800 font-raleway  ">
+    <div className="bg-white dark:bg-black text-neutral-900 dark:text-neutral-200 border-b border-neutral-200 dark:border-neutral-800 font-raleway  ">
       {/* Header */}
       <header>
         <div className="flex h-16 items-center justify-between px-6">

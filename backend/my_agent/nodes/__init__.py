@@ -6,6 +6,7 @@ from .channel_enrichment import channel_enrichment
 from .semantic_processor import semantic_processor
 from .reranker_node import reranker_node
 from .final_scoring_node import final_scoring_node
+from .llm_reasoning_node import llm_reasoning_node
 
 __all__ = [
     "campaign_understanding",
@@ -16,4 +17,5 @@ __all__ = [
     "semantic_processor",
     "reranker_node",
     "final_scoring_node",
+    "llm_reasoning_node",
 ]

@@ -14,6 +14,7 @@ from .nodes import (
     semantic_processor,
     reranker_node,
     final_scoring_node,
+    llm_reasoning_node,
 )
 
 
@@ -28,6 +29,7 @@ graph.add_node("channel_enrichment", channel_enrichment, retry_policy=RetryPolic
 graph.add_node("semantic_processor", semantic_processor, retry_policy=RetryPolicy())
 graph.add_node("reranker_node", reranker_node, retry_policy=RetryPolicy())
 graph.add_node("final_scoring_node", final_scoring_node, retry_policy=RetryPolicy())
+graph.add_node("llm_reasoning_node", llm_reasoning_node, retry_policy=RetryPolicy())
 
 graph.add_edge(START, "campaign_understanding")
 graph.add_edge("campaign_understanding", "keyword_generator")
@@ -37,7 +39,8 @@ graph.add_edge("subscriber_filter", "channel_enrichment")
 graph.add_edge("channel_enrichment", "semantic_processor")
 graph.add_edge("semantic_processor", "reranker_node")
 graph.add_edge("reranker_node", "final_scoring_node")
-graph.add_edge("final_scoring_node", END)
+graph.add_edge("final_scoring_node", "llm_reasoning_node")
+graph.add_edge("llm_reasoning_node", END)
 
 checkpointer = InMemorySaver()
 

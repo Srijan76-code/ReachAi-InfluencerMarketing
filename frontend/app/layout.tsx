@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import VercelNavbar from "@/components/VercelNavbar";
+import Header from "@/components/Header";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -35,8 +36,9 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <VercelNavbar />
-          <div className="">{children}</div>
+          <Header />
+          {/* <VercelNavbar />  */}
+          <div className="bg-zinc-50 dark:bg-[#08090a]">{children}</div>
         </ThemeProvider>
       </body>
     </html>

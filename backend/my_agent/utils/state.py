@@ -53,7 +53,7 @@ class AnalyzedChannel(EnrichedChannel):
 
 class RankedChannel(AnalyzedChannel):
     relevance_score: int
-    llm_reasoning: str
+    # llm_reasoning: str
 
 
 class ScoreBreakdown(TypedDict):
@@ -66,6 +66,11 @@ class FinalScoredChannel(RankedChannel):
     final_score: float
     deal_status: str
     score_breakdown: ScoreBreakdown
+
+
+class ReasoningChannel(FinalScoredChannel):
+    # relevance_score: int
+    llm_reasoning: str
 
 
 class BrandDetails(TypedDict):
@@ -125,4 +130,5 @@ class LLMState(TypedDict, total=False):
     enriched_candidates: List[EnrichedChannel]
     analyzed_leads: List[AnalyzedChannel]
     re_ranked_leads: List[RankedChannel]
-    final_ranked_leads: List[FinalScoredChannel]
+    metrics_ranked_leads: List[FinalScoredChannel]
+    final_ranked_leads: List[ReasoningChannel]

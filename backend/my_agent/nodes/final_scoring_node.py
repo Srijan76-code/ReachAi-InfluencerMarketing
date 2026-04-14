@@ -45,10 +45,10 @@ def final_scoring_node(state: LLMState):
     scored_leads.sort(key=lambda x: x["final_score"], reverse=True)
 
     print(
-        f"   > Re-ranked {len(scored_leads)} leads. Top pick score: {scored_leads[0]['final_score']}"
+        f"   > Re-ranked {len(scored_leads)} leads."
     )
 
-    return {"final_ranked_leads": scored_leads}
+    return {"metrics_ranked_leads": scored_leads}
 
 
 

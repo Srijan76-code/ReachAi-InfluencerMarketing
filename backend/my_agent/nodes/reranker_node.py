@@ -6,9 +6,9 @@ from typing import List
 import asyncio
 
 
-
 from core.model import model
 from ..utils.state import LLMState
+
 MAX_CONCURRENT_LLM_CALLS = 5
 BATCH_SIZE = 15
 
@@ -18,16 +18,16 @@ class CandidateGrade(BaseModel):
     relevance_score: int = Field(
         description="0-100 Score. 100 = Perfect Brand/Audience Match."
     )
-    reasoning: str = Field(
-        description="Why does this fit the BRAND BRIEF? (Ignore metrics)."
-    )
+    # reasoning: str = Field(
+    #     description="Why does this fit the BRAND BRIEF? (Ignore metrics)."
+    # )
 
 
 class BatchRelevanceGrade(BaseModel):
     results: List[CandidateGrade]
 
 
-def Prompt_for_reranker(brand_brief_text, candidates_json):
+def scoring_prompt(brand_brief_text, candidates_json):
     return f"""
     ROLE: You are a Senior Brand Strategist.
     TASK: Grade these channels purely on BRAND FIT and CONTENT RELEVANCE.
@@ -40,16 +40,16 @@ def Prompt_for_reranker(brand_brief_text, candidates_json):
     - 61-80: Strong Match (Good content fit).
     - 81-100: Perfect Match (Ideal niche & persona).
 
-    BRAND BRIEF:
+    BRAND CONTEXT:
     {brand_brief_text}
 
     CANDIDATES:
     {candidates_json}
-    
-    OUTPUT:
+
+    ---
+
     Return a valid JSON object with a 'results' list containing grades for ALL candidates.
     """
-
 
 def chunk_list(items, size):
     for i in range(0, len(items), size):
@@ -90,7 +90,7 @@ async def run_batch(
 
     candidates_json = json.dumps(batch, indent=2)
 
-    prompt = Prompt_for_reranker(
+    prompt = scoring_prompt(
         brand_brief_text=brand_brief_text, candidates_json=candidates_json
     )
 
@@ -125,13 +125,35 @@ async def reranker_node(state: LLMState):
     if not candidates:
         return {"re_ranked_leads": []}
 
+    brand = ctx.get("brand", {})
+    audience = ctx.get("audience", {})
+    campaign = ctx.get("campaign", {})
+
+    product_price = brand.get("product_price_range", "Unknown")
+    target_persona = audience.get("target_persona", "General Audience")
+    goal = campaign.get("goal", "General")
+
+    product_level = product_price
+    audience_stage = target_persona
+    buyer_intent = goal
+
     brand_brief_text = f"""
-    Brand Name: {ctx.get('name', 'Unknown')}
-    Industry: {ctx.get('industry', 'General')}
-    Product Price: {ctx.get('product_price_range', 'Unknown')}
-    Target Audience: {ctx.get('target_persona', 'General Audience')}
-    Campaign Goal: {ctx.get('goal', 'Brand Awareness')}
-    Key Pain Points: {", ".join(ctx.get('pain_points', []))}
+    Brand: {brand.get('name', 'Unknown')}
+
+    Product:
+    - Outcome: {brand.get('core_outcome', 'Unknown')}
+    - Level: {product_level}
+    - Price Range: {product_price}
+
+    Audience:
+    - Persona: {target_persona}
+    - Stage: {audience_stage}
+    - Intent: {buyer_intent}
+
+    Context:
+    - Relevant Topics: {", ".join(ctx.get('content_topics', []))}
+    - Pain Points: {", ".join(ctx.get('pain_points', []))}
+    - Preferred Creator Type: {campaign.get('creator_authority_level', 'Any')}
     """.strip()
 
     normalized_candidates = [normalize_candidate(c) for c in candidates]
@@ -171,12 +193,12 @@ async def reranker_node(state: LLMState):
         if not grade:
             continue
 
-        if grade.relevance_score >= 50:
-            cand["relevance_score"] = grade.relevance_score
-            cand["llm_reasoning"] = grade.reasoning
-            ranked_leads.append(cand)
+        # if grade.relevance_score >= 50:
+        cand["relevance_score"] = grade.relevance_score
+        # cand["llm_reasoning"] = grade.reasoning
+        ranked_leads.append(cand)
 
     ranked_leads.sort(key=lambda x: x["relevance_score"], reverse=True)
 
-    print(f"   > Final Ranked Leads: {len(ranked_leads)}")
+    print(f"   > re_ranked_leads : {len(ranked_leads)}")
     return {"re_ranked_leads": ranked_leads}
