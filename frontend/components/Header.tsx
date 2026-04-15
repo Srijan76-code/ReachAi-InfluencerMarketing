@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, Github, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils"; // standard shadcn helper
 import { Skiper26 } from "./ui/skiper-ui/skiper26";
+import { Show, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
 
 const NAV_LINKS = [
   { name: "Features", href: "#features" },
@@ -28,9 +29,9 @@ export default function Header() {
     <nav
       className={cn(
         "fixed top-0 inset-x-0 z-50 h-12 transition-all duration-300  bg-zinc-50 dark:bg-[#08090a]",
-        isScrolled 
-          ? "py-3 backdrop-blur-md border-zinc-200 dark:border-zinc-800" 
-          : "py-5 bg-transparent border-transparent"
+        isScrolled
+          ? "py-3 backdrop-blur-md border-zinc-200 dark:border-zinc-800"
+          : "py-5 bg-transparent border-transparent",
       )}
     >
       <div className="max-w-7xl mx-auto h-full px-6 flex items-center justify-between">
@@ -63,23 +64,46 @@ export default function Header() {
             <Github size={18} />
           </button> */}
           {/* <Skiper26/> */}
-          <Link
-            href="/login"
-            className="text-[13px] font-medium text-zinc-600 dark:text-zinc-400 px-4 py-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-all"
-          >
-            Log in
-          </Link>
-          <Link
-            href="/signup"
-            className="group text-[13px] font-medium bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 px-4 py-1.5 rounded-full flex items-center gap-1.5 hover:opacity-90 transition-all shadow-sm"
-          >
-            Sign up
-            <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
-          </Link>
+
+          <Show when="signed-out">
+            <SignInButton>
+              <button className="text-[13px] font-medium text-zinc-600 dark:text-zinc-400 px-4 py-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-all">
+                Log in
+              </button>
+            </SignInButton>
+
+            <SignUpButton>
+              <button className="group text-[13px] font-medium bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 px-4 py-1.5 rounded-full flex items-center gap-1.5 hover:opacity-90 transition-all shadow-sm">
+                Sign up
+                <ArrowRight
+                  size={14}
+                  className="group-hover:translate-x-0.5 transition-transform"
+                />
+              </button>
+            </SignUpButton>
+          </Show>
+
+          <Show when="signed-in">
+            <UserButton />
+          </Show>
         </div>
 
+        {/* <header className="flex justify-end items-center p-4 gap-4 h-16">
+                     <Show when="signed-out">
+                       <SignInButton />
+                       <SignUpButton>
+                         <button className="bg-purple-700 text-white rounded-full font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 cursor-pointer">
+                           Sign Up
+                         </button>
+                       </SignUpButton>
+                     </Show>
+                     <Show when="signed-in">
+                       <UserButton />
+                     </Show>
+                   </header> */}
+
         {/* Mobile Toggle */}
-        <button 
+        <button
           className="md:hidden p-2 text-zinc-600 dark:text-zinc-400"
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
         >

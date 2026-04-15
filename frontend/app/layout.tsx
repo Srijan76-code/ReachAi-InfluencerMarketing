@@ -2,9 +2,15 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
-import VercelNavbar from "@/components/VercelNavbar";
-import Header from "@/components/Header";
 
+import Header from "@/components/Header";
+import {
+  ClerkProvider,
+  Show,
+  SignInButton,
+  SignUpButton,
+  UserButton,
+} from "@clerk/nextjs";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -30,17 +36,21 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <Header />
-          {/* <VercelNavbar />  */}
-          <div className="bg-zinc-50 dark:bg-[#08090a]">{children}</div>
-        </ThemeProvider>
+        <ClerkProvider>
+
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <Header />
+
+            <div className="bg-zinc-50 dark:bg-[#08090a]">{children}</div>
+          </ThemeProvider>
+        </ClerkProvider>
       </body>
     </html>
   );
 }
+
