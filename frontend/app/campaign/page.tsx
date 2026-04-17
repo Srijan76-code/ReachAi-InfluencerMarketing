@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowBigDown,
@@ -22,16 +22,37 @@ import { DemoCampaigns } from "@/data/BrandDashboard/DemoCampaigns";
 import { Campaign, CampaignStatus } from "@/types/campaign";
 import { Input } from "@/components/ui/input";
 import { HoverButton } from "@/components/buttons/HoverButton";
+import { useApi } from "@/lib/api";
 
 type StatusFilter = "all" | CampaignStatus;
 type SortOption = "none" | "asc" | "desc";
 
 const CampaignPage: React.FC = () => {
+  const api = useApi();
   const router = useRouter();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [sortBy, setSortBy] = useState<SortOption>("none");
+
+    useEffect(() => {
+    const init = async () => {
+      try {
+
+        const res = await api("/api/campaigns/", {
+          method: "GET",
+        });
+
+        console.log("Campaigns:", res.data);
+
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    init();
+  }, []);
+
 
   const campaigns: Campaign[] = DemoCampaigns;
 
@@ -59,12 +80,19 @@ const CampaignPage: React.FC = () => {
       return 0;
     });
 
+
+
+
   const statuses: { label: string; value: StatusFilter }[] = [
     { label: "All Campaigns", value: "all" },
     { label: "Active", value: "active" },
     { label: "Draft", value: "draft" },
     { label: "In Progress", value: "in_progress" },
   ];
+
+
+
+
 
   return (
     <div className="min-h-[calc(100vh-64px)] mt-16 border-t border-zinc-200 dark:border-neutral-800/80 bg-zinc-50 dark:bg-[#08090a] text-neutral-900 dark:text-neutral-200">
@@ -104,59 +132,56 @@ const CampaignPage: React.FC = () => {
           </div>
 
           <div className="flex gap-4">
-
-
-          {/* Search & Sort */}
-          <div className="flex items-center gap-2.5 w-full sm:w-auto">
-            <button
-              className="flex items-center justify-center h-8 w-8 shrink-0 bg-zinc-50 dark:bg-[#08090a] border border-neutral-200 dark:border-neutral-800/80 rounded-lg shadow-sm hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
-              onClick={() =>
-                setSortBy(
-                  sortBy === "desc"
-                    ? "asc"
-                    : sortBy === "asc"
-                      ? "none"
-                      : "desc",
-                )
-              }
-            >
-              <ArrowDownWideNarrow
-                size={14}
-                className={
-                  sortBy !== "none"
-                    ? "text-neutral-900 dark:text-white"
-                    : "text-neutral-400"
+            {/* Search & Sort */}
+            <div className="flex items-center gap-2.5 w-full sm:w-auto">
+              <button
+                className="flex items-center justify-center h-8 w-8 shrink-0 bg-zinc-50 dark:bg-[#08090a] border border-neutral-200 dark:border-neutral-800/80 rounded-lg shadow-sm hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                onClick={() =>
+                  setSortBy(
+                    sortBy === "desc"
+                      ? "asc"
+                      : sortBy === "asc"
+                        ? "none"
+                        : "desc",
+                  )
                 }
-              />
-            </button>
-            <div className="relative w-full sm:w-64">
-              <Search
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
-                size={14}
-              />
-              <Input
-                placeholder="Search campaigns..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8 h-8 w-full bg-zinc-50 dark:bg-[#08090a] border-neutral-200 dark:border-neutral-800/80 text-xs rounded-lg shadow-sm focus-visible:ring-1 focus-visible:ring-neutral-400 dark:focus-visible:ring-neutral-600 transition-all placeholder:text-neutral-500"
-              />
+              >
+                <ArrowDownWideNarrow
+                  size={14}
+                  className={
+                    sortBy !== "none"
+                      ? "text-neutral-900 dark:text-white"
+                      : "text-neutral-400"
+                  }
+                />
+              </button>
+              <div className="relative w-full sm:w-64">
+                <Search
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
+                  size={14}
+                />
+                <Input
+                  placeholder="Search campaigns..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-8 h-8 w-full bg-zinc-50 dark:bg-[#08090a] border-neutral-200 dark:border-neutral-800/80 text-xs rounded-lg shadow-sm focus-visible:ring-1 focus-visible:ring-neutral-400 dark:focus-visible:ring-neutral-600 transition-all placeholder:text-neutral-500"
+                />
+              </div>
             </div>
-          </div>
-          {/* New Campaign button */}
+            {/* New Campaign button */}
 
-          <HoverButton 
-            onClick={() => router.push("/campaign/")}
-            className="!bg-zinc-50 dark:!bg-[#08090a] border-neutral-200 dark:border-neutral-800/80 text-neutral-900 dark:text-neutral-200 rounded-lg shadow-sm h-8 flex items-center justify-center px-3"
-            glowColor="rgba(255, 255, 255, 0.2)"
-            hoverTextColor="white"
-          >
-            <div className="flex gap-2 text-xs py-0.5 items-center">
-              <PlusCircle className="w-3 h-3" />
-              <p>New Campaign</p>
-            </div>
-          </HoverButton>
+            <HoverButton
+              onClick={() => router.push("/campaign/")}
+              className="!bg-zinc-50 dark:!bg-[#08090a] border-neutral-200 dark:border-neutral-800/80 text-neutral-900 dark:text-neutral-200 rounded-lg shadow-sm h-8 flex items-center justify-center px-3"
+              glowColor="rgba(255, 255, 255, 0.2)"
+              hoverTextColor="white"
+            >
+              <div className="flex gap-2 text-xs py-0.5 items-center">
+                <PlusCircle className="w-3 h-3" />
+                <p>New Campaign</p>
+              </div>
+            </HoverButton>
           </div>
-
         </div>
 
         {/* Content */}

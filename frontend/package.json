@@ -17,6 +17,7 @@
     "@remixicon/react": "^4.8.0",
     "@trigger.dev/sdk": "^4.3.3",
     "add": "^2.0.6",
+    "axios": "^1.15.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",

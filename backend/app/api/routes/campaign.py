@@ -1,3 +1,4 @@
+from app.models.user import User
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
@@ -5,6 +6,7 @@ from uuid import uuid4
 
 from app.db.database import get_db
 from app.models.campaign import Campaign, CampaignStatus
+from app.auth.user import get_db_user
 
 from app.inngest.client import inngest_client
 import inngest
@@ -15,9 +17,9 @@ router = APIRouter()
 
 # GET /api/campaigns
 @router.get("/")
-async def get_campaigns(user_id: str, db: AsyncSession = Depends(get_db)):
+async def get_campaigns(user: User = Depends(get_db_user), db: AsyncSession = Depends(get_db)):
     result = await db.execute(
-        select(Campaign).where(Campaign.user_id == user_id)
+        select(Campaign).where(Campaign.user_id == user.clerk_id)
     )
     campaigns = result.scalars().all()
     return campaigns
@@ -25,10 +27,10 @@ async def get_campaigns(user_id: str, db: AsyncSession = Depends(get_db)):
 
 # POST /api/campaigns/create
 @router.post("/create")
-async def create_campaign(user_id: str, db: AsyncSession = Depends(get_db)):
+async def create_campaign(user: User = Depends(get_db_user), db: AsyncSession = Depends(get_db)):
     campaign = Campaign(
         campaign_id=str(uuid4()),
-        user_id=user_id,
+        user_id=user.clerk_id,
         status=CampaignStatus.CREATED
     )
 
@@ -43,9 +45,16 @@ async def create_campaign(user_id: str, db: AsyncSession = Depends(get_db)):
 
 # GET /api/campaigns/{campaign_id}/details
 @router.get("/{campaign_id}/details")
-async def get_campaign_details(campaign_id: str, db: AsyncSession = Depends(get_db)):
+async def get_campaign_details(
+    campaign_id: str,
+    user: User = Depends(get_db_user),
+    db: AsyncSession = Depends(get_db)
+):
     result = await db.execute(
-        select(Campaign).where(Campaign.campaign_id == campaign_id)
+        select(Campaign).where(
+            Campaign.campaign_id == campaign_id,
+            Campaign.user_id == user.clerk_id  
+        )
     )
     campaign = result.scalar_one_or_none()
 
@@ -53,16 +62,25 @@ async def get_campaign_details(campaign_id: str, db: AsyncSession = Depends(get_
         raise HTTPException(404, "Campaign not found")
 
     return campaign
-
-
 # POST /api/campaigns/{campaign_id}/generate
 @router.post("/{campaign_id}/generate")
 async def generate_campaign(
     campaign_id: str,
     campaign_details: dict,
+    user: User = Depends(get_db_user),
     db: AsyncSession = Depends(get_db)
-):
-    # update campaign with details + set pending
+    ):
+    result = await db.execute(
+        select(Campaign).where(
+            Campaign.campaign_id == campaign_id,
+            Campaign.user_id == user.clerk_id
+        )
+    )
+    campaign = result.scalar_one_or_none()
+
+    if not campaign:
+        raise HTTPException(404, "Campaign not found")
+
     await db.execute(
         update(Campaign)
         .where(Campaign.campaign_id == campaign_id)
@@ -75,25 +93,33 @@ async def generate_campaign(
     await db.commit()
 
     await inngest_client.send(
-    inngest.Event(
-        name="campaign/run",
-        data={
-            "campaign_id": campaign_id,
-            "campaign_details": campaign_details
-        }
+        inngest.Event(
+            name="campaign/run",
+            data={
+                "campaign_id": campaign_id,
+                "campaign_details": campaign_details,
+                "user_id": user.clerk_id  
+            }
+        )
     )
-)
+
     return {
         "success": True,
         "campaign_id": campaign_id
     }
 
-
 # GET /api/campaigns/{campaign_id}/leads
 @router.get("/{campaign_id}/leads")
-async def get_campaign_leads(campaign_id: str, db: AsyncSession = Depends(get_db)):
+async def get_campaign_leads(
+    campaign_id: str,
+    user: User = Depends(get_db_user),
+    db: AsyncSession = Depends(get_db)
+):
     result = await db.execute(
-        select(Campaign).where(Campaign.campaign_id == campaign_id)
+        select(Campaign).where(
+            Campaign.campaign_id == campaign_id,
+            Campaign.user_id == user.clerk_id
+        )
     )
     campaign = result.scalar_one_or_none()
 
@@ -105,5 +131,3 @@ async def get_campaign_leads(campaign_id: str, db: AsyncSession = Depends(get_db
         "result": campaign.campaign_leads,
         "error": None
     }
-
-    

@@ -11,7 +11,7 @@ scikit-learn
 rank_bm25
 fastapi
 uvicorn[standard]
-inggest
 sqlalchemy
 asyncpg
 alembic
+clerk-backend-api
