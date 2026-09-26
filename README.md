@@ -26,20 +26,19 @@
 
 The platform understands your **actual campaign context** — your brand's industry, price point, target persona, and goals — and uses that understanding to find creators who are a genuine strategic fit, not just names that match a hashtag.
 
->
->
-> **Why Reach AI**
+
+**Why Reach AI**
 >
 > I built Reach AI after seeing how difficult influencer discovery was while building Haven, a college dating app. Our first organic campaign reached 17k+ views in a week, but finding the right creators still required hours of manual scrolling and guesswork. Reach AI turns that process into a campaign-aware, measurable workflow that can run cheaply at scale.
 
 ### Engineering Outcomes
 
 >
-> The first working version cost approximately **$5 per run** and took **4+ minutes**. After tracing the workflow in LangSmith, I moved expensive work toward concurrent batched processing, cached repeated work, and removed unnecessary sequential model calls.
+> The first working version cost approximately **$5 per run** and took **4+ minutes**. After tracing the workflow in LangSmith, I moved expensive work toward concurrent batched processing, cached repeated work, and removed unnecessary sequential model calls.   This helped me do :
 >
 > - **99% lower AI inference cost:** approximately **$5 to $0.04 per run**.
 > - **60%+ lower pipeline latency:** approximately **4+ minutes to 1–2 minutes**.
-> - **Improved quality:** validated against the same product brief used with Aha, then tested again on an edtech brief to check that the new approach generated better results.
+> - **Quality validated and improved:** outperformed Aha (market leader) and the previous version on the same product brief, then checked across different campaign briefs, including edtech, which also surfaced stronger creator matches.
 
 
 ### Tech Stack
