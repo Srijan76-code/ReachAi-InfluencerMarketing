@@ -6,7 +6,10 @@ import { getClientSubscriptionToken } from "inngest/react";
 import { inngest } from "@/inngest/client";
 import { campaignChannel } from "@/inngest/channels";
 
-const backendUrl = process.env.BACKEND_URL ?? "http://localhost:8000";
+const backendUrl =
+  process.env.BACKEND_URL ??
+  process.env.NEXT_PUBLIC_BACKEND_URL ??
+  "http://localhost:8000";
 
 export async function getCampaignRealtimeToken(
   campaignId: string,

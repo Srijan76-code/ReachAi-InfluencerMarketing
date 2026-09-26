@@ -13,7 +13,6 @@ from app.models.campaign import Campaign, CampaignStatus
 from app.auth.user import get_db_user
 from app.workflow.runtime import get_durable_checkpoint_status
 from app.inngest.client import inngest_client
-from app.inngest.functions import execute_campaign_workflow
 import inngest
 
 logger = logging.getLogger(__name__)
@@ -128,13 +127,13 @@ async def generate_campaign(
         update(Campaign)
         .where(Campaign.campaign_id == campaign_id)
         .values(
-            name=campaign_name,
+            name=campaign.name or "Untitled Campaign",
             campaign_details=campaign_details,
             run_id=run_id,
             thread_id=thread_id,
             status=CampaignStatus.PENDING,
             workflow_status={
-                "run_id": None,
+                "run_id": run_id,
                 "thread_id": thread_id,
                 "stage": "queued",
                 "status": "running",
@@ -143,23 +142,23 @@ async def generate_campaign(
     )
     await db.commit()
 
-    await inngest_client.send(
-        inngest.Event(
-            name="campaign/run",
-            data={
-                "campaign_id": campaign_id,
-                "campaign_details": campaign_details,
-                "user_id": user.clerk_id,
-                "run_id": run_id,
-                "thread_id": thread_id,
-            }
+    try:
+        await inngest_client.send(
+            inngest.Event(
+                name="campaign/run",
+                data={
+                    "campaign_id": campaign_id,
+                    "campaign_details": campaign_details,
+                    "user_id": user.clerk_id,
+                    "run_id": run_id,
+                    "thread_id": thread_id,
+                },
+            )
         )
         logger.info(f"[Inngest] Sent campaign/run event for {campaign_id}")
     except Exception as inngest_err:
-        logger.warning(f"[Inngest] Event send warning: {inngest_err}")
-
-    # 2. Local background execution safeguard in case Inngest dev server is not actively attached
-    asyncio.create_task(execute_campaign_workflow(campaign_id, campaign_details))
+        logger.exception("[Inngest] Failed to enqueue campaign %s", campaign_id)
+        raise HTTPException(503, "Unable to enqueue campaign workflow") from inngest_err
 
     return {
         "success": True,

@@ -48,7 +48,6 @@ export interface CampaignState {
   setCampaignCache: (id: string, data: Partial<CachedCampaign>) => void;
   hydrateFormFromDetails: (details: any) => void;
   loadCampaignFromCacheOrFetch: (id: string, api: any) => Promise<void>;
-  startCampaignStream: (id: string, token: string | null, onComplete?: (leads: any[]) => void) => () => void;
   toggleSaveLead: (campaignId: string, lead: any, api: any) => Promise<void>;
   fetchSavedLeads: (campaignId: string, api: any) => Promise<void>;
 }
@@ -173,69 +172,6 @@ export const useCampaignStore = create<CampaignState>((set, get) => ({
     } catch (err) {
       console.error("Error loading campaign:", err);
     }
-  },
-
-  startCampaignStream: (id: string, token: string | null, onComplete?: (leads: any[]) => void) => {
-    set({
-      isGenerating: true,
-      status: "PENDING",
-      currentStage: "Initiating LangGraph agent...",
-      stageIndex: "0/9",
-      currentCampaignId: id,
-    });
-
-    const url = `http://localhost:8000/api/campaigns/${id}/stream${token ? `?token=${encodeURIComponent(token)}` : ""}`;
-    const eventSource = new EventSource(url);
-
-    eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-
-        if (data.type === "stage") {
-          set({
-            currentStage: data.stage,
-            stageIndex: data.stage_index,
-            status: data.status,
-          });
-          get().setCampaignCache(id, {
-            currentStage: data.stage,
-            stageIndex: data.stage_index,
-            status: data.status,
-          });
-        } else if (data.type === "complete") {
-          const leads = data.leads || [];
-          set({
-            finalInfluencers: leads,
-            isGenerating: false,
-            status: "COMPLETED",
-            currentStage: "Complete",
-            stageIndex: "9/9",
-          });
-          get().setCampaignCache(id, {
-            leads,
-            status: "COMPLETED",
-            currentStage: "Complete",
-          });
-          eventSource.close();
-          if (onComplete) onComplete(leads);
-        } else if (data.type === "error") {
-          console.error("Stream reported error:", data.message);
-          set({ isGenerating: false });
-          eventSource.close();
-        }
-      } catch (err) {
-        console.warn("Non-JSON SSE message or parse error:", event.data);
-      }
-    };
-
-    eventSource.onerror = (err) => {
-      console.warn("SSE connection closed or error:", err);
-      eventSource.close();
-    };
-
-    return () => {
-      eventSource.close();
-    };
   },
 
   fetchSavedLeads: async (campaignId: string, api: any) => {

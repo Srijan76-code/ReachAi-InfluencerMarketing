@@ -6,7 +6,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { InfluencerRow } from "./InfluencerRow";
 import { useCampaignStore } from "@/store/campaignStore";
 import { useApi } from "@/lib/api";
-import { useAuth } from "@clerk/nextjs";
 import { Loader2Icon } from "lucide-react";
 import {
   ListFilter,
@@ -39,8 +38,6 @@ interface InfluencerPageProps {
 
 const InfluencerPage = ({ campaignId }: InfluencerPageProps) => {
   const api = useApi();
-  const { getToken } = useAuth();
-
   const isGenerating = useCampaignStore((state) => state.isGenerating);
   const currentStage = useCampaignStore((state) => state.currentStage);
   const stageIndex = useCampaignStore((state) => state.stageIndex);
@@ -48,7 +45,6 @@ const InfluencerPage = ({ campaignId }: InfluencerPageProps) => {
   const final_ranked_leads = useCampaignStore((state) => state.finalInfluencers);
   const savedLeadsMap = useCampaignStore((state) => state.savedLeadsMap);
   const loadCampaignFromCacheOrFetch = useCampaignStore((state) => state.loadCampaignFromCacheOrFetch);
-  const startCampaignStream = useCampaignStore((state) => state.startCampaignStream);
   const fetchSavedLeads = useCampaignStore((state) => state.fetchSavedLeads);
   const toggleSaveLead = useCampaignStore((state) => state.toggleSaveLead);
 
@@ -58,18 +54,6 @@ const InfluencerPage = ({ campaignId }: InfluencerPageProps) => {
       fetchSavedLeads(campaignId, api);
     }
   }, [campaignId]);
-
-  useEffect(() => {
-    if (campaignId && status === "PENDING" && !final_ranked_leads) {
-      let unsub: (() => void) | undefined;
-      getToken().then((token) => {
-        unsub = startCampaignStream(campaignId, token);
-      });
-      return () => {
-        if (unsub) unsub();
-      };
-    }
-  }, [campaignId, status, !!final_ranked_leads]);
 
   // Sorting and Filtering states
   const [sortBy, setSortBy] = useState("optimal");

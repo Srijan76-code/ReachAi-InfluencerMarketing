@@ -1,22 +1,11 @@
 <div align="center">
   <br>
-  <h1>R E A C H &nbsp; A I</h1>
-  <p>
-    <b>End-to-End Influencer Marketing Automation</b>
+  <h1>REACH AI : End-to-End Influencer Marketing Automation</h1>
+  <!-- <p><strong>End-to-End Influencer Marketing Automation</strong></p> -->
+  <!-- <hr width="72%"> -->
+  <p align="right">
+    From deep lead discovery to hyper-personalized outreach -- Fully automated.
   </p>
-  <p>
-    <sub>
-      From deep lead discovery to hyper-personalized outreach — fully automated.
-    </sub>
-  </p>
-  <br>
-  <p>
-    <img src="https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python">
-    <img src="https://img.shields.io/badge/LangGraph-Agentic_Framework-1C3C3C?style=for-the-badge&logo=langchain&logoColor=white" alt="LangGraph">
-    <img src="https://img.shields.io/badge/Next.js-111111?style=for-the-badge&logo=nextdotjs&logoColor=white" alt="Next.js">
-    <img src="https://img.shields.io/badge/Gemini-2.5_Flash-4285F4?style=for-the-badge&logo=google&logoColor=white" alt="Gemini">
-  </p>
-
   <br>
   <a href="#-project-overview">Project Overview</a> ✦
   <a href="#-core-features">Key Features</a> ✦
@@ -37,6 +26,26 @@
 
 The platform understands your **actual campaign context** — your brand's industry, price point, target persona, and goals — and uses that understanding to find creators who are a genuine strategic fit, not just names that match a hashtag.
 
+>
+>
+> **Why Reach AI**
+>
+> I built Reach AI after seeing how difficult influencer discovery was while building Haven, a college dating app. Our first organic campaign reached 17k+ views in a week, but finding the right creators still required hours of manual scrolling and guesswork. Reach AI turns that process into a campaign-aware, measurable workflow that can run cheaply at scale.
+
+### Engineering Outcomes
+
+>
+> The first working version cost approximately **$5 per run** and took **4+ minutes**. After tracing the workflow in LangSmith, I moved expensive work toward concurrent batched processing, cached repeated work, and removed unnecessary sequential model calls.
+>
+> - **99% lower AI inference cost:** approximately **$5 to $0.04 per run**.
+> - **60%+ lower pipeline latency:** approximately **4+ minutes to 1–2 minutes**.
+> - **Improved quality:** validated against the same product brief used with Aha, then tested again on an edtech brief to check that the new approach generated better results.
+
+
+### Tech Stack
+
+`Next.js` ·  `TypeScript` ·  `Python` · `FastAPI` · `LangGraph` · `Inngest` · `Gemini AI` · `PostgreSQL` · `LangSmith` · `Zustand`
+
 <br>
 
 ## ◈ Core Features
@@ -50,6 +59,16 @@ The platform understands your **actual campaign context** — your brand's indus
 | <kbd>03</kbd> Performance Intelligence                                                                                                                                 | <kbd>04</kbd> Real-Time Risk Detection                                                                                                                        |
 | :--------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------- |
 | Metrics that matter: Fair valuation, estimated CPM, trust scores, consistency, and expected link clicks per video based on industry-specific benchmarks. | Automatically filters out dead channels, zombie engagement, geo-mismatches, and channels not meeting your view thresholds. |
+
+### Platform and Reliability Features
+
+| <kbd>05</kbd> Durable Background Workflows | <kbd>06</kbd> Resumable AI Pipelines |
+| :--- | :--- |
+| Inngest runs campaign jobs asynchronously with event-driven execution, while LangGraph retry policies recover from transient failures. | PostgreSQL-backed LangGraph checkpoints preserve workflow state by campaign thread, making long-running runs inspectable and resumable. |
+
+| <kbd>07</kbd> Live Progress and Reconciliation | <kbd>08</kbd> Cost and Latency Optimization |
+| :--- | :--- |
+| Signed Inngest Realtime subscriptions stream stage and completion events to the campaign UI, while Zustand reconciles state with the backend. | Batched processing, selective model usage, and caching reduce inference cost and unnecessary sequential work. |
 
 <br>
 
@@ -67,7 +86,58 @@ The platform understands your **actual campaign context** — your brand's indus
 
 ## ◈ System Architecture
 
-The backend is a **linear LangGraph StateGraph** with 8 nodes, each with automatic retry policies and in-memory caching.
+### Campaign Generation Workflow
+
+The user submits a campaign, Inngest runs the job in the background, LangGraph evaluates creators, and the frontend receives live progress through a signed, run-scoped Inngest Realtime subscription.
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor User
+  participant UI as Next.js UI
+  participant API as FastAPI
+  participant DB as PostgreSQL
+  participant Inngest
+  participant Graph as LangGraph Agent
+  participant YouTube as YouTube API
+  participant Gemini
+
+  User->>UI: Submit campaign brief
+  UI->>API: POST /api/campaigns/{id}/generate
+  API->>DB: Save brief and set status PENDING
+  API->>Inngest: Send campaign/run event
+  API-->>UI: Return campaign and run IDs
+  UI->>API: Request signed Realtime token for run_id
+  API-->>UI: Return signed token
+  UI->>Inngest: Subscribe to campaign:{run_id} / status
+
+  Inngest->>Graph: Start campaign workflow
+  loop Each LangGraph node
+    Graph->>Graph: Run current node
+    opt Search or enrichment node
+      Graph->>YouTube: Search channels and fetch metrics
+      YouTube-->>Graph: Return creator data
+    end
+    opt Analysis or ranking node
+      Graph->>Gemini: Analyze fit, safety, and performance
+      Gemini-->>Graph: Return AI evaluation
+    end
+    Graph->>DB: Save current stage and progress
+    Graph-->>Inngest: Publish campaign/stage event
+    Inngest-->>UI: Deliver status update over Realtime
+  end
+
+  Graph->>DB: Save ranked leads and set COMPLETED
+  Inngest-->>UI: Deliver completed event
+  UI->>API: Reconcile state and fetch completed leads
+  UI-->>User: Display ranked influencer leads
+```
+
+**Important:** Inngest handles both background execution and live progress delivery. The backend publishes run-scoped `campaign/stage` events, and the frontend subscribes to the `campaign:{run_id}` topic with the `status` event using a signed token. PostgreSQL remains the durable source of truth used for reconciliation and loading completed leads.
+
+### LangGraph Processing Pipeline
+
+The backend uses a **linear LangGraph StateGraph** with 9 nodes, automatic retry policies, PostgreSQL checkpointing, and in-memory caching.
 
 ```mermaid
 graph LR
@@ -79,7 +149,8 @@ graph LR
     E --> F[Semantic<br/>Processor]
     F --> G[LLM<br/>Reranker]
     G --> H[Final<br/>Scoring]
-    H --> END((END))
+    H --> I[LLM<br/>Reasoning]
+    I --> END((END))
 
     style START fill:#10b981,stroke:#059669,color:#fff
     style END fill:#ef4444,stroke:#dc2626,color:#fff
@@ -91,6 +162,7 @@ graph LR
     style F fill:#8b5cf6,stroke:#7c3aed,color:#fff
     style G fill:#8b5cf6,stroke:#7c3aed,color:#fff
     style H fill:#ec4899,stroke:#db2777,color:#fff
+    style I fill:#ec4899,stroke:#db2777,color:#fff
 ```
 
 <br>
@@ -98,21 +170,30 @@ graph LR
 ## ◈ Project Structure
 
 ```text
-/
-├── backend/
-│   ├── main.py                  — FastAPI entry point (WIP)
-│   ├── my_agent/                — Core LangGraph node processing and ranking logic
-│   └── scripts/                 — CLI utilities
-├── frontend/
-│   ├── app/                     — Next.js React Dashboard and UI components
-│   └── data/                    — Static ontologies & datasets
+  ReachAi-InfluencerMarketing/
+  ├── backend/
+  │   ├── app/
+  │   │   ├── api/routes/           — Campaign, lead, and Realtime API routes
+  │   │   ├── inngest/              — Inngest client and background functions
+  │   │   ├── my_agent/             — LangGraph nodes and agent state
+  │   │   ├── models/               — SQLAlchemy database models
+  │   │   └── workflow/             — Graph runtime, checkpoints, and stage events
+  │   ├── alembic/                  — Database migrations
+  │   ├── requirements.txt
+  │   └── Makefile
+  ├── frontend/
+  │   ├── app/                      — Next.js pages, campaign flow, and API routes
+  │   ├── components/               — Reusable UI components
+  │   ├── store/                    — Zustand campaign state and reconciliation
+  │   └── package.json
+  └── README.md
 ```
 
 <br>
 
 ## ◈ Installation
 
-**Prerequisites:** Python 3.11+, Node.js 20+, Google Cloud Project (YouTube Data API v3), Google AI Studio Key.
+**Prerequisites:** Python 3.11+, Node.js 20+, PostgreSQL, a Google Cloud project with YouTube Data API v3 enabled, and a Google AI Studio key.
 
 <details>
 <summary><b>Quick Setup</b></summary>
@@ -126,10 +207,20 @@ cd backend
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env
+touch .env
+uvicorn app.main:app --reload
 ```
 
-**2. Frontend Setup**
+**2. Inngest Dev Server**
+
+In a second terminal:
+
+```bash
+cd backend
+npx inngest-cli@latest dev -u http://localhost:8000/api/inngest
+```
+
+**3. Frontend Setup**
 
 ```bash
 cd frontend
@@ -145,25 +236,26 @@ npm run dev
 
 Create a `.env` file in the `backend/` directory:
 
+```dotenv
+GOOGLE_API_KEY=your_google_ai_studio_key
+YOUTUBE_API_KEY=your_youtube_data_api_key
+DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/reachai
+LANGGRAPH_CHECKPOINTER_URL=postgresql://postgres:postgres@localhost:5432/reachai
+INNGEST_DEV=1
+INNGEST_APP_ID=reach-ai
+CLERK_JWKS_URL=your_clerk_jwks_url
+```
+
 | Variable          | Description                               | Required |
 | ----------------- | ----------------------------------------- | -------- |
 | `GOOGLE_API_KEY`  | Google AI Studio key for Gemini 2.5 Flash | ✅       |
 | `YOUTUBE_API_KEY` | YouTube Data API v3 key                   | ✅       |
+| `DATABASE_URL`    | PostgreSQL connection URL                 | ✅       |
+| `INNGEST_DEV`     | Enables local Inngest signing defaults    | Local    |
 | `APIFY_API_TOKEN` | Apify client token (for social scraping)  | Optional |
 
 > [!IMPORTANT]
 > The YouTube Data API has a daily quota of **10,000 units**. Each search query costs ~100 units. Running the full pipeline with 10 keywords consumes ~1,000 units from search alone, plus additional units for channel and video detail fetches. Monitor your usage in the Google Cloud Console.
-
-<br>
-
-## ◈ Tech Stack
-
-| Domain          | Technology          | Implementation Objective                                             |
-| :-------------- | :------------------ | :------------------------------------------------------------------- |
-| **Frontend**    | Next.js & Tailwind  | Delivering a premium, dark-themed, data-dense React interface.       |
-| **Backend**     | Python & FastAPI    | LangGraph orchestration and semantic search algorithms.    |
-| **AI Engine**   | Gemini 2.5 Flash    | Campaign strategy, keyword gen, brand-fit reranking.    |
-| **Type Safety** | TypeScript/Pydantic | Structuring rigid data contracts across the pipeline.                |
 
 <br>
 
