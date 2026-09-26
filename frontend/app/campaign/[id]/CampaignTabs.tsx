@@ -14,6 +14,7 @@ import {
   PlusCircle,
 } from "lucide-react";
 import { HoverButton } from "@/components/buttons/HoverButton";
+import { useApi } from "@/lib/api";
 
 interface PageProps {
   id: string;
@@ -28,6 +29,18 @@ const NAV_ITEMS = [
 const CampaignTabs = ({ id }: PageProps) => {
   const pathname = usePathname();
   const router = useRouter();
+  const api = useApi();
+
+  const handleCreateNewCampaign = async () => {
+    try {
+      const res = await api("/api/campaigns/create", { method: "POST" });
+      if (res.data && res.data.campaign_id) {
+        router.push(`/campaign/${res.data.campaign_id}/details`);
+      }
+    } catch (err) {
+      console.error("Error creating new campaign:", err);
+    }
+  };
 
   return (
     <div className="fixed top-7 inset-x-0 bg-transparent z-40 h-16 flex px-0 pointer-events-none ">
@@ -158,7 +171,7 @@ const CampaignTabs = ({ id }: PageProps) => {
             </nav>
 
             {/* <div className="flex text-xs justify-end items-center "> */}
-              <HoverButton className="border-transparent" onClick={() => router.push("/campaign/")}>
+              <HoverButton className="border-transparent" onClick={handleCreateNewCampaign}>
                 <div className="flex justify-end items-center gap-2 text-xs">
                   <PlusCircle className="w-3 h-3" />
                   <p>New Campaign</p>

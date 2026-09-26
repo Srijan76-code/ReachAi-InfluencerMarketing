@@ -1,4 +1,3 @@
-
 import InfluencerPage from "@/app/ListOfInfluencer/InfluencerPage";
 import WorkflowStatus from "../WorkflowStatus";
 
@@ -9,8 +8,9 @@ const page = async ({ params }: { params: Promise<{ id: string }> }) => {
         <WorkflowStatus campaignId={id} />
         <InfluencerPage />
 
+  return (
+    <div className="max-w-full overflow-x-hidden">
+      <InfluencerPage campaignId={id} />
     </div>
   );
-};
-
-export default page;
+}

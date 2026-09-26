@@ -82,10 +82,12 @@ export default function SubmitCampaignButton({ id }: { id: string }) {
   
   const handleSubmit = async () => {
     const finalPayload = transformPayload(store);
-    
-    // Switch to generating state and immediately surf the user to the list page
+
+    // Switch to generating state and surf immediately to the leads page
     store.setField("isGenerating", true);
     store.setField("finalInfluencers", null);
+    store.setField("currentStage", "Starting LangGraph agent...");
+    store.setField("stageIndex", "0/9");
     router.push(`/campaign/${id}/leads`);
 
     try {
@@ -98,15 +100,8 @@ export default function SubmitCampaignButton({ id }: { id: string }) {
         },
         body: JSON.stringify(finalPayload)
       });
-      const data = await response.json();
-      
-      if (data.success) {
-         store.setField("finalInfluencers", data.data.final_ranked_leads || []);
-      }
     } catch (error) {
-      console.error("Error submitting to backend:", error);
-    } finally {
-      store.setField("isGenerating", false);
+      console.error("Error submitting campaign to backend:", error);
     }
   };
 

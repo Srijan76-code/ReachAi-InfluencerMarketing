@@ -1,9 +1,8 @@
-import React from 'react'
+import SavedLeadsClient from "./SavedLeadsClient";
 
-const page = () => {
-  return (
-    <div>Saved leads</div>
-  )
+export default async function Page({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  if (!id) return <div>Campaign not found</div>;
+
+  return <SavedLeadsClient campaignId={id} />;
 }
-
-export default page

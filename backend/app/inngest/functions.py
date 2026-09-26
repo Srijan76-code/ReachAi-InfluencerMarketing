@@ -11,6 +11,17 @@ from app.workflow.runtime import run_graph_with_stage_events
 
 logger = logging.getLogger(__name__)
 
+STAGES = [
+    {"stage": "campaign_understanding", "message": "Analyzing campaign brief & defining target persona..."},
+    {"stage": "keyword_generator", "message": "Generating high-intent search keywords & niche queries..."},
+    {"stage": "youtube_search_gate", "message": "Searching YouTube & querying prospective creators..."},
+    {"stage": "subscriber_filter", "message": "Filtering channels by subscriber and view thresholds..."},
+    {"stage": "channel_enrichment", "message": "Enriching channel profiles & extracting performance metrics..."},
+    {"stage": "semantic_processor", "message": "Processing video semantics & audience fit..."},
+    {"stage": "reranker_node", "message": "Reranking top creator candidates with AI reasoning..."},
+    {"stage": "final_scoring_node", "message": "Calculating final scores, ROI forecast & fair valuations..."},
+    {"stage": "llm_reasoning_node", "message": "Synthesizing comprehensive lead dossiers & outreach pitch..."},
+]
 
 @inngest_client.create_function(
     fn_id="run_campaign",

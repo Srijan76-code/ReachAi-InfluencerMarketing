@@ -1,6 +1,5 @@
 
-
-# dependencies
+# Dependencies
 node_modules/
 .pnp
 .pnp.*
@@ -10,21 +9,66 @@ node_modules/
 !.yarn/releases
 !.yarn/versions
 
-# testing
-coverage/
+# Python virtual environments
+.venv/
+venv/
+env/
+ENV/
+backend/myenv/
+reachai/
+.reachai/
+backend/reachai/
+# Python bytecode and tooling caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.tox/
+.nox/
+.pyre/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
 
-# next.js
+# Build and distribution output
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Next.js and frontend build output
 .next/
 out/
+.vercel/
+*.tsbuildinfo
+next-env.d.ts
+coverage/
 
-# production
-build/
+# Local environment files and secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+.clerk/
 
-# debug
+# Local databases and runtime files
+*.db
+*.sqlite
+*.sqlite3
+*.log
+
+# Package-manager and tool logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+lerna-debug.log*
+.trigger/
 
 # typescript
 *.tsbuildinfo
