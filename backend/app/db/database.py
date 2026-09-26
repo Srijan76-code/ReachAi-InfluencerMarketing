@@ -5,7 +5,7 @@ from app.core.config import DATABASE_URL
 
 engine = create_async_engine(
     DATABASE_URL,
-    connect_args={"ssl": "require"}
+    connect_args={"ssl": "require"} if DATABASE_URL.startswith("postgresql") else {}
 )
 AsyncSessionLocal = sessionmaker(
     bind=engine,

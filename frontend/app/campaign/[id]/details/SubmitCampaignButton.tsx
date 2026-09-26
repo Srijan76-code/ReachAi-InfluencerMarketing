@@ -73,10 +73,12 @@ function transformPayload(store: CampaignState) {
 }
 
 import { useRouter } from "next/navigation";
+import { useAuth } from "@clerk/nextjs";
 
 export default function SubmitCampaignButton({ id }: { id: string }) {
   const store = useCampaignStore();
   const router = useRouter();
+  const { getToken } = useAuth();
   
   const handleSubmit = async () => {
     const finalPayload = transformPayload(store);
@@ -87,9 +89,13 @@ export default function SubmitCampaignButton({ id }: { id: string }) {
     router.push(`/campaign/${id}/leads`);
 
     try {
-      const response = await fetch("http://localhost:8000/api/campaigns/generate", {
+      const token = await getToken();
+      const response = await fetch(`http://localhost:8000/api/campaigns/${id}/generate`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify(finalPayload)
       });
       const data = await response.json();
@@ -110,4 +116,3 @@ export default function SubmitCampaignButton({ id }: { id: string }) {
     </Button>
   );
 }
-

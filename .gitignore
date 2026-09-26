@@ -40,6 +40,7 @@ __pycache__/
 *.pyd
 
 backend/myenv/
+backend/.venv/
 venv/
 .env
 backend/.env
@@ -50,3 +51,4 @@ backend/.env
 .vscode/
 
 .trigger
+.npm-cache/

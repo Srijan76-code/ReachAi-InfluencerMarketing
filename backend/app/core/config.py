@@ -3,4 +3,15 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+DEFAULT_DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/reachai"
+DATABASE_URL = os.getenv("DATABASE_URL", DEFAULT_DATABASE_URL)
+LANGGRAPH_CHECKPOINTER_URL = os.getenv(
+    "LANGGRAPH_CHECKPOINTER_URL",
+    DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://", 1),
+)
+INNGEST_APP_ID = os.getenv("INNGEST_APP_ID", "reach-ai")
+INNGEST_EVENT_KEY = os.getenv("INNGEST_EVENT_KEY")
+INNGEST_SIGNING_KEY = os.getenv(
+    "INNGEST_SIGNING_KEY",
+    "local-dev-signing-key" if os.getenv("INNGEST_DEV") == "1" else None,
+)

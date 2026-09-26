@@ -18,7 +18,6 @@ from app.my_agent.nodes import (
 )
 
 
-
 graph = StateGraph(LLMState)
 
 graph.add_node("campaign_understanding", campaign_understanding, retry_policy=RetryPolicy())

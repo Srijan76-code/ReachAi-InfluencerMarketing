@@ -7,7 +7,7 @@ from uuid import uuid4
 from app.db.database import get_db
 from app.models.campaign import Campaign, CampaignStatus
 from app.auth.user import get_db_user
-
+from app.workflow.runtime import get_durable_checkpoint_status
 from app.inngest.client import inngest_client
 import inngest
 
@@ -69,7 +69,7 @@ async def generate_campaign(
     campaign_details: dict,
     user: User = Depends(get_db_user),
     db: AsyncSession = Depends(get_db)
-    ):
+):
     result = await db.execute(
         select(Campaign).where(
             Campaign.campaign_id == campaign_id,
@@ -81,15 +81,25 @@ async def generate_campaign(
     if not campaign:
         raise HTTPException(404, "Campaign not found")
 
+    thread_id = campaign.thread_id or f"campaign-{campaign_id}"
+    run_id = campaign.run_id or str(uuid4())
+
     await db.execute(
         update(Campaign)
         .where(Campaign.campaign_id == campaign_id)
         .values(
             campaign_details=campaign_details,
-            status=CampaignStatus.PENDING
+            run_id=run_id,
+            thread_id=thread_id,
+            status=CampaignStatus.PENDING,
+            workflow_status={
+                "run_id": None,
+                "thread_id": thread_id,
+                "stage": "queued",
+                "status": "running",
+            },
         )
     )
-
     await db.commit()
 
     await inngest_client.send(
@@ -98,14 +108,51 @@ async def generate_campaign(
             data={
                 "campaign_id": campaign_id,
                 "campaign_details": campaign_details,
-                "user_id": user.clerk_id  
+                "user_id": user.clerk_id,
+                "run_id": run_id,
+                "thread_id": thread_id,
             }
         )
     )
 
     return {
         "success": True,
-        "campaign_id": campaign_id
+        "campaign_id": campaign_id,
+        "run_id": run_id,
+        "thread_id": thread_id,
+    }
+
+
+@router.get("/{campaign_id}/status")
+async def get_campaign_status(
+    campaign_id: str,
+    user: User = Depends(get_db_user),
+    db: AsyncSession = Depends(get_db)
+):
+    result = await db.execute(
+        select(Campaign).where(
+            Campaign.campaign_id == campaign_id,
+            Campaign.user_id == user.clerk_id
+        )
+    )
+    campaign = result.scalar_one_or_none()
+
+    if not campaign:
+        raise HTTPException(404, "Campaign not found")
+
+    state = campaign.workflow_status or {
+        "status": campaign.status.value if hasattr(campaign.status, "value") else str(campaign.status),
+        "stage": None,
+    }
+    checkpoint = await get_durable_checkpoint_status(campaign.thread_id)
+    return {
+        "campaign_id": campaign_id,
+        "run_id": campaign.run_id,
+        "thread_id": campaign.thread_id,
+        "status": campaign.status.value if hasattr(campaign.status, "value") else str(campaign.status),
+        "current_stage": state.get("stage"),
+        "workflow_status": state,
+        "durable_checkpoint": checkpoint,
     }
 
 # GET /api/campaigns/{campaign_id}/leads
