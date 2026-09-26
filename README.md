@@ -31,7 +31,7 @@ The platform understands your **actual campaign context** — your brand's indus
 >
 > I built Reach AI after seeing how difficult influencer discovery was while building Haven, a college dating app. Our first organic campaign reached 17k+ views in a week, but finding the right creators still required hours of manual scrolling and guesswork. Reach AI turns that process into a campaign-aware, measurable workflow that can run cheaply at scale.
 
-### Engineering Outcomes
+### How I Improved it
 
 >
 > The first working version cost approximately **$5 per run** and took **4+ minutes**. After tracing the workflow in LangSmith, I moved expensive work toward concurrent batched processing, cached repeated work, and removed unnecessary sequential model calls.   This helped me do :
