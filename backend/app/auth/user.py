@@ -12,20 +12,31 @@ from jwt import PyJWKClient
 
 logger = logging.getLogger(__name__)
 
-# Clerk JWKS endpoint — must match your Clerk instance domain
-CLERK_JWKS_URL = "https://tidy-redfish-49.clerk.accounts.dev/.well-known/jwks.json"
+import os
+from dotenv import load_dotenv
 
+load_dotenv()
+
+# Clerk JWKS endpoint — must match your Clerk instance domain
+CLERK_JWKS_URL = os.getenv(
+    "CLERK_JWKS_URL",
+    "https://tidy-redfish-49.clerk.accounts.dev/.well-known/jwks.json"
+)
 
 jwks_client = PyJWKClient(CLERK_JWKS_URL)
 
 
 async def get_current_user(request: Request):
     auth_header = request.headers.get("Authorization")
+    token = None
 
-    if not auth_header or not auth_header.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing or malformed Authorization header")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header.split(" ")[1]
+    elif request.query_params.get("token"):
+        token = request.query_params.get("token")
 
-    token = auth_header.split(" ")[1]
+    if not token:
+        raise HTTPException(status_code=401, detail="Missing or malformed Authorization token")
 
     try:
         signing_key = jwks_client.get_signing_key_from_jwt(token)

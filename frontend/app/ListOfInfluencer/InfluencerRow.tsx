@@ -5,6 +5,7 @@ import {
   MoreHorizontal,
   User,
   Info,
+  Bookmark,
 } from "lucide-react";
 import {
   Tooltip,
@@ -16,12 +17,16 @@ export const InfluencerRow = ({
   influencer,
   rank,
   isSelected = false,
-  onToggleSelection = () => {}
+  isSaved = false,
+  onToggleSelection = () => {},
+  onToggleSave = () => {},
 }: {
   influencer: Influencer;
   rank: number;
   isSelected?: boolean;
+  isSaved?: boolean;
   onToggleSelection?: (id: string) => void;
+  onToggleSave?: (influencer: Influencer) => void;
 }) => {
   const { title, subscribers, metrics, deal_status, final_score } = influencer;
 
@@ -261,12 +266,23 @@ export const InfluencerRow = ({
           </div>
         </div>
 
-        {/* Action button */}
-        {/* <div className="w-6 flex justify-center">
-          <button className=" p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded transition-all text-zinc-600 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200">
-            <MoreHorizontal size={16} />
+        {/* Action button / Bookmark */}
+        <div className="w-7 flex justify-center items-center">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleSave(influencer);
+            }}
+            title={isSaved ? "Remove from saved" : "Save lead"}
+            className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded transition-all text-zinc-400 hover:text-amber-500"
+          >
+            <Bookmark
+              size={15}
+              className={isSaved ? "fill-amber-500 text-amber-500" : "text-zinc-400"}
+            />
           </button>
-        </div> */}
+        </div>
       </div>
     </div>
   );

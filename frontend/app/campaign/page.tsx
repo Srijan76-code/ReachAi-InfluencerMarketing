@@ -31,30 +31,56 @@ const CampaignPage: React.FC = () => {
   const api = useApi();
   const router = useRouter();
 
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [sortBy, setSortBy] = useState<SortOption>("none");
 
-    useEffect(() => {
-    const init = async () => {
-      try {
+  const fetchCampaigns = async () => {
+    try {
+      setLoading(true);
+      const res = await api("/api/campaigns/", { method: "GET" });
+      if (res.data && Array.isArray(res.data)) {
+        const mapped: Campaign[] = res.data.map((c: any) => {
+          let uiStatus: CampaignStatus = "draft";
+          const rawStatus = (c.status || "").toLowerCase();
+          if (rawStatus === "completed" || rawStatus === "active") uiStatus = "active";
+          else if (rawStatus === "pending" || rawStatus === "in_progress") uiStatus = "in_progress";
+          else uiStatus = "draft";
 
-        const res = await api("/api/campaigns/", {
-          method: "GET",
+          return {
+            id: c.id,
+            name: c.name || "Untitled Campaign",
+            logoUrl: "",
+            step: c.stage_index ? `Stage ${c.stage_index}` : (c.current_stage || "Details"),
+            status: uiStatus,
+            createdAt: c.createdAt || new Date().toISOString(),
+          };
         });
-
-        console.log("Campaigns:", res.data);
-
-      } catch (err) {
-        console.error(err);
+        setCampaigns(mapped);
       }
-    };
+    } catch (err) {
+      console.error("Failed to fetch campaigns:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    init();
+  useEffect(() => {
+    fetchCampaigns();
   }, []);
 
-
-  const campaigns: Campaign[] = DemoCampaigns;
+  const handleCreateCampaign = async () => {
+    try {
+      const res = await api("/api/campaigns/create", { method: "POST" });
+      if (res.data && res.data.campaign_id) {
+        router.push(`/campaign/${res.data.campaign_id}/details`);
+      }
+    } catch (err) {
+      console.error("Error creating campaign:", err);
+    }
+  };
 
   const filteredCampaigns = campaigns
     .filter((c) => {
@@ -171,7 +197,7 @@ const CampaignPage: React.FC = () => {
             {/* New Campaign button */}
 
             <HoverButton
-              onClick={() => router.push("/campaign/")}
+              onClick={handleCreateCampaign}
               className="!bg-zinc-50 dark:!bg-[#08090a] border-neutral-200 dark:border-neutral-800/80 text-neutral-900 dark:text-neutral-200 rounded-lg shadow-sm h-8 flex items-center justify-center px-3"
               glowColor="rgba(255, 255, 255, 0.2)"
               hoverTextColor="white"

@@ -27,6 +27,8 @@ class Campaign(Base):
     campaign_leads = Column(JSONB, nullable=True)
 
     status = Column(Enum(CampaignStatus), default=CampaignStatus.CREATED)
+    current_stage = Column(String, nullable=True)
+    stage_index = Column(String, nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

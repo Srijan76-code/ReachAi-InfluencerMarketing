@@ -1,9 +1,12 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
+import Link from "next/link";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { InfluencerRow } from "./InfluencerRow";
 import { useCampaignStore } from "@/store/campaignStore";
+import { useApi } from "@/lib/api";
+import { useAuth } from "@clerk/nextjs";
 import { Loader2Icon } from "lucide-react";
 import {
   ListFilter,
@@ -22,23 +25,51 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu"; // Assuming Shadcn Dropdown
+} from "@/components/ui/dropdown-menu";
 import { Sheet, SheetTrigger } from "@/components/ui/sheet";
 import { InfluencerDetailSheet } from "./InfluencerDetailSheet";
 import { ExportDialog } from "@/components/ExportDialog";
 import { CampaignSummaryBanner } from "./CampaignSummaryBanner";
-import { final_ranked_leads } from "@/data/influencerList";
-
-import { StaggerFadeRise } from "@/components/animations/StaggerFadeRise";
-import { motion } from "motion/react"
+import { motion } from "motion/react";
 import { staggerItemVariants } from "@/components/animations/variants";
 
-const InfluencerPage = () => {
-  const isGenerating = useCampaignStore((state) => state.isGenerating);
+interface InfluencerPageProps {
+  campaignId?: string;
+}
 
-  // const final_ranked_leads = useCampaignStore(
-  //   (state) => state.finalInfluencers,
-  // );
+const InfluencerPage = ({ campaignId }: InfluencerPageProps) => {
+  const api = useApi();
+  const { getToken } = useAuth();
+
+  const isGenerating = useCampaignStore((state) => state.isGenerating);
+  const currentStage = useCampaignStore((state) => state.currentStage);
+  const stageIndex = useCampaignStore((state) => state.stageIndex);
+  const status = useCampaignStore((state) => state.status);
+  const final_ranked_leads = useCampaignStore((state) => state.finalInfluencers);
+  const savedLeadsMap = useCampaignStore((state) => state.savedLeadsMap);
+  const loadCampaignFromCacheOrFetch = useCampaignStore((state) => state.loadCampaignFromCacheOrFetch);
+  const startCampaignStream = useCampaignStore((state) => state.startCampaignStream);
+  const fetchSavedLeads = useCampaignStore((state) => state.fetchSavedLeads);
+  const toggleSaveLead = useCampaignStore((state) => state.toggleSaveLead);
+
+  useEffect(() => {
+    if (campaignId) {
+      loadCampaignFromCacheOrFetch(campaignId, api);
+      fetchSavedLeads(campaignId, api);
+    }
+  }, [campaignId]);
+
+  useEffect(() => {
+    if (campaignId && status === "PENDING" && !final_ranked_leads) {
+      let unsub: (() => void) | undefined;
+      getToken().then((token) => {
+        unsub = startCampaignStream(campaignId, token);
+      });
+      return () => {
+        if (unsub) unsub();
+      };
+    }
+  }, [campaignId, status, !!final_ranked_leads]);
 
   // Sorting and Filtering states
   const [sortBy, setSortBy] = useState("optimal");
@@ -49,7 +80,7 @@ const InfluencerPage = () => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const displayedLeads = useMemo(() => {
-    if (!final_ranked_leads) return [];
+    if (!final_ranked_leads || !Array.isArray(final_ranked_leads)) return [];
 
     // 1. FILTERING
     const filtered = final_ranked_leads.filter((lead) => {
@@ -59,7 +90,7 @@ const InfluencerPage = () => {
       }
       // Reliability (Stable = High or Medium)
       if (filterReliability !== "All") {
-        const rel = lead.metrics.reliability;
+        const rel = lead.metrics?.reliability;
         if (filterReliability === "High" && rel !== "High") return false;
         if (
           filterReliability === "Stable" &&
@@ -70,7 +101,7 @@ const InfluencerPage = () => {
       }
       // Price Tier
       if (filterPrice !== "All") {
-        const price = lead.valuation;
+        const price = lead.valuation || 0;
         if (filterPrice === "Micro" && price >= 300) return false;
         if (filterPrice === "Mid" && (price < 300 || price > 1000))
           return false;
@@ -82,18 +113,18 @@ const InfluencerPage = () => {
     // 2. SORTING
     filtered.sort((a, b) => {
       if (sortBy === "optimal") {
-        return b.final_score - a.final_score;
+        return (b.final_score || 0) - (a.final_score || 0);
       }
       if (sortBy === "yield") {
-        const aYield = parseInt(a.metrics.forecast.replace(/[^0-9]/g, "")) || 0;
-        const bYield = parseInt(b.metrics.forecast.replace(/[^0-9]/g, "")) || 0;
+        const aYield = parseInt(String(a.metrics?.forecast || "").replace(/[^0-9]/g, "")) || 0;
+        const bYield = parseInt(String(b.metrics?.forecast || "").replace(/[^0-9]/g, "")) || 0;
         return bYield - aYield;
       }
       if (sortBy === "authority") {
-        return b.metrics.trust_score - a.metrics.trust_score;
+        return (b.metrics?.trust_score || 0) - (a.metrics?.trust_score || 0);
       }
       if (sortBy === "budget") {
-        return a.valuation - b.valuation; // Ascending (Budget-friendly first)
+        return (a.valuation || 0) - (b.valuation || 0);
       }
       return 0;
     });
@@ -107,27 +138,33 @@ const InfluencerPage = () => {
     filterPrice,
   ]);
 
-  if (isGenerating) {
+  if (isGenerating || status === "PENDING") {
     return (
       <div className="min-h-screen bg-zinc-50 dark:bg-[#08090a] flex flex-col items-center justify-center text-zinc-600 dark:text-zinc-400 p-8 font-sans">
         <Loader2Icon className="w-10 h-10 animate-spin text-blue-500 mb-6" />
         <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">
-          Analyzing Market & Finding Creators...
+          {stageIndex ? `Stage ${stageIndex}` : "Processing LangGraph Workflow"}
         </h2>
-        <p className="mt-2 text-sm max-w-md text-center opacity-80">
-          Our LangGraph AI agent is currently building strategies, processing
-          video semantics, scoring candidates, and executing safety filters.
-          This usually takes about 30 seconds.
+        <p className="mt-2 text-sm max-w-md text-center opacity-80 font-mono">
+          {currentStage || "Our LangGraph AI agent is currently analyzing and discovering creators..."}
         </p>
       </div>
     );
   }
 
-  // Fallback if accessed prematurely
-  if (!final_ranked_leads) {
+  // Fallback if accessed before generating
+  if (!final_ranked_leads || final_ranked_leads.length === 0) {
     return (
       <div className="min-h-screen bg-zinc-50 dark:bg-[#08090a] flex flex-col items-center justify-center text-zinc-600 dark:text-zinc-400 p-8">
-        <p>No campaign data generated yet.</p>
+        <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200 mb-4">No campaign leads generated yet.</p>
+        {campaignId && (
+          <Link
+            href={`/campaign/${campaignId}/details`}
+            className="px-4 py-2 text-xs font-medium rounded-lg bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 hover:opacity-90 transition-opacity"
+          >
+            Configure Campaign Details
+          </Link>
+        )}
       </div>
     );
   }
@@ -435,6 +472,8 @@ const InfluencerPage = () => {
                                 influencer={influencer}
                                 rank={index + 1}
                                 isSelected={isSelected}
+                                isSaved={!!savedLeadsMap[influencer.id]}
+                                onToggleSave={(lead) => campaignId && toggleSaveLead(campaignId, lead, api)}
                               />
                             </div>
                           </SheetTrigger>

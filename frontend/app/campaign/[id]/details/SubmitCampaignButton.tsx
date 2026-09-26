@@ -73,34 +73,37 @@ function transformPayload(store: CampaignState) {
 }
 
 import { useRouter } from "next/navigation";
+import { useApi } from "@/lib/api";
+import { useAuth } from "@clerk/nextjs";
 
 export default function SubmitCampaignButton({ id }: { id: string }) {
   const store = useCampaignStore();
   const router = useRouter();
-  
+  const api = useApi();
+  const { getToken } = useAuth();
+
   const handleSubmit = async () => {
     const finalPayload = transformPayload(store);
-    
-    // Switch to generating state and immediately surf the user to the list page
+
+    // Switch to generating state and surf immediately to the leads page
     store.setField("isGenerating", true);
     store.setField("finalInfluencers", null);
+    store.setField("currentStage", "Starting LangGraph agent...");
+    store.setField("stageIndex", "0/9");
     router.push(`/campaign/${id}/leads`);
 
     try {
-      const response = await fetch("http://localhost:8000/api/campaigns/generate", {
+      const token = await getToken();
+      // Start streaming listener
+      store.startCampaignStream(id, token);
+
+      // Trigger campaign generation in backend
+      await api(`/api/campaigns/${id}/generate`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(finalPayload)
+        data: finalPayload,
       });
-      const data = await response.json();
-      
-      if (data.success) {
-         store.setField("finalInfluencers", data.data.final_ranked_leads || []);
-      }
     } catch (error) {
-      console.error("Error submitting to backend:", error);
-    } finally {
-      store.setField("isGenerating", false);
+      console.error("Error submitting campaign to backend:", error);
     }
   };
 
