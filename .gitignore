@@ -70,8 +70,29 @@ yarn-error.log*
 lerna-debug.log*
 .trigger/
 
-# Editors and operating-system files
-.vscode/
-.idea/
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# vercel
+.vercel
+
+
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+backend/myenv/
+backend/.venv/
+venv/
+.env
+backend/.env
+
+
 .DS_Store
-Thumbs.db
+*.pem
+.vscode/
+
+.trigger
+.npm-cache/

@@ -1,6 +1,9 @@
 langgraph
+langgraph-checkpoint-postgres
 langchain
 langchain-google-genai
+inngest
+psycopg[binary]
 python-dotenv
 apify-client
 numpy

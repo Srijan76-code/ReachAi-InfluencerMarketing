@@ -1,13 +1,13 @@
-import asyncio
 import logging
-import os
-import inngest
-from sqlalchemy import select, update
+import uuid
 
-from app.inngest.client import inngest_client
+import inngest
+from sqlalchemy import update
+
 from app.db.database import AsyncSessionLocal
+from app.inngest.client import inngest_client
 from app.models.campaign import Campaign, CampaignStatus
-from data.influencer_list import final_ranked_leads
+from app.workflow.runtime import run_graph_with_stage_events
 
 logger = logging.getLogger(__name__)
 
@@ -23,88 +23,6 @@ STAGES = [
     {"stage": "llm_reasoning_node", "message": "Synthesizing comprehensive lead dossiers & outreach pitch..."},
 ]
 
-
-async def execute_campaign_workflow(campaign_id: str, campaign_details: dict):
-    """
-    Executes the campaign workflow. Updates stages in the database in real-time,
-    allowing SSE or polling to stream live updates to the frontend.
-    """
-    logger.info(f"[Workflow] Starting campaign {campaign_id}")
-    has_api_keys = bool(os.getenv("GOOGLE_API_KEY") and os.getenv("YOUTUBE_API_KEY"))
-
-    async with AsyncSessionLocal() as db:
-        try:
-            if has_api_keys:
-                try:
-                    from app.my_agent.agent import workflow
-                    total_stages = len(STAGES)
-                    stage_count = 0
-
-                    async for event in workflow.astream(campaign_details):
-                        for node_name in event.keys():
-                            stage_count += 1
-                            msg = next((s["message"] for s in STAGES if s["stage"] == node_name), f"Executing {node_name}...")
-                            await db.execute(
-                                update(Campaign)
-                                .where(Campaign.campaign_id == campaign_id)
-                                .values(
-                                    current_stage=msg,
-                                    stage_index=f"{min(stage_count, total_stages)}/{total_stages}"
-                                )
-                            )
-                            await db.commit()
-
-                    # Retrieve final state from last node
-                    last_node_state = list(event.values())[-1] if event else {}
-                    result = last_node_state.get("ranked_leads", final_ranked_leads)
-                except Exception as stream_err:
-                    logger.warning(f"[Workflow] Live LangGraph error, falling back to simulated stages: {stream_err}")
-                    has_api_keys = False
-
-            if not has_api_keys:
-                # Simulated realistic stage progression with real node definitions
-                total_stages = len(STAGES)
-                for idx, stage in enumerate(STAGES):
-                    await db.execute(
-                        update(Campaign)
-                        .where(Campaign.campaign_id == campaign_id)
-                        .values(
-                            current_stage=stage["message"],
-                            stage_index=f"{idx + 1}/{total_stages}"
-                        )
-                    )
-                    await db.commit()
-                    # Sleep 1.5s per stage to provide clear, visible progress in the UI
-                    await asyncio.sleep(1.5)
-
-                result = final_ranked_leads
-
-            await db.execute(
-                update(Campaign)
-                .where(Campaign.campaign_id == campaign_id)
-                .values(
-                    campaign_leads=result,
-                    status=CampaignStatus.COMPLETED,
-                    current_stage="Complete",
-                    stage_index=f"{len(STAGES)}/{len(STAGES)}"
-                )
-            )
-            await db.commit()
-            logger.info(f"[Workflow] Campaign {campaign_id} successfully COMPLETED")
-
-        except Exception as e:
-            logger.error(f"[Workflow] Campaign {campaign_id} FAILED: {e}", exc_info=True)
-            await db.execute(
-                update(Campaign)
-                .where(Campaign.campaign_id == campaign_id)
-                .values(
-                    status=CampaignStatus.CREATED,
-                    current_stage=f"Error: {str(e)}"
-                )
-            )
-            await db.commit()
-
-
 @inngest_client.create_function(
     fn_id="run_campaign",
     trigger=inngest.TriggerEvent(event="campaign/run"),
@@ -112,7 +30,57 @@ async def execute_campaign_workflow(campaign_id: str, campaign_details: dict):
 async def run_campaign(ctx: inngest.Context):
     campaign_id = ctx.event.data["campaign_id"]
     campaign_details = ctx.event.data["campaign_details"]
-    await execute_campaign_workflow(campaign_id, campaign_details)
+    user_id = ctx.event.data.get("user_id")
+    thread_id = ctx.event.data.get("thread_id") or str(uuid.uuid4())
+    run_id = ctx.event.data["run_id"]
 
+    async with AsyncSessionLocal() as db:
+        try:
+            logger.info("[Inngest] Starting campaign run %s with thread_id=%s", campaign_id, thread_id)
 
+            await db.execute(
+                update(Campaign)
+                .where(Campaign.campaign_id == campaign_id)
+                .values(
+                    run_id=run_id,
+                    thread_id=thread_id,
+                    status=CampaignStatus.PENDING,
+                    workflow_status={
+                        "run_id": run_id,
+                        "thread_id": thread_id,
+                        "stage": "queued",
+                        "status": "running",
+                    },
+                )
+            )
+            await db.commit()
 
+            result = await run_graph_with_stage_events(
+                campaign_id=campaign_id,
+                run_id=run_id,
+                thread_id=thread_id,
+                campaign_details=campaign_details,
+                user_id=user_id,
+            )
+
+            logger.info("[Inngest] Completed campaign %s with run_id=%s thread_id=%s", campaign_id, run_id, thread_id)
+            return result
+
+        except Exception as exc:
+            logger.exception("[Inngest] Campaign %s failed during workflow execution", campaign_id)
+            await db.execute(
+                update(Campaign)
+                .where(Campaign.campaign_id == campaign_id)
+                .values(
+                    status=CampaignStatus.CREATED,
+                    workflow_status={
+                        "run_id": run_id,
+                        "thread_id": thread_id,
+                        "stage": "failed",
+                        "status": "failed",
+                        "error": str(exc),
+                    },
+                )
+            )
+            await db.commit()
+            raise

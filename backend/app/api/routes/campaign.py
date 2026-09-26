@@ -11,6 +11,7 @@ from app.db.database import get_db, AsyncSessionLocal
 from app.models.user import User
 from app.models.campaign import Campaign, CampaignStatus
 from app.auth.user import get_db_user
+from app.workflow.runtime import get_durable_checkpoint_status
 from app.inngest.client import inngest_client
 from app.inngest.functions import execute_campaign_workflow
 import inngest
@@ -120,8 +121,8 @@ async def generate_campaign(
     if not campaign:
         raise HTTPException(404, "Campaign not found")
 
-    brand_name = campaign_details.get("brand", {}).get("name")
-    campaign_name = brand_name if brand_name else (campaign.name or "Untitled Campaign")
+    thread_id = campaign.thread_id or f"campaign-{campaign_id}"
+    run_id = campaign.run_id or str(uuid4())
 
     await db.execute(
         update(Campaign)
@@ -129,24 +130,29 @@ async def generate_campaign(
         .values(
             name=campaign_name,
             campaign_details=campaign_details,
+            run_id=run_id,
+            thread_id=thread_id,
             status=CampaignStatus.PENDING,
-            current_stage="Initializing LangGraph agent...",
-            stage_index="0/9"
+            workflow_status={
+                "run_id": None,
+                "thread_id": thread_id,
+                "stage": "queued",
+                "status": "running",
+            },
         )
     )
     await db.commit()
 
-    # 1. Trigger Inngest long-running background job
-    try:
-        await inngest_client.send(
-            inngest.Event(
-                name="campaign/run",
-                data={
-                    "campaign_id": campaign_id,
-                    "campaign_details": campaign_details,
-                    "user_id": user.clerk_id
-                }
-            )
+    await inngest_client.send(
+        inngest.Event(
+            name="campaign/run",
+            data={
+                "campaign_id": campaign_id,
+                "campaign_details": campaign_details,
+                "user_id": user.clerk_id,
+                "run_id": run_id,
+                "thread_id": thread_id,
+            }
         )
         logger.info(f"[Inngest] Sent campaign/run event for {campaign_id}")
     except Exception as inngest_err:
@@ -157,7 +163,42 @@ async def generate_campaign(
 
     return {
         "success": True,
-        "campaign_id": campaign_id
+        "campaign_id": campaign_id,
+        "run_id": run_id,
+        "thread_id": thread_id,
+    }
+
+
+@router.get("/{campaign_id}/status")
+async def get_campaign_status(
+    campaign_id: str,
+    user: User = Depends(get_db_user),
+    db: AsyncSession = Depends(get_db)
+):
+    result = await db.execute(
+        select(Campaign).where(
+            Campaign.campaign_id == campaign_id,
+            Campaign.user_id == user.clerk_id
+        )
+    )
+    campaign = result.scalar_one_or_none()
+
+    if not campaign:
+        raise HTTPException(404, "Campaign not found")
+
+    state = campaign.workflow_status or {
+        "status": campaign.status.value if hasattr(campaign.status, "value") else str(campaign.status),
+        "stage": None,
+    }
+    checkpoint = await get_durable_checkpoint_status(campaign.thread_id)
+    return {
+        "campaign_id": campaign_id,
+        "run_id": campaign.run_id,
+        "thread_id": campaign.thread_id,
+        "status": campaign.status.value if hasattr(campaign.status, "value") else str(campaign.status),
+        "current_stage": state.get("stage"),
+        "workflow_status": state,
+        "durable_checkpoint": checkpoint,
     }
 
 

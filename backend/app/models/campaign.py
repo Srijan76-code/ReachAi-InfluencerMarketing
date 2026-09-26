@@ -18,6 +18,8 @@ class Campaign(Base):
     __tablename__ = "campaigns"
 
     campaign_id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    run_id = Column(String, nullable=True, unique=True, index=True)
+    thread_id = Column(String, nullable=True, unique=True, index=True)
 
     user_id = Column(String, ForeignKey("users.user_id", ondelete="CASCADE"))
 
@@ -25,6 +27,7 @@ class Campaign(Base):
 
     campaign_details = Column(JSONB, nullable=True)
     campaign_leads = Column(JSONB, nullable=True)
+    workflow_status = Column(JSONB, nullable=True, default=dict)
 
     status = Column(Enum(CampaignStatus), default=CampaignStatus.CREATED)
     current_stage = Column(String, nullable=True)

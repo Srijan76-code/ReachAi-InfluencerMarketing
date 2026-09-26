@@ -8,8 +8,8 @@ if DATABASE_URL and "localhost" not in DATABASE_URL and "127.0.0.1" not in DATAB
     connect_args["ssl"] = "require"
 
 engine = create_async_engine(
-    DATABASE_URL or "postgresql+asyncpg://postgres:postgres@localhost:5432/reachai",
-    connect_args=connect_args
+    DATABASE_URL,
+    connect_args={"ssl": "require"} if DATABASE_URL.startswith("postgresql") else {}
 )
 AsyncSessionLocal = sessionmaker(
     bind=engine,

@@ -73,15 +73,13 @@ function transformPayload(store: CampaignState) {
 }
 
 import { useRouter } from "next/navigation";
-import { useApi } from "@/lib/api";
 import { useAuth } from "@clerk/nextjs";
 
 export default function SubmitCampaignButton({ id }: { id: string }) {
   const store = useCampaignStore();
   const router = useRouter();
-  const api = useApi();
   const { getToken } = useAuth();
-
+  
   const handleSubmit = async () => {
     const finalPayload = transformPayload(store);
 
@@ -94,13 +92,13 @@ export default function SubmitCampaignButton({ id }: { id: string }) {
 
     try {
       const token = await getToken();
-      // Start streaming listener
-      store.startCampaignStream(id, token);
-
-      // Trigger campaign generation in backend
-      await api(`/api/campaigns/${id}/generate`, {
+      const response = await fetch(`http://localhost:8000/api/campaigns/${id}/generate`, {
         method: "POST",
-        data: finalPayload,
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(finalPayload)
       });
     } catch (error) {
       console.error("Error submitting campaign to backend:", error);
@@ -113,4 +111,3 @@ export default function SubmitCampaignButton({ id }: { id: string }) {
     </Button>
   );
 }
-
