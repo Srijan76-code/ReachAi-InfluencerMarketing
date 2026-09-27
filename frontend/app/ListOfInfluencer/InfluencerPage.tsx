@@ -122,19 +122,19 @@ const InfluencerPage = ({ campaignId }: InfluencerPageProps) => {
     filterPrice,
   ]);
 
-  if (isGenerating || status === "PENDING") {
-    return (
-      <div className="min-h-screen bg-zinc-50 dark:bg-[#08090a] flex flex-col items-center justify-center text-zinc-600 dark:text-zinc-400 p-8 font-sans">
-        <Loader2Icon className="w-10 h-10 animate-spin text-blue-500 mb-6" />
-        <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">
-          {stageIndex ? `Stage ${stageIndex}` : "Processing LangGraph Workflow"}
-        </h2>
-        <p className="mt-2 text-sm max-w-md text-center opacity-80 font-mono">
-          {currentStage || "Our LangGraph AI agent is currently analyzing and discovering creators..."}
-        </p>
-      </div>
-    );
-  }
+  // if (isGenerating || status === "PENDING") {
+  //   return (
+  //     <div className="min-h-screen bg-zinc-50 dark:bg-[#08090a] flex flex-col items-center justify-center text-zinc-600 dark:text-zinc-400 p-8 font-sans">
+  //       <Loader2Icon className="w-10 h-10 animate-spin text-blue-500 mb-6" />
+  //       <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">
+  //         {stageIndex ? `Stage ${stageIndex}` : "Processing LangGraph Workflow"}
+  //       </h2>
+  //       <p className="mt-2 text-sm max-w-md text-center opacity-80 font-mono">
+  //         {currentStage || "Our LangGraph AI agent is currently analyzing and discovering creators..."}
+  //       </p>
+  //     </div>
+  //   );
+  // }
 
   // Fallback if accessed before generating
   if (!final_ranked_leads || final_ranked_leads.length === 0) {

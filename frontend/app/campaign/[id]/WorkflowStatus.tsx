@@ -3,10 +3,13 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { useRealtime } from "inngest/react";
+import { Status, StatusIndicator, StatusLabel } from "@/components/kibo-ui/status";
 
 import { getCampaignRealtimeToken } from "@/app/actions/realtime";
 import { campaignChannel } from "@/inngest/channels";
 import { useCampaignStore } from "@/store/campaignStore";
+import { RiPulseAiFill } from "@remixicon/react";
+import { Loader } from "@/components/ui/loader";
 
 type WorkflowStatusProps = {
   campaignId: string;
@@ -14,7 +17,7 @@ type WorkflowStatusProps = {
 
 type DurableStatus = {
   run_id?: string;
-  current_stage?: string | null;
+  current_stage?: string | undefined;
   status?: string;
 };
 
@@ -121,9 +124,32 @@ export default function WorkflowStatus({
 
   return (
     <section aria-live="polite" className="rounded-lg border p-4">
-      <p className="text-xs text-muted-foreground">
-        Workflow {realtime.connectionStatus}
-      </p>
+      {/* <p className="text-xs text-muted-foreground">
+        <RiPulseAiFill className="inline-block mr-1" /> System {realtime.connectionStatus}
+      </p> */}
+
+
+      {status == "failed" ? (
+        <Status status="offline">
+          <StatusIndicator />
+          <StatusLabel className="text-foreground text-xs">System down</StatusLabel>
+        </Status>
+      ) : (
+        <div className="flex w-full h-96 flex-col  ">
+
+          <Status status="online">
+            <StatusIndicator />
+            <StatusLabel className="text-foreground text-xs">System connected</StatusLabel>
+          </Status>
+          <Loader variant={"text-shimmer"} text={stage} />
+        </div>
+
+      )}
+
+
+
+
+
       <p className="mt-1 text-sm font-medium">
         {status === "completed"
           ? "Completed"
