@@ -16,6 +16,8 @@
     "@radix-ui/react-slot": "^1.2.4",
     "@remixicon/react": "^4.8.0",
     "@trigger.dev/sdk": "^4.3.3",
+    "@vercel/analytics": "^2.0.1",
+    "@vercel/speed-insights": "^2.0.0",
     "add": "^2.0.6",
     "axios": "^1.15.0",
     "class-variance-authority": "^0.7.1",
