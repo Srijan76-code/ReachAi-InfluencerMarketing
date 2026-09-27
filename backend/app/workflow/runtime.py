@@ -4,6 +4,7 @@ import time
 from typing import Any, Dict, Optional
 
 import inngest
+from inngest.experimental.realtime import publish as publish_realtime
 from langgraph.cache.memory import InMemoryCache
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from psycopg.errors import UndefinedTable
@@ -41,17 +42,17 @@ async def publish_stage_update(run_id: str, thread_id: str, stage_name: Optional
         return
 
     try:
-        await inngest_client.send(
-            inngest.Event(
-                name="campaign/stage",
-                data={
-                    "run_id": run_id,
-                    "thread_id": thread_id,
-                    "stage": stage_name,
-                    "status": status,
-                    "ts": int(time.time() * 1000),
-                },
-            )
+        await publish_realtime(
+            inngest_client,
+            channel=f"campaign:{run_id}",
+            topic="status",
+            data={
+                "run_id": run_id,
+                "thread_id": thread_id,
+                "stage": stage_name,
+                "status": status,
+                "ts": int(time.time() * 1000),
+            },
         )
     except Exception:
         logger.exception("Failed to publish stage update for %s/%s", run_id, thread_id)

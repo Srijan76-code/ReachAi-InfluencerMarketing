@@ -42,7 +42,14 @@ const CampaignPage: React.FC = () => {
       setLoading(true);
       const res = await api("/api/campaigns/", { method: "GET" });
       if (res.data && Array.isArray(res.data)) {
-        const mapped: Campaign[] = res.data.map((c: any) => {
+        const mapped: Campaign[] = res.data.map((c: {
+          id: string;
+          name?: string;
+          status?: string;
+          stage_index?: string;
+          current_stage?: string;
+          createdAt?: string;
+        }) => {
           let uiStatus: CampaignStatus = "draft";
           const rawStatus = (c.status || "").toLowerCase();
           if (rawStatus === "completed" || rawStatus === "active") uiStatus = "active";
@@ -79,6 +86,11 @@ const CampaignPage: React.FC = () => {
       }
     } catch (err) {
       console.error("Error creating campaign:", err);
+      window.alert(
+        err instanceof Error
+          ? err.message
+          : "Unable to create campaign. Please refresh and sign in again.",
+      );
     }
   };
 
@@ -145,10 +157,9 @@ const CampaignPage: React.FC = () => {
                 onClick={() => setStatusFilter(status.value)}
                 className={`
                   px-4 py-1 text-xs font-medium rounded-md transition-all whitespace-nowrap
-                  ${
-                    statusFilter === status.value
-                      ? "bg-white dark:bg-[#1f2023] text-neutral-900 dark:text-neutral-100 shadow-sm border border-neutral-200/50 dark:border-white/5"
-                      : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200 hover:bg-neutral-200/50 dark:hover:bg-neutral-800/50"
+                  ${statusFilter === status.value
+                    ? "bg-white dark:bg-[#1f2023] text-neutral-900 dark:text-neutral-100 shadow-sm border border-neutral-200/50 dark:border-white/5"
+                    : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200 hover:bg-neutral-200/50 dark:hover:bg-neutral-800/50"
                   }
                 `}
               >
@@ -201,6 +212,7 @@ const CampaignPage: React.FC = () => {
               className="!bg-zinc-50 dark:!bg-[#08090a] border-neutral-200 dark:border-neutral-800/80 text-neutral-900 dark:text-neutral-200 rounded-lg shadow-sm h-8 flex items-center justify-center px-3"
               glowColor="rgba(255, 255, 255, 0.2)"
               hoverTextColor="white"
+
             >
               <div className="flex gap-2 text-xs py-0.5 items-center">
                 <PlusCircle className="w-3 h-3" />

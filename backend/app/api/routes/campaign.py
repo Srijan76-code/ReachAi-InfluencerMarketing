@@ -28,7 +28,7 @@ async def get_campaigns(
 ):
     result = await db.execute(
         select(Campaign)
-        .where(Campaign.user_id == user.clerk_id)
+        .where(Campaign.user_id == user.user_id)
         .order_by(desc(Campaign.created_at))
     )
     campaigns = result.scalars().all()
@@ -57,7 +57,7 @@ async def create_campaign(
     new_id = str(uuid4())
     campaign = Campaign(
         campaign_id=new_id,
-        user_id=user.clerk_id,
+        user_id=user.user_id,
         name="Untitled Campaign",
         status=CampaignStatus.CREATED,
         current_stage="Draft"
@@ -82,7 +82,7 @@ async def get_campaign_details(
     result = await db.execute(
         select(Campaign).where(
             Campaign.campaign_id == campaign_id,
-            Campaign.user_id == user.clerk_id
+            Campaign.user_id == user.user_id
         )
     )
     campaign = result.scalar_one_or_none()
@@ -112,7 +112,7 @@ async def generate_campaign(
     result = await db.execute(
         select(Campaign).where(
             Campaign.campaign_id == campaign_id,
-            Campaign.user_id == user.clerk_id
+            Campaign.user_id == user.user_id
         )
     )
     campaign = result.scalar_one_or_none()
@@ -177,7 +177,7 @@ async def get_campaign_status(
     result = await db.execute(
         select(Campaign).where(
             Campaign.campaign_id == campaign_id,
-            Campaign.user_id == user.clerk_id
+            Campaign.user_id == user.user_id
         )
     )
     campaign = result.scalar_one_or_none()
@@ -211,7 +211,7 @@ async def get_campaign_leads(
     result = await db.execute(
         select(Campaign).where(
             Campaign.campaign_id == campaign_id,
-            Campaign.user_id == user.clerk_id
+            Campaign.user_id == user.user_id
         )
     )
     campaign = result.scalar_one_or_none()
@@ -254,7 +254,7 @@ async def stream_campaign_progress(
                 result = await db.execute(
                     select(Campaign).where(
                         Campaign.campaign_id == campaign_id,
-                        Campaign.user_id == user.clerk_id
+                        Campaign.user_id == user.user_id
                     )
                 )
                 camp = result.scalar_one_or_none()

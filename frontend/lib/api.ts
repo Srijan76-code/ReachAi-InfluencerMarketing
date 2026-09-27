@@ -8,7 +8,16 @@ export const useApi = () => {
     url: string,
     options: Record<string, unknown> = {},
   ) => {
-    const token = await getToken();
+    let token: string | null = null;
+    try {
+      token = await getToken();
+    } catch (error) {
+      console.error("Unable to obtain Clerk session token:", error);
+      throw new Error(
+        "Your Clerk session could not be reached. Refresh the page and sign in again.",
+        { cause: error },
+      );
+    }
     const {
       headers: customHeaders = {},
       ...rest

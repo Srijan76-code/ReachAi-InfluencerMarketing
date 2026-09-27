@@ -39,13 +39,18 @@ const CampaignTabs = ({ id }: PageProps) => {
       }
     } catch (err) {
       console.error("Error creating new campaign:", err);
+      window.alert(
+        err instanceof Error
+          ? err.message
+          : "Unable to create campaign. Please refresh and sign in again.",
+      );
     }
   };
 
   return (
-    <div className="fixed top-7 inset-x-0 bg-transparent z-40 h-16 flex px-0 pointer-events-none ">
+    <div className="fixed top-6 inset-x-0 bg-transparent z-30 h-16 flex px-0 pointer-events-none ">
       {/* --- LEFT SIDEBAR STRIP --- */}
-      <div className="flex-1 h-10  bg-zinc-50 dark:bg-[#08090a] z-20 relative min-w-0 border-none">
+      <div className="flex-1 h-10 dark:bg-[#08090a]  z-20 relative min-w-0 border-none">
         <svg
           className="absolute inset-0 w-full h-full"
           preserveAspectRatio="none"
@@ -102,11 +107,12 @@ const CampaignTabs = ({ id }: PageProps) => {
               className="text-zinc-500 dark:text-zinc-50"
             />
           </svg>
+
         </div>
 
         {/* Center Content Area */}
-        <div className="flex-1 h-full relative min-w-[500px] -ml-px">
-          <div className="absolute inset-0 bg-zinc-50 dark:bg-[#08090a]">
+        <div className="flex-1 h-full relative min-w-[500px] -ml-px dark:bg-[#08090a]  ">
+          <div className="absolute dark:bg-[#08090a] inset-0 bg-zinc-50 ">
             <svg
               className="absolute inset-0 w-full h-full pointer-events-none"
               preserveAspectRatio="none"
@@ -167,18 +173,23 @@ const CampaignTabs = ({ id }: PageProps) => {
                   </Link>
                 );
               })}
- 
+
             </nav>
 
             {/* <div className="flex text-xs justify-end items-center "> */}
-              <HoverButton className="border-transparent" onClick={handleCreateNewCampaign}>
-                <div className="flex justify-end items-center gap-2 text-xs">
-                  <PlusCircle className="w-3 h-3" />
-                  <p>New Campaign</p>
-                </div>
-              </HoverButton>
-              {/* <div className="h-4 w-[1px] bg-zinc-200 dark:bg-zinc-800" /> */}
-              {/* <button className="p-1.5 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors">
+            <HoverButton
+              className="!bg-zinc-50 dark:!bg-[#08090a] z-50 border-neutral-200 dark:border-black text-neutral-900 dark:text-neutral-200 h-8 flex items-center justify-center px-3"
+              glowColor="rgba(255, 255, 255, 0.2)"
+              hoverTextColor="white"
+
+              onClick={handleCreateNewCampaign}>
+              <div className="flex justify-end items-center gap-2 text-xs">
+                <PlusCircle className="w-3 h-3" />
+                <p>New Campaign</p>
+              </div>
+            </HoverButton>
+            {/* <div className="h-4 w-[1px] bg-zinc-200 dark:bg-zinc-800" /> */}
+            {/* <button className="p-1.5 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors">
                 <Sun size={16} />
               </button> */}
             {/* </div> */}
@@ -186,7 +197,7 @@ const CampaignTabs = ({ id }: PageProps) => {
         </div>
 
         {/* Right Shoulder Transition */}
-        <div className="w-[50px] h-full relative shrink-0 -ml-px">
+        <div className="w-[50px] h-ful dark:bg-[#08090a]  relative shrink-0 -ml-px">
           <div
             className="absolute inset-0 bg-zinc-50 dark:bg-[#08090a]"
             style={{ clipPath: "path('M0 0 H50 V40 C25 40 25 64 0 64 Z')" }}
@@ -216,7 +227,7 @@ const CampaignTabs = ({ id }: PageProps) => {
       </div>
 
       {/* --- RIGHT SIDEBAR STRIP --- */}
-      <div className="flex-1 h-10 bg-zinc-50 dark:bg-[#08090a] z-20 relative min-w-0 -ml-px">
+      <div className="flex-1 h-10 dark:bg-[#08090a]   z-20 relative min-w-0 -ml-px">
         <svg
           className="absolute inset-0 w-full h-full"
           preserveAspectRatio="none"

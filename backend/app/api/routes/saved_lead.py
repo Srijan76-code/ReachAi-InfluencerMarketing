@@ -23,7 +23,7 @@ async def create_saved_lead(
     result = await db.execute(
         select(Campaign).where(
             Campaign.campaign_id == campaign_id,
-            Campaign.user_id == user.clerk_id
+            Campaign.user_id == user.user_id
         )
     )
     campaign = result.scalar_one_or_none()
@@ -64,7 +64,7 @@ async def get_saved_leads(
     result = await db.execute(
         select(Campaign).where(
             Campaign.campaign_id == campaign_id,
-            Campaign.user_id == user.clerk_id
+            Campaign.user_id == user.user_id
         )
     )
     campaign = result.scalar_one_or_none()
@@ -99,7 +99,7 @@ async def delete_saved_lead(
     camp_result = await db.execute(
         select(Campaign).where(
             Campaign.campaign_id == campaign_id,
-            Campaign.user_id == user.clerk_id
+            Campaign.user_id == user.user_id
         )
     )
     if not camp_result.scalar_one_or_none():
@@ -129,7 +129,7 @@ async def get_saved_lead(
         .join(Campaign, SavedLead.campaign_id == Campaign.campaign_id)
         .where(
             SavedLead.lead_id == lead_id,
-            Campaign.user_id == user.clerk_id
+            Campaign.user_id == user.user_id
         )
     )
     row = result.first()

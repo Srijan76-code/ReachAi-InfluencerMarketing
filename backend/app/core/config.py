@@ -11,7 +11,6 @@ LANGGRAPH_CHECKPOINTER_URL = os.getenv(
 )
 INNGEST_APP_ID = os.getenv("INNGEST_APP_ID", "reach-ai")
 INNGEST_EVENT_KEY = os.getenv("INNGEST_EVENT_KEY")
-INNGEST_SIGNING_KEY = os.getenv(
-    "INNGEST_SIGNING_KEY",
-    "local-dev-signing-key" if os.getenv("INNGEST_DEV") == "1" else None,
+INNGEST_SIGNING_KEY = os.getenv("INNGEST_SIGNING_KEY") or (
+    "signkey-dev-" + ("0" * 64) if os.getenv("INNGEST_DEV") == "1" else None
 )

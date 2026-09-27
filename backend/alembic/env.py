@@ -5,6 +5,7 @@ from sqlalchemy import pool
 
 from alembic import context
 from app.db.base import Base
+from app.db.database import _asyncpg_database_url
 from app.models import *
 
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -14,7 +15,7 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_URL, CONNECT_ARGS = _asyncpg_database_url(os.getenv("DATABASE_URL", ""))
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -75,7 +76,7 @@ def run_migrations_online():
     connectable = create_async_engine(
         DATABASE_URL,
         poolclass=pool.NullPool,
-        connect_args={"ssl": "require"},
+        connect_args=CONNECT_ARGS,
     )
 
     async def do_run():

@@ -36,9 +36,15 @@ export default function WorkflowStatus({
     token: runId
       ? () => getCampaignRealtimeToken(campaignId, runId)
       : undefined,
-    enabled: Boolean(runId),
+    enabled: Boolean(runId && durableStatus.status === "PENDING"),
     autoCloseOnTerminal: true,
   });
+
+  useEffect(() => {
+    if (realtime.error) {
+      console.error("Inngest Realtime subscription failed:", realtime.error);
+    }
+  }, [realtime.error]);
 
   useEffect(() => {
     let cancelled = false;
