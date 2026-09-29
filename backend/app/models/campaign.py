@@ -38,4 +38,5 @@ class Campaign(Base):
 
     user = relationship("User", back_populates="campaigns")
     saved_leads = relationship("SavedLead", back_populates="campaign", cascade="all, delete")
+    outreach_jobs = relationship("OutreachJob", back_populates="campaign", cascade="all, delete-orphan")
 

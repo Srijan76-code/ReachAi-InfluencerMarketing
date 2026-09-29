@@ -1,0 +1,1 @@
+"""Outreach generation domain."""

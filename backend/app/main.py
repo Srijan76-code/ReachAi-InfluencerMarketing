@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 from app.api.router import api_router
 from app.models import *
 from app.inngest.client import inngest_client
-from app.inngest.functions import run_campaign
+from app.inngest.functions import run_campaign, run_outreach
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -82,7 +82,7 @@ async def health():
 inngest.fast_api.serve(
     app,
     inngest_client,
-    [run_campaign],
+    [run_campaign, run_outreach],
 )
 
 
