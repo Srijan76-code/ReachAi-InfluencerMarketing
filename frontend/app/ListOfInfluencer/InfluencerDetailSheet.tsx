@@ -118,7 +118,7 @@ export const InfluencerDetailSheet = ({ influencer }: { influencer: Influencer }
                       className={influencer.final_score >= 80 ? "text-emerald-500" : influencer.final_score >= 60 ? "text-amber-500" : "text-rose-500"} 
                       strokeWidth="2.5" 
                       strokeDasharray="100" 
-                      strokeDashoffset={100 - influencer.final_score} 
+                      strokeDashoffset={100 - Math.round(influencer.final_score)} 
                       strokeLinecap="round" 
                       stroke="currentColor" 
                       fill="transparent" 
@@ -128,7 +128,7 @@ export const InfluencerDetailSheet = ({ influencer }: { influencer: Influencer }
                       pathLength="100" 
                     />
                   </svg>
-                  <span className="absolute text-[8px] font-mono font-bold text-zinc-900 dark:text-zinc-200">{influencer.final_score}</span>
+                  <span className="absolute text-[8px] font-mono font-bold text-zinc-900 dark:text-zinc-200">{Math.round(influencer.final_score)}</span>
                 </div>
               </div>
             </div>
