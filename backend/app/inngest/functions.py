@@ -8,6 +8,7 @@ from app.db.database import AsyncSessionLocal
 from app.inngest.client import inngest_client
 from app.models.campaign import Campaign, CampaignStatus
 from app.workflow.runtime import run_graph_with_stage_events
+from app.outreach.runtime import run_outreach_graph
 
 logger = logging.getLogger(__name__)
 
@@ -84,3 +85,16 @@ async def run_campaign(ctx: inngest.Context):
             )
             await db.commit()
             raise
+
+
+@inngest_client.create_function(
+    fn_id="run_outreach",
+    trigger=inngest.TriggerEvent(event="outreach/run"),
+)
+async def run_outreach(ctx: inngest.Context):
+    data = ctx.event.data
+    return await run_outreach_graph(
+        outreach_job_id=data["outreach_job_id"],
+        run_id=data["run_id"],
+        thread_id=data["thread_id"],
+    )
