@@ -123,34 +123,41 @@ export default function WorkflowStatus({
   }, [campaignId, getToken, live, setCampaignCache, setField]);
 
   return (
-    <section aria-live="polite" className="rounded-lg border p-4">
+    <section aria-live="polite" className=" p-4">
       {/* <p className="text-xs text-muted-foreground">
         <RiPulseAiFill className="inline-block mr-1" /> System {realtime.connectionStatus}
       </p> */}
 
 
-      {status == "failed" ? (
+
+
+
+      {stage === "completed" ? null : status === "failed" ? (
         <Status status="offline">
           <StatusIndicator />
-          <StatusLabel className="text-foreground text-xs">System down</StatusLabel>
+          <StatusLabel className="text-foreground text-xs">
+            System down
+          </StatusLabel>
         </Status>
       ) : (
-        <div className="flex w-full h-96 flex-col  ">
-
+        <div className="flex w-full h-full py-8 flex-col gap-4 justify-center">
           <Status status="online">
             <StatusIndicator />
-            <StatusLabel className="text-foreground text-xs">System connected</StatusLabel>
+            <StatusLabel className="text-foreground text-xs">
+              System connected
+            </StatusLabel>
           </Status>
-          <Loader variant={"text-shimmer"} text={stage} />
-        </div>
 
+          <Loader
+            variant="text-shimmer"
+            text={`Running: ${stage}....`}
+          />
+        </div>
       )}
 
 
 
-
-
-      <p className="mt-1 text-sm font-medium">
+      {/* <p className="mt-1 text-sm font-medium">
         {status === "completed"
           ? "Completed"
           : status === "failed"
@@ -158,7 +165,7 @@ export default function WorkflowStatus({
             : stage
               ? `Running: ${stage}`
               : "Waiting to start"}
-      </p>
+      </p> */}
     </section>
   );
 }
