@@ -2,6 +2,10 @@ from typing import Annotated, Any, Dict, List, Optional, TypedDict
 from operator import add
 
 
+def merge_creator_maps(left: Dict[str, Any], right: Dict[str, Any]) -> Dict[str, Any]:
+    return {**(left or {}), **(right or {})}
+
+
 class CreatorPitchInput(TypedDict, total=False):
     creator_id: str
     selection_index: int
@@ -39,9 +43,13 @@ class OutreachState(TypedDict, total=False):
     model_name: str
     work_items: List[CreatorPitchInput]
     creator_input: CreatorPitchInput
+    creator_inputs: Annotated[Dict[str, CreatorPitchInput], merge_creator_maps]
     pitch_bundle: Dict[str, Any]
+    creator_pitch_bundles: Annotated[Dict[str, Dict[str, Any]], merge_creator_maps]
     validation_errors: List[str]
+    creator_validations: Annotated[Dict[str, Dict[str, Any]], merge_creator_maps]
     repair_count: int
+    creator_repair_counts: Annotated[Dict[str, int], merge_creator_maps]
     validation_passed: bool
     prompt_version: str
     cache_key: str

@@ -1,9 +1,11 @@
 import re
 
 from pydantic import ValidationError
+from langgraph.types import Command, Send
 
 from app.schemas.outreach import PitchBundle
 from app.outreach.state import CreatorPitchInput, OutreachState
+from app.outreach.utils import current_creator_input
 
 
 CHANNEL_FIELDS = {
@@ -75,6 +77,22 @@ def validate_bundle(bundle_data: dict, creator_input: CreatorPitchInput) -> list
 
 
 async def validate_creator_pitch(state: OutreachState) -> OutreachState:
-    creator_input = state.get("creator_input") or {}
-    errors = validate_bundle(state.get("pitch_bundle") or {}, creator_input)
-    return {"validation_errors": errors, "validation_passed": not errors}
+    creator_input = current_creator_input(state)
+    creator_id = creator_input.get("creator_id", "")
+    bundle = (state.get("creator_pitch_bundles") or {}).get(creator_id, {})
+    errors = validate_bundle(bundle, creator_input)
+    validation = {creator_id: {"errors": errors, "passed": not errors}}
+    repair_count = (state.get("creator_repair_counts") or {}).get(creator_id, 0)
+    destination = "collect_creator_pitch" if not errors or repair_count >= 1 else "repair_creator_pitch"
+    return Command(
+        update={"creator_validations": validation},
+        goto=Send(
+            destination,
+            {
+                "creator_input": creator_input,
+                "creator_pitch_bundles": {creator_id: bundle},
+                "creator_validations": validation,
+                "creator_repair_counts": {creator_id: repair_count},
+            },
+        ),
+    )

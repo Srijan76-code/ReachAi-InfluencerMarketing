@@ -2,7 +2,10 @@ import asyncio
 import json
 
 from app.core.model import model
+from langgraph.types import Command, Send
+
 from app.outreach.state import OutreachState
+from app.outreach.utils import current_creator_input
 from app.schemas.outreach import PitchBundle
 
 
@@ -46,12 +49,24 @@ CREATOR:
 
 
 async def generate_creator_pitch(state: OutreachState) -> OutreachState:
-    creator_input = state.get("creator_input") or {}
+    creator_input = current_creator_input(state)
     structured_llm = model.with_structured_output(PitchBundle)
     result = await asyncio.to_thread(structured_llm.invoke, _generation_prompt(creator_input))
     bundle = result if isinstance(result, PitchBundle) else PitchBundle.model_validate(result)
-    return {
-        "pitch_bundle": bundle.model_dump(),
+    bundle_data = bundle.model_dump()
+    return Command(
+        update={
+        "creator_inputs": {creator_input.get("creator_id", ""): creator_input},
+        "creator_pitch_bundles": {creator_input.get("creator_id", ""): bundle_data},
         "repair_count": 0,
+        "creator_repair_counts": {creator_input.get("creator_id", ""): 0},
         "cache_key": creator_input.get("cache_key", ""),
-    }
+        },
+        goto=Send(
+            "validate_creator_pitch",
+            {
+                "creator_input": creator_input,
+                "creator_pitch_bundles": {creator_input.get("creator_id", ""): bundle_data},
+            },
+        ),
+    )

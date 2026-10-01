@@ -10,6 +10,8 @@ numpy
 isodate
 google-api-python-client
 pydantic
+pytest
+langsmith
 scikit-learn
 rank_bm25
 fastapi
