@@ -63,7 +63,7 @@ async def create_outreach_job(
         user_id=user.user_id,
         run_id=str(uuid.uuid4()),
         thread_id=outreach_job_id,
-        status="CREATED",
+        status="PENDING" if payload.auto_start else "CREATED",
         collaboration_type=payload.collaboration_type,
         deliverables=payload.deliverables,
         creator_overrides=payload.creator_overrides,
@@ -81,6 +81,27 @@ async def create_outreach_job(
             )
         )
     await db.commit()
+
+    if payload.auto_start:
+        try:
+            await inngest_client.send(
+                inngest.Event(
+                    name="outreach/run",
+                    data={
+                        "outreach_job_id": job.outreach_job_id,
+                        "campaign_id": job.campaign_id,
+                        "user_id": user.user_id,
+                        "run_id": job.run_id,
+                        "thread_id": job.thread_id,
+                    },
+                )
+            )
+        except Exception as exc:
+            job.status = "FAILED"
+            job.error_message = "Unable to enqueue outreach workflow"
+            await db.commit()
+            raise HTTPException(503, "Unable to enqueue outreach workflow") from exc
+
     return _job_response(job)
 
 
@@ -98,6 +119,50 @@ async def list_outreach_jobs(
     return [_job_response(job) for job in result.scalars().all()]
 
 
+@router.get("/campaigns/{campaign_id}/latest-job", response_model=OutreachJobDetailResponse)
+async def get_latest_outreach_job(
+    campaign_id: str,
+    user: User = Depends(get_db_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(OutreachJob)
+        .options(selectinload(OutreachJob.pitches))
+        .where(OutreachJob.campaign_id == campaign_id, OutreachJob.user_id == user.user_id)
+        .order_by(OutreachJob.created_at.desc())
+        .limit(1)
+    )
+    job = result.scalar_one_or_none()
+    if not job:
+        raise HTTPException(404, "No outreach jobs found for this campaign")
+    return _build_job_detail_response(job)
+
+
+def _build_job_detail_response(job: OutreachJob) -> OutreachJobDetailResponse:
+    return OutreachJobDetailResponse(
+        **_job_response(job).model_dump(),
+        selected_creator_ids=job.selected_creator_ids or [],
+        collaboration_type=job.collaboration_type,
+        deliverables=job.deliverables or [],
+        creator_overrides=job.creator_overrides or {},
+        pitches=[
+            {
+                "pitch_id": pitch.pitch_id,
+                "creator_id": pitch.creator_id,
+                "status": pitch.status,
+                "available_channels": pitch.available_channels or [],
+                "pitch_bundle": pitch.pitch_bundle,
+                "validation_errors": pitch.validation_errors or [],
+                "repair_count": pitch.repair_count or 0,
+            }
+            for pitch in sorted(job.pitches, key=lambda item: item.selection_index)
+        ],
+        pitch_pack=job.pitch_pack,
+        generation_stats=job.generation_stats,
+        error_message=job.error_message,
+    )
+
+
 @router.get("/jobs/{outreach_job_id}", response_model=OutreachJobDetailResponse)
 async def get_outreach_job(
     outreach_job_id: str,
@@ -112,18 +177,7 @@ async def get_outreach_job(
     job = result.scalar_one_or_none()
     if not job:
         raise HTTPException(404, "Outreach job not found")
-    return OutreachJobDetailResponse(
-        **_job_response(job).model_dump(),
-        selected_creator_ids=job.selected_creator_ids or [],
-        creator_overrides=job.creator_overrides or {},
-        pitches=[
-            {"pitch_id": pitch.pitch_id, "creator_id": pitch.creator_id, "status": pitch.status}
-            for pitch in sorted(job.pitches, key=lambda item: item.selection_index)
-        ],
-        pitch_pack=job.pitch_pack,
-        generation_stats=job.generation_stats,
-        error_message=job.error_message,
-    )
+    return _build_job_detail_response(job)
 
 
 @router.post("/jobs/{outreach_job_id}/start", response_model=OutreachJobResponse)

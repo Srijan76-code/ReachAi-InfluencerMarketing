@@ -14,6 +14,7 @@ import {
   ChevronDown,
   FileSpreadsheet,
   FileText,
+  Send,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -28,8 +29,9 @@ import {
 import { Sheet, SheetTrigger } from "@/components/ui/sheet";
 import { InfluencerDetailSheet } from "./InfluencerDetailSheet";
 import { ExportDialog } from "@/components/ExportDialog";
+import { OutreachDialog } from "@/components/OutreachDialog";
 import { CampaignSummaryBanner } from "./CampaignSummaryBanner";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import { staggerItemVariants } from "@/components/animations/variants";
 
 interface InfluencerPageProps {
@@ -375,6 +377,18 @@ const InfluencerPage = ({ campaignId }: InfluencerPageProps) => {
                   </DropdownMenuContent>
                 </DropdownMenu>
 
+                {/* Outreach Action Trigger */}
+                {campaignId && (
+                  <OutreachDialog
+                    campaignId={campaignId}
+                    influencers={
+                      selectedIds.size > 0
+                        ? displayedLeads.filter((l) => selectedIds.has(l.id))
+                        : displayedLeads
+                    }
+                  />
+                )}
+
                 {/* Export Advanced Module */}
                 <ExportDialog
                   influencers={
@@ -461,7 +475,7 @@ const InfluencerPage = ({ campaignId }: InfluencerPageProps) => {
                               />
                             </div>
                           </SheetTrigger>
-                          <InfluencerDetailSheet influencer={influencer} />
+                          <InfluencerDetailSheet influencer={influencer} campaignId={campaignId} />
                         </Sheet>
                       </div>
                     </motion.div>
@@ -470,6 +484,53 @@ const InfluencerPage = ({ campaignId }: InfluencerPageProps) => {
               )}
             </div>
           </div>
+
+          {/* Floating Action Bar for Selected Leads */}
+          <AnimatePresence>
+            {selectedIds.size > 0 && campaignId && (
+              <motion.div
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 30 }}
+                transition={{ duration: 0.18, ease: "easeOut" }}
+                className="fixed bottom-6 inset-x-0 z-40 flex justify-center pointer-events-none px-4"
+              >
+                <div className="pointer-events-auto flex items-center gap-3 px-4 py-2.5 rounded-full bg-zinc-900/95 dark:bg-[#121314]/95 backdrop-blur-md border border-zinc-700/60 dark:border-white/10 shadow-2xl text-white text-xs">
+                  <span className="font-medium text-zinc-200">
+                    {selectedIds.size} {selectedIds.size === 1 ? "creator" : "creators"} selected
+                  </span>
+
+                  <div className="w-[1px] h-3.5 bg-zinc-700 dark:bg-zinc-800" />
+
+                  <OutreachDialog
+                    campaignId={campaignId}
+                    influencers={displayedLeads.filter((l) => selectedIds.has(l.id))}
+                    trigger={
+                      <button
+                        type="button"
+                        className="flex items-center gap-1.5 px-3 py-1 font-medium bg-white text-zinc-900 dark:bg-white dark:text-zinc-900 rounded-full hover:bg-zinc-100 transition-colors shadow-sm"
+                      >
+                        <Send size={12} />
+                        Start Outreach
+                      </button>
+                    }
+                  />
+
+                  <ExportDialog
+                    influencers={displayedLeads.filter((l) => selectedIds.has(l.id))}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedIds(new Set())}
+                    className="text-zinc-400 hover:text-white px-1.5 py-0.5 transition-colors"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </TooltipProvider>
     // </StaggerFadeRise>

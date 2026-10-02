@@ -73,11 +73,46 @@ async def run_outreach_graph(outreach_job_id: str, run_id: str, thread_id: str) 
                     checkpointer=checkpointer,
                     cache=InMemoryCache(),
                 )
+                completed_creators: set[str] = set()
+                total_creators = len(selected_creators)
+
                 async for event in workflow.astream_events(initial_state, config=config, version="v2"):
-                    if event.get("event") == "on_chain_start":
-                        node_name = (event.get("metadata") or {}).get("langgraph_node")
-                        if node_name:
-                            await _publish(outreach_job_id, run_id, str(node_name))
+                    kind = event.get("event")
+                    node_name = (event.get("metadata") or {}).get("langgraph_node")
+                    if not node_name:
+                        continue
+
+                    if kind == "on_chain_start":
+                        creator_id = None
+                        inp = (event.get("data") or {}).get("input")
+                        if isinstance(inp, dict):
+                            creator_id = (inp.get("creator_input") or {}).get("creator_id")
+                        await _publish(
+                            outreach_job_id,
+                            run_id,
+                            str(node_name),
+                            creator_id=creator_id,
+                            status="running",
+                            completed_count=len(completed_creators),
+                            total_count=total_creators,
+                        )
+                    elif kind == "on_chain_end" and node_name == "collect_creator_pitch":
+                        out = (event.get("data") or {}).get("output") or {}
+                        pitch_results = out.get("pitch_results") or []
+                        for res in pitch_results:
+                            cid = res.get("creator_id")
+                            if cid:
+                                completed_creators.add(cid)
+                            await _publish(
+                                outreach_job_id,
+                                run_id,
+                                "creator_pitch_completed",
+                                creator_id=cid,
+                                pitch_status=res.get("status"),
+                                status="running",
+                                completed_count=len(completed_creators),
+                                total_count=total_creators,
+                            )
                 state_snapshot = await workflow.aget_state(config)
                 final_state = state_snapshot.values if hasattr(state_snapshot, "values") else {}
 

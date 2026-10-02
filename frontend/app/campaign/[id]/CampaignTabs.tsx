@@ -10,7 +10,7 @@ import {
   Sun,
   LayoutGrid,
   Users,
-  Bookmark,
+  Send,
   PlusCircle,
 } from "lucide-react";
 import { HoverButton } from "@/components/buttons/HoverButton";
@@ -23,7 +23,7 @@ interface PageProps {
 const NAV_ITEMS = [
   { name: "Details", path: "details", icon: LayoutGrid },
   { name: "Leads", path: "leads", icon: Users },
-  { name: "Saved", path: "saved", icon: Bookmark },
+  { name: "Outreach", path: "outreach", icon: Send },
 ];
 
 const CampaignTabs = ({ id }: PageProps) => {

@@ -32,23 +32,33 @@ class OutreachJobCreate(BaseModel):
     collaboration_type: Optional[str] = None
     deliverables: List[str] = Field(default_factory=list)
     creator_overrides: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
+    auto_start: Optional[bool] = False
 
 
 class OutreachJobResponse(BaseModel):
     outreach_job_id: str
     campaign_id: str
     status: str
+    run_id: Optional[str] = None
+    thread_id: Optional[str] = None
 
 
 class OutreachPitchResponse(BaseModel):
     pitch_id: str
     creator_id: str
     status: str
+    available_channels: Optional[List[str]] = None
+    pitch_bundle: Optional[Dict[str, Any]] = None
+    validation_errors: Optional[List[str]] = None
+    repair_count: Optional[int] = 0
 
 
 class OutreachJobDetailResponse(OutreachJobResponse):
     selected_creator_ids: List[str] = Field(default_factory=list)
+    collaboration_type: Optional[str] = None
+    deliverables: List[str] = Field(default_factory=list)
     creator_overrides: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
     pitches: List[OutreachPitchResponse] = Field(default_factory=list)
     pitch_pack: Optional[Dict[str, Any]] = None
     generation_stats: Optional[Dict[str, Any]] = None
+    error_message: Optional[str] = None

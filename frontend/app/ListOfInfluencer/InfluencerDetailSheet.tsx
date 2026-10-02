@@ -21,7 +21,8 @@ import {
   TrendingUp,
   BarChart2,
   Users,
-  Eye
+  Eye,
+  Send,
 } from "lucide-react";
 import { 
   Tooltip, 
@@ -30,8 +31,15 @@ import {
   TooltipTrigger 
 } from "@/components/ui/tooltip";
 import type { Influencer } from "@/data/influencerList";
+import { OutreachDialog } from "@/components/OutreachDialog";
 
-export const InfluencerDetailSheet = ({ influencer }: { influencer: Influencer }) => {
+export const InfluencerDetailSheet = ({
+  influencer,
+  campaignId,
+}: {
+  influencer: Influencer;
+  campaignId?: string;
+}) => {
   const { metrics, socials, title, deal_status, score_breakdown } = influencer;
 
   // Status Color Logic
@@ -85,9 +93,22 @@ export const InfluencerDetailSheet = ({ influencer }: { influencer: Influencer }
               <a href={socials.twitter || "#"} className="w-8 h-8 rounded border border-zinc-200/60 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-900/50 flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors text-zinc-600 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"><Twitter size={14} /></a>
               <a href={`mailto:${socials.email || ""}`} className="w-8 h-8 rounded border border-zinc-200/60 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-900/50 flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors text-zinc-600 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"><Mail size={14} /></a>
             </div>
-            <button className="bg-zinc-100 hover:bg-zinc-900 dark:hover:bg-white text-zinc-900 text-[12px] font-semibold px-4 py-2 rounded transition-colors shadow-sm active:scale-95">
-              Start Outreach
-            </button>
+            {campaignId ? (
+              <OutreachDialog
+                campaignId={campaignId}
+                influencers={[influencer]}
+                trigger={
+                  <button className="bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-white dark:hover:bg-zinc-100 dark:text-zinc-900 text-[12px] font-medium px-4 py-2 rounded-md transition-colors shadow-sm active:scale-95 flex items-center gap-1.5">
+                    <Send size={12} />
+                    Start Outreach
+                  </button>
+                }
+              />
+            ) : (
+              <button className="bg-zinc-100 hover:bg-zinc-900 dark:hover:bg-white text-zinc-900 text-[12px] font-semibold px-4 py-2 rounded transition-colors shadow-sm active:scale-95">
+                Start Outreach
+              </button>
+            )}
           </div>
         </div>
 

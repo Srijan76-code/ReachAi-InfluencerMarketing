@@ -16,3 +16,25 @@ export const campaignChannel = realtime.channel({
     },
   },
 });
+
+export type OutreachStageUpdate = {
+  outreach_job_id: string;
+  creator_id?: string;
+  pitch_status?: string;
+  stage: string;
+  status: "running" | "completed" | "failed";
+  completed_count?: number;
+  total_count?: number;
+  stats?: Record<string, any>;
+  error?: string;
+  ts: number;
+};
+
+export const outreachChannel = realtime.channel({
+  name: ({ runId }: { runId: string }) => `outreach:${runId}`,
+  topics: {
+    status: {
+      schema: staticSchema<OutreachStageUpdate>(),
+    },
+  },
+});
