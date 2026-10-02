@@ -13,7 +13,7 @@ export default async function Page({
 
   return (
     <div className="max-w-full overflow-x-hidden">
-      <WorkflowStatus campaignId={id} />
+      {/* <WorkflowStatus campaignId={id} /> */}
       <OutreachClient campaignId={id} initialJobId={job_id} />
     </div>
   );

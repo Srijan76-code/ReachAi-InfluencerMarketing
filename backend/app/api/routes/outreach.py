@@ -197,6 +197,8 @@ async def start_outreach_job(
     if job.status == "COMPLETED":
         raise HTTPException(409, "Outreach job has already completed")
 
+    new_run_id = str(uuid.uuid4())
+    job.run_id = new_run_id
     job.status = "PENDING"
     job.error_message = None
     await db.commit()
@@ -208,7 +210,7 @@ async def start_outreach_job(
                     "outreach_job_id": job.outreach_job_id,
                     "campaign_id": job.campaign_id,
                     "user_id": user.user_id,
-                    "run_id": job.run_id,
+                    "run_id": new_run_id,
                     "thread_id": job.thread_id,
                 },
             )

@@ -18,11 +18,13 @@ import {
   Loader2,
   CheckCircle2,
   AlertCircle,
+  XCircle,
   Download,
   Users,
   Layers,
   ChevronRight,
   RefreshCw,
+  RotateCcw,
 } from "lucide-react";
 import {
   Sheet,
@@ -94,6 +96,8 @@ export default function OutreachClient({
   const [activePitch, setActivePitch] = useState<OutreachPitchItem | null>(null);
   const [activeTab, setActiveTab] = useState<"email" | "instagram" | "twitter" | "linkedin">("email");
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [isRetrying, setIsRetrying] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // Map influencers by ID
   const influencersMap = useMemo(() => {
@@ -121,6 +125,40 @@ export default function OutreachClient({
       setIsLoading(false);
     }
   }, [api, campaignId]);
+
+  const handleRetry = async () => {
+    if (!job?.outreach_job_id || isRetrying) return;
+    setIsRetrying(true);
+    try {
+      await api(`/api/outreach/jobs/${job.outreach_job_id}/start`, {
+        method: "POST",
+      });
+      setJob((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: "PENDING",
+              error_message: undefined,
+            }
+          : prev
+      );
+      await fetchJob(job.outreach_job_id);
+    } catch (err) {
+      console.error("Failed to retry outreach job:", err);
+    } finally {
+      setIsRetrying(false);
+    }
+  };
+
+  const handleSync = async () => {
+    if (!job?.outreach_job_id || isSyncing) return;
+    setIsSyncing(true);
+    try {
+      await fetchJob(job.outreach_job_id);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   useEffect(() => {
     fetchJob(initialJobId);
@@ -229,7 +267,7 @@ export default function OutreachClient({
       <div className="min-h-screen bg-zinc-50 dark:bg-[#08090a] flex items-center justify-center p-8">
         <div className="flex items-center gap-3 text-zinc-500 text-xs">
           <Loader2 size={16} className="animate-spin text-zinc-400" />
-          <span>Loading outreach pipeline...</span>
+          <span>Loading outreach...</span>
         </div>
       </div>
     );
@@ -271,7 +309,7 @@ export default function OutreachClient({
             <div className="space-y-1">
               <div className="flex items-center gap-2.5">
                 <h1 className="text-[16px] font-medium text-zinc-900 dark:text-zinc-100 tracking-tight">
-                  Creator Outreach Sequences
+                  Creator outreach sequences
                 </h1>
                 <span
                   className={`text-[11px] px-2 py-0.5 rounded-full font-medium border ${
@@ -279,30 +317,35 @@ export default function OutreachClient({
                       ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
                       : job.status === "PENDING"
                       ? "bg-blue-500/10 text-blue-500 border-blue-500/20 animate-pulse"
+                      : job.status === "FAILED"
+                      ? "bg-rose-500/10 text-rose-500 border-rose-500/20"
                       : "bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-transparent"
                   }`}
                 >
                   {job.status === "COMPLETED"
-                    ? "Batch Complete"
+                    ? "Batch complete"
                     : job.status === "PENDING"
-                    ? "Generating Pitches..."
-                    : job.status}
+                    ? "Generating pitches..."
+                    : job.status === "FAILED"
+                    ? "Failed"
+                    : job.status.toLowerCase()}
                 </span>
               </div>
               <p className="text-[12px] text-zinc-500">
-                AI personalized pitches with evidence groundings across Email, Instagram, and Twitter.
+                AI personalized pitches across email, Instagram, and Twitter.
               </p>
             </div>
 
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => fetchJob(job.outreach_job_id)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md border border-zinc-200 dark:border-zinc-800 transition-colors"
-                title="Refresh Status"
+                onClick={handleSync}
+                disabled={isSyncing}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md border border-zinc-200 dark:border-zinc-800 transition-colors disabled:opacity-50"
+                title="Refresh from Database"
               >
-                <RefreshCw size={13} className={isJobRunning ? "animate-spin" : ""} />
-                Sync
+                <RefreshCw size={13} className={isSyncing || isJobRunning ? "animate-spin" : ""} />
+                {isSyncing ? "Syncing..." : "Sync"}
               </button>
 
               <button
@@ -319,25 +362,14 @@ export default function OutreachClient({
 
           {/* Progress / Context Banner */}
           <div className="p-4 bg-white dark:bg-[#0c0d0e] rounded-xl border border-zinc-200 dark:border-zinc-800/80 shadow-sm space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-4 text-xs">
-              <div className="flex items-center gap-6">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-5">
                 <div>
-                  <span className="text-[11px] text-zinc-400 block uppercase font-mono tracking-wider">
+                  <span className="text-[11px] font-medium text-zinc-400 dark:text-zinc-500 block mb-0.5">
                     Progress
                   </span>
-                  <span className="text-[13px] font-semibold text-zinc-900 dark:text-zinc-100 font-mono">
-                    {completedPitches} / {totalPitches} Pitches Ready ({progressPercent}%)
-                  </span>
-                </div>
-
-                <div className="h-6 w-[1px] bg-zinc-200 dark:bg-zinc-800" />
-
-                <div>
-                  <span className="text-[11px] text-zinc-400 block uppercase font-mono tracking-wider">
-                    Model
-                  </span>
-                  <span className="text-[13px] font-medium text-zinc-800 dark:text-zinc-200">
-                    Gemini 3.8 Flash (Graph Verified)
+                  <span className="text-[13px] font-medium text-zinc-900 dark:text-zinc-100">
+                    {completedPitches} / {totalPitches} pitches ready
                   </span>
                 </div>
 
@@ -345,7 +377,7 @@ export default function OutreachClient({
                   <>
                     <div className="h-6 w-[1px] bg-zinc-200 dark:bg-zinc-800" />
                     <div>
-                      <span className="text-[11px] text-zinc-400 block uppercase font-mono tracking-wider">
+                      <span className="text-[11px] font-medium text-zinc-400 dark:text-zinc-500 block mb-0.5">
                         Format
                       </span>
                       <span className="text-[13px] font-medium text-zinc-800 dark:text-zinc-200 capitalize">
@@ -356,27 +388,56 @@ export default function OutreachClient({
                 )}
               </div>
 
-              {/* Status indicator */}
+              {/* Status indicator — correct for all states */}
               <div className="flex items-center gap-2">
-                {isJobRunning ? (
-                  <span className="flex items-center gap-1.5 text-blue-500 font-medium text-[12px]">
+                {job.status === "PENDING" ? (
+                  <span className="flex items-center gap-1.5 text-blue-500 text-[12px]">
                     <Loader2 size={13} className="animate-spin" />
-                    Generating structured bundles in parallel...
+                    Generating pitches in parallel...
                   </span>
-                ) : (
-                  <span className="flex items-center gap-1.5 text-emerald-500 font-medium text-[12px]">
-                    <CheckCircle2 size={14} />
-                    All pitches verified &amp; ready for outreach
+                ) : job.status === "FAILED" ? (
+                  <div className="flex items-center gap-2">
+                    <span className="flex items-center gap-1.5 text-rose-500 text-[12px]">
+                      <XCircle size={13} />
+                      Generation failed
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleRetry}
+                      disabled={isRetrying}
+                      className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium border border-zinc-200 dark:border-zinc-800 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors focus:outline-none disabled:opacity-50"
+                    >
+                      <RotateCcw size={11} className={isRetrying ? "animate-spin" : ""} />
+                      {isRetrying ? "Retrying..." : "Retry"}
+                    </button>
+                  </div>
+                ) : job.status === "COMPLETED" && completedPitches === 0 ? (
+                  <span className="flex items-center gap-1.5 text-zinc-400 text-[12px]">
+                    <AlertCircle size={13} />
+                    No pitches completed
                   </span>
-                )}
+                ) : job.status === "COMPLETED" ? (
+                  <span className="flex items-center gap-1.5 text-emerald-500 text-[12px]">
+                    <CheckCircle2 size={13} />
+                    {completedPitches === totalPitches
+                      ? "All pitches ready"
+                      : `${completedPitches} of ${totalPitches} pitches ready`}
+                  </span>
+                ) : null}
               </div>
             </div>
 
-            {/* Progress bar */}
-            <div className="w-full h-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+            {/* Progress bar — red on failure, blue while running, green when done */}
+            <div className="w-full h-1 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
               <div
-                className="h-full bg-emerald-500 transition-all duration-500 rounded-full"
-                style={{ width: `${progressPercent}%` }}
+                className={`h-full transition-all duration-500 rounded-full ${
+                  job.status === "FAILED"
+                    ? "bg-rose-500"
+                    : job.status === "PENDING"
+                    ? "bg-blue-500"
+                    : "bg-emerald-500"
+                }`}
+                style={{ width: job.status === "FAILED" ? "100%" : `${progressPercent}%` }}
               />
             </div>
           </div>
@@ -385,10 +446,11 @@ export default function OutreachClient({
           <div className="flex flex-col gap-2">
             {job.pitches.map((pitch, index) => {
               const lead = influencersMap.get(pitch.creator_id);
-              const title = lead?.title || `Creator ${pitch.creator_id.slice(0, 8)}`;
+              const title = lead?.title || pitch.creator_id;
               const country = lead?.country?.toUpperCase() || "GLOBAL";
               const isReady = pitch.status === "COMPLETED";
               const isNeedsReview = pitch.status === "NEEDS_REVIEW";
+              const isFailed = pitch.status === "FAILED" || (job.status === "FAILED" && pitch.status === "PENDING");
               const isGenerating = pitch.status === "GENERATING" || (job.status === "PENDING" && pitch.status === "PENDING");
 
               return (
@@ -438,8 +500,10 @@ export default function OutreachClient({
                       </p>
                     ) : isGenerating ? (
                       <span className="text-[11px] text-zinc-400 animate-pulse">
-                        Analyzing video transcripts &amp; synthesizing custom pitch angle...
+                        Analyzing transcripts &amp; synthesizing pitch...
                       </span>
+                    ) : isFailed ? (
+                      <span className="text-[11px] text-rose-400">Generation failed</span>
                     ) : (
                       <span className="text-[11px] text-zinc-400">In queue</span>
                     )}
@@ -489,7 +553,13 @@ export default function OutreachClient({
                         Generating
                       </span>
                     )}
-                    {!isReady && !isNeedsReview && !isGenerating && (
+                    {isFailed && (
+                      <span className="flex items-center gap-1 text-[11px] font-medium text-rose-500 bg-rose-500/10 px-2.5 py-1 rounded-full border border-rose-500/20">
+                        <XCircle size={11} />
+                        Failed
+                      </span>
+                    )}
+                    {!isReady && !isNeedsReview && !isGenerating && !isFailed && (
                       <span className="flex items-center gap-1 text-[11px] text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2.5 py-1 rounded-full">
                         <Clock size={11} />
                         Queued

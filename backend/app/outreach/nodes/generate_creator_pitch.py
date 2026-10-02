@@ -58,9 +58,7 @@ async def generate_creator_pitch(state: OutreachState) -> OutreachState:
         update={
         "creator_inputs": {creator_input.get("creator_id", ""): creator_input},
         "creator_pitch_bundles": {creator_input.get("creator_id", ""): bundle_data},
-        "repair_count": 0,
         "creator_repair_counts": {creator_input.get("creator_id", ""): 0},
-        "cache_key": creator_input.get("cache_key", ""),
         },
         goto=Send(
             "validate_creator_pitch",

@@ -105,7 +105,7 @@ async def get_campaign_details(
 @router.post("/{campaign_id}/generate")
 async def generate_campaign(
     campaign_id: str,
-    campaign_details: dict,
+    campaign_details: dict | None = None,
     user: User = Depends(get_db_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -121,14 +121,15 @@ async def generate_campaign(
         raise HTTPException(404, "Campaign not found")
 
     thread_id = campaign.thread_id or f"campaign-{campaign_id}"
-    run_id = campaign.run_id or str(uuid4())
+    run_id = str(uuid4())
+    details = campaign_details if campaign_details is not None else (campaign.campaign_details or {})
 
     await db.execute(
         update(Campaign)
         .where(Campaign.campaign_id == campaign_id)
         .values(
             name=campaign.name or "Untitled Campaign",
-            campaign_details=campaign_details,
+            campaign_details=details,
             run_id=run_id,
             thread_id=thread_id,
             status=CampaignStatus.PENDING,
@@ -148,7 +149,7 @@ async def generate_campaign(
                 name="campaign/run",
                 data={
                     "campaign_id": campaign_id,
-                    "campaign_details": campaign_details,
+                    "campaign_details": details,
                     "user_id": user.clerk_id,
                     "run_id": run_id,
                     "thread_id": thread_id,

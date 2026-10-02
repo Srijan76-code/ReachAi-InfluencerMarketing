@@ -61,11 +61,20 @@ async def get_current_user(request: Request):
         raise HTTPException(status_code=401, detail="Authentication failed")
 
 
+import time
+
+_USER_CACHE: dict[str, tuple[User, float]] = {}
+_USER_CACHE_TTL = 120.0
+
+
 async def get_db_user(user=Depends(get_current_user)):
     clerk_id = user["sub"]
+    now = time.time()
+    cached = _USER_CACHE.get(clerk_id)
+    if cached and (now - cached[1]) < _USER_CACHE_TTL:
+        return cached[0]
 
     async with AsyncSessionLocal() as db:
-
         result = await db.execute(
             select(User).where(User.clerk_id == clerk_id)
         )
@@ -90,5 +99,9 @@ async def get_db_user(user=Depends(get_current_user)):
                     select(User).where(User.clerk_id == clerk_id)
                 )
                 db_user = result.scalar()
+
+        if db_user:
+            db.expunge(db_user)
+            _USER_CACHE[clerk_id] = (db_user, now)
 
         return db_user

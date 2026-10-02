@@ -138,6 +138,35 @@ const InfluencerPage = ({ campaignId }: InfluencerPageProps) => {
   //   );
   // }
 
+  const isLoadingCampaign = useCampaignStore((state) => state.isLoadingCampaign);
+
+  // Loading state while checking DB
+  if (isLoadingCampaign && (!final_ranked_leads || final_ranked_leads.length === 0)) {
+    return (
+      <div className="min-h-screen bg-zinc-50 dark:bg-[#08090a] flex items-center justify-center p-8">
+        <div className="flex items-center gap-2.5 text-zinc-500 text-xs">
+          <Loader2Icon size={16} className="animate-spin text-zinc-400" />
+          <span>Loading leads...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Active generation in-progress
+  if ((isGenerating || status === "PENDING") && (!final_ranked_leads || final_ranked_leads.length === 0)) {
+    return (
+      <div className="min-h-[50vh] bg-zinc-50 dark:bg-[#08090a] flex flex-col items-center justify-center text-zinc-600 dark:text-zinc-400 p-8">
+        <Loader2Icon size={18} className="animate-spin text-blue-500 mb-3" />
+        <p className="text-xs font-medium text-zinc-800 dark:text-zinc-200">
+          Generating and ranking leads...
+        </p>
+        <p className="text-[11px] text-zinc-500 mt-1">
+          Tracking discovery, verification, and scoring in real time above.
+        </p>
+      </div>
+    );
+  }
+
   // Fallback if accessed before generating
   if (!final_ranked_leads || final_ranked_leads.length === 0) {
     return (

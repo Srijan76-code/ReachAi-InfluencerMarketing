@@ -20,15 +20,33 @@ export const useApi = () => {
     }
     const {
       headers: customHeaders = {},
+      data,
+      body,
       ...rest
     } = options as Record<string, unknown> & {
       headers?: Record<string, string>;
+      data?: unknown;
+      body?: unknown;
     };
+
+    let requestData = data;
+    if (requestData === undefined && body !== undefined) {
+      if (typeof body === "string") {
+        try {
+          requestData = JSON.parse(body);
+        } catch {
+          requestData = body;
+        }
+      } else {
+        requestData = body;
+      }
+    }
 
     return axios({
       baseURL:
         process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000",
       url,
+      data: requestData,
       headers: {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...customHeaders,

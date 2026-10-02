@@ -33,6 +33,7 @@ export interface CampaignState {
   currentStage: string | null;
   stageIndex: string | null;
   isGenerating: boolean;
+  isLoadingCampaign: boolean;
   finalInfluencers: any[] | null;
 
   // Saved Leads Map (for fast lookup by id) and Array
@@ -78,6 +79,7 @@ export const useCampaignStore = create<CampaignState>((set, get) => ({
   currentStage: null,
   stageIndex: null,
   isGenerating: false,
+  isLoadingCampaign: false,
   finalInfluencers: null,
 
   savedLeadsMap: {},
@@ -135,42 +137,42 @@ export const useCampaignStore = create<CampaignState>((set, get) => ({
       if (cached.status) set({ status: cached.status });
       if (cached.currentStage) set({ currentStage: cached.currentStage });
       if (cached.stageIndex) set({ stageIndex: cached.stageIndex });
+      set({ isLoadingCampaign: false });
+    } else {
+      set({ isLoadingCampaign: true });
     }
 
     try {
-      const res = await api(`/api/campaigns/${id}/details`);
+      // Single call directly fetches status, stage, details, and leads all together
+      const res = await api(`/api/campaigns/${id}/leads`);
       const data = res.data;
       if (data) {
         if (data.campaign_details) {
           get().hydrateFormFromDetails(data.campaign_details);
         }
+        const leads = Array.isArray(data.result) ? data.result : [];
         set({
           status: data.status,
           currentStage: data.current_stage,
           stageIndex: data.stage_index,
+          finalInfluencers: leads,
+          isGenerating: data.status === "PENDING",
         });
 
-        // If completed, fetch leads
-        if (data.status === "COMPLETED") {
-          const leadsRes = await api(`/api/campaigns/${id}/leads`);
-          if (leadsRes.data && leadsRes.data.result) {
-            set({
-              finalInfluencers: leadsRes.data.result,
-              isGenerating: false,
-            });
-            get().setCampaignCache(id, {
-              id,
-              details: data.campaign_details,
-              status: data.status,
-              leads: leadsRes.data.result,
-            });
-          }
-        } else if (data.status === "PENDING") {
-          set({ isGenerating: true });
-        }
+        get().setCampaignCache(id, {
+          id,
+          name: data.name,
+          details: data.campaign_details,
+          status: data.status,
+          currentStage: data.current_stage,
+          stageIndex: data.stage_index,
+          leads: leads,
+        });
       }
     } catch (err) {
       console.error("Error loading campaign:", err);
+    } finally {
+      set({ isLoadingCampaign: false });
     }
   },
 

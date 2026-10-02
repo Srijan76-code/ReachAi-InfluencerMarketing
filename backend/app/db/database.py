@@ -44,6 +44,8 @@ asyncpg_database_url, connect_args = _asyncpg_database_url(DATABASE_URL)
 engine = create_async_engine(
     asyncpg_database_url,
     connect_args=connect_args,
+    pool_recycle=1800,   # recycle connections after 30 min
+    pool_pre_ping=True,  # test connection before use; discard if dead
 )
 AsyncSessionLocal = sessionmaker(
     bind=engine,

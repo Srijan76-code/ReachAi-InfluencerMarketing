@@ -15,6 +15,7 @@ import {
   Search,
   SlidersHorizontal,
   SlidersVertical,
+  Loader2,
 } from "lucide-react";
 
 import CampaignCard from "./_components/CampaignCard";
@@ -223,7 +224,12 @@ const CampaignPage: React.FC = () => {
         </div>
 
         {/* Content */}
-        {filteredCampaigns.length === 0 ? (
+        {loading ? (
+          <div className="h-64 flex flex-col items-center justify-center border border-dashed border-neutral-200 dark:border-neutral-800 rounded-xl bg-white/50 dark:bg-[#0c0d0e]/50">
+            <Loader2 className="w-5 h-5 animate-spin text-zinc-400 mb-2" />
+            <p className="text-xs text-zinc-500">Loading campaigns...</p>
+          </div>
+        ) : filteredCampaigns.length === 0 ? (
           <div className="h-64 flex flex-col items-center justify-center border border-dashed border-neutral-200 dark:border-neutral-800 rounded-xl bg-white/50 dark:bg-[#0c0d0e]/50">
             <div className="h-12 w-12 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center mb-4">
               <Search className="text-neutral-400" size={24} />
