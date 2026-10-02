@@ -9,6 +9,7 @@ export interface CachedCampaign {
   stageIndex?: string;
   leads?: any[];
   savedLeads?: Record<string, any>; // map of lead identifier -> lead object
+  outreachJob?: any;
 }
 
 export interface CampaignState {
@@ -35,6 +36,7 @@ export interface CampaignState {
   isGenerating: boolean;
   isLoadingCampaign: boolean;
   finalInfluencers: any[] | null;
+  latestOutreachJob: any | null;
 
   // Saved Leads Map (for fast lookup by id) and Array
   savedLeadsMap: Record<string, boolean>;
@@ -81,6 +83,7 @@ export const useCampaignStore = create<CampaignState>((set, get) => ({
   isGenerating: false,
   isLoadingCampaign: false,
   finalInfluencers: null,
+  latestOutreachJob: null,
 
   savedLeadsMap: {},
   savedLeadsList: [],
@@ -137,36 +140,51 @@ export const useCampaignStore = create<CampaignState>((set, get) => ({
       if (cached.status) set({ status: cached.status });
       if (cached.currentStage) set({ currentStage: cached.currentStage });
       if (cached.stageIndex) set({ stageIndex: cached.stageIndex });
+      if (cached.outreachJob) set({ latestOutreachJob: cached.outreachJob });
       set({ isLoadingCampaign: false });
     } else {
       set({ isLoadingCampaign: true });
     }
 
     try {
-      // Single call directly fetches status, stage, details, and leads all together
-      const res = await api(`/api/campaigns/${id}/leads`);
-      const data = res.data;
-      if (data) {
-        if (data.campaign_details) {
-          get().hydrateFormFromDetails(data.campaign_details);
-        }
-        const leads = Array.isArray(data.result) ? data.result : [];
-        set({
-          status: data.status,
-          currentStage: data.current_stage,
-          stageIndex: data.stage_index,
-          finalInfluencers: leads,
-          isGenerating: data.status === "PENDING",
-        });
+      // Parallel fetch for leads + outreach in a single round-trip
+      const [leadsRes, outreachRes] = await Promise.allSettled([
+        api(`/api/campaigns/${id}/leads`),
+        api(`/api/outreach/campaigns/${id}/latest-job`),
+      ]);
 
+      let campaignData = null;
+      if (leadsRes.status === "fulfilled" && leadsRes.value?.data) {
+        campaignData = leadsRes.value.data;
+        if (campaignData.campaign_details) {
+          get().hydrateFormFromDetails(campaignData.campaign_details);
+        }
+        const leads = Array.isArray(campaignData.result) ? campaignData.result : [];
+        set({
+          status: campaignData.status,
+          currentStage: campaignData.current_stage,
+          stageIndex: campaignData.stage_index,
+          finalInfluencers: leads,
+          isGenerating: campaignData.status === "PENDING",
+        });
+      }
+
+      let outreachJob = cached?.outreachJob || null;
+      if (outreachRes.status === "fulfilled" && outreachRes.value?.data) {
+        outreachJob = outreachRes.value.data;
+        set({ latestOutreachJob: outreachJob });
+      }
+
+      if (campaignData) {
         get().setCampaignCache(id, {
           id,
-          name: data.name,
-          details: data.campaign_details,
-          status: data.status,
-          currentStage: data.current_stage,
-          stageIndex: data.stage_index,
-          leads: leads,
+          name: campaignData.name,
+          details: campaignData.campaign_details,
+          status: campaignData.status,
+          currentStage: campaignData.current_stage,
+          stageIndex: campaignData.stage_index,
+          leads: Array.isArray(campaignData.result) ? campaignData.result : [],
+          outreachJob: outreachJob,
         });
       }
     } catch (err) {

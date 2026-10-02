@@ -36,6 +36,7 @@ import { useApi } from "@/lib/api";
 import { useCampaignStore } from "@/store/campaignStore";
 import { outreachChannel } from "@/inngest/channels";
 import { getOutreachRealtimeToken } from "@/app/actions/realtime";
+import { ExportPitchesDialog } from "@/components/ExportPitchesDialog";
 import type { Influencer } from "@/data/influencerList";
 
 interface OutreachPitchItem {
@@ -91,13 +92,26 @@ export default function OutreachClient({
   const { getToken } = useAuth();
 
   const finalInfluencers = useCampaignStore((state) => state.finalInfluencers);
-  const [job, setJob] = useState<OutreachJobDetail | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const cachedJob = useCampaignStore(
+    (state) => state.campaignsCache[campaignId]?.outreachJob || state.latestOutreachJob
+  );
+  const setCampaignCache = useCampaignStore((state) => state.setCampaignCache);
+  const setField = useCampaignStore((state) => state.setField);
+
+  const [job, setJob] = useState<OutreachJobDetail | null>(() => cachedJob || null);
+  const [isLoading, setIsLoading] = useState(() => !cachedJob);
   const [activePitch, setActivePitch] = useState<OutreachPitchItem | null>(null);
   const [activeTab, setActiveTab] = useState<"email" | "instagram" | "twitter" | "linkedin">("email");
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+
+  useEffect(() => {
+    if (cachedJob && !job) {
+      setJob(cachedJob);
+      setIsLoading(false);
+    }
+  }, [cachedJob, job]);
 
   // Map influencers by ID
   const influencersMap = useMemo(() => {
@@ -118,13 +132,15 @@ export default function OutreachClient({
       const res = await api(endpoint);
       if (res?.data) {
         setJob(res.data);
+        setCampaignCache(campaignId, { outreachJob: res.data });
+        setField("latestOutreachJob", res.data);
       }
     } catch (err) {
       console.warn("No active outreach job found:", err);
     } finally {
       setIsLoading(false);
     }
-  }, [api, campaignId]);
+  }, [api, campaignId, setCampaignCache, setField]);
 
   const handleRetry = async () => {
     if (!job?.outreach_job_id || isRetrying) return;
@@ -262,6 +278,30 @@ export default function OutreachClient({
   ).length || 0;
   const progressPercent = totalPitches > 0 ? Math.round((completedPitches / totalPitches) * 100) : 0;
 
+  // Build export-ready pitch items for ExportPitchesDialog
+  const exportPitchItems = useMemo(() => {
+    if (!job?.pitches) return [];
+    return job.pitches
+      .filter((p) => p.status === "COMPLETED" || p.status === "NEEDS_REVIEW")
+      .map((p) => {
+        const lead = influencersMap.get(p.creator_id);
+        return {
+          creator_name: lead?.title || p.creator_id,
+          email: lead?.socials?.email || "",
+          country: lead?.country || "",
+          instagram_handle: lead?.socials?.instagram || "",
+          twitter_handle: lead?.socials?.twitter || "",
+          linkedin_handle: lead?.socials?.linkedin || "",
+          pitch_angle: p.pitch_bundle?.pitch_angle || "",
+          subject: p.pitch_bundle?.email?.subject || "",
+          email_body: p.pitch_bundle?.email?.body || "",
+          instagram_pitch: p.pitch_bundle?.instagram?.body || "",
+          twitter_pitch: p.pitch_bundle?.twitter?.body || "",
+          linkedin_pitch: p.pitch_bundle?.linkedin?.body || "",
+        };
+      });
+  }, [job?.pitches, influencersMap]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-zinc-50 dark:bg-[#08090a] flex items-center justify-center p-8">
@@ -348,15 +388,11 @@ export default function OutreachClient({
                 {isSyncing ? "Syncing..." : "Sync"}
               </button>
 
-              <button
-                type="button"
-                onClick={handleExportPitchPack}
-                disabled={completedPitches === 0}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 rounded-md hover:bg-zinc-800 dark:hover:bg-zinc-100 transition-colors disabled:opacity-40 shadow-sm"
-              >
-                <Download size={13} />
-                Export Pitches ({completedPitches})
-              </button>
+              <ExportPitchesDialog
+                pitches={exportPitchItems}
+                campaignId={campaignId}
+                completedCount={completedPitches}
+              />
             </div>
           </div>
 

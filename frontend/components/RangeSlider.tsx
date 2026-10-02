@@ -1,5 +1,4 @@
 import { cn } from "@/lib/utils";
-import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 
 export default function RangeSlider({ value, onChange, label = "Creator Size (Subscriber count)" }: { value?: number[], onChange?: (val: number[]) => void, label?: string }) {
@@ -23,8 +22,8 @@ export default function RangeSlider({ value, onChange, label = "Creator Size (Su
     "12M": 13,
   };
   return (
-    <div className="*:not-first:mt-4">
-      <Label htmlFor="creator-size-slider">{label}</Label>
+    <div className="space-y-2">
+      <label htmlFor="creator-size-slider" className="text-[12px] font-medium text-zinc-700 dark:text-zinc-300">{label}</label>
       <div>
         <Slider
           aria-label="Slider with ticks"

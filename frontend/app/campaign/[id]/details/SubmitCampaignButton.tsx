@@ -1,10 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
-
+import { Loader2, Sparkles } from "lucide-react";
 import { useCampaignStore, CampaignState } from "@/store/campaignStore";
-import { Button } from "@/components/ui/button";
 
 function transformPayload(store: CampaignState) {
   const tickToNumber: Record<number, number> = {
@@ -53,9 +53,12 @@ export default function SubmitCampaignButton({ id }: { id: string }) {
   const store = useCampaignStore();
   const router = useRouter();
   const { getToken } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async () => {
+    if (isSubmitting) return;
     const finalPayload = transformPayload(store);
+    setIsSubmitting(true);
     store.setField("isGenerating", true);
     store.setField("finalInfluencers", null);
     store.setField("currentStage", "Starting LangGraph agent...");
@@ -79,12 +82,29 @@ export default function SubmitCampaignButton({ id }: { id: string }) {
     } catch (error) {
       console.error("Error submitting campaign to backend:", error);
       store.setField("isGenerating", false);
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <Button variant="secondary" size="lg" onClick={handleSubmit} className="w-full mt-8">
-      Submit Campaign
-    </Button>
+    <button
+      type="button"
+      onClick={handleSubmit}
+      disabled={isSubmitting}
+      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-[13px] font-medium bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 rounded-lg hover:bg-zinc-800 dark:hover:bg-zinc-100 transition-colors disabled:opacity-50 shadow-sm"
+    >
+      {isSubmitting ? (
+        <>
+          <Loader2 size={14} className="animate-spin" />
+          Starting campaign...
+        </>
+      ) : (
+        <>
+          <Sparkles size={14} />
+          Find Creators
+        </>
+      )}
+    </button>
   );
 }
+

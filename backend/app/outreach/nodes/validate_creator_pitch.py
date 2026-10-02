@@ -54,18 +54,31 @@ def validate_bundle(bundle_data: dict, creator_input: CreatorPitchInput) -> list
 
     text = _bundle_text(bundle.model_dump())
     text_lower = text.lower()
+    text_normalized = text_lower.replace("_", " ")
     brand_name = str((creator_input.get("campaign_context") or {}).get("brand", {}).get("name") or "").strip()
     creator_name = str((creator_input.get("creator_identity") or {}).get("name") or "").strip()
     collaboration_type = str((creator_input.get("collaboration") or {}).get("type") or "").strip()
+    collab_clean = collaboration_type.replace("_", " ").lower()
+
     if brand_name and brand_name.lower() not in text_lower:
         errors.append("brand name is missing from the pitch")
     if creator_name and creator_name.lower() != "unknown creator" and creator_name.lower() not in text_lower:
         errors.append("creator name is missing from the pitch")
-    if collaboration_type and collaboration_type.lower() not in text_lower:
+    if collaboration_type and (collaboration_type.lower() not in text_lower and collab_clean not in text_normalized):
         errors.append("collaboration type is missing from the pitch")
+
     for deliverable in creator_input.get("deliverables") or []:
-        if str(deliverable).lower() not in text_lower:
-            errors.append(f"deliverable is missing from the pitch: {deliverable}")
+        deliv_str = str(deliverable).lower()
+        deliv_clean = re.sub(r"^\d+x\s*", "", deliv_str)
+        if deliv_str not in text_lower and deliv_clean not in text_lower:
+            words = [w for w in re.findall(r"\b[a-z]{3,}\b", deliv_clean)]
+            if not words or not all(w in text_lower for w in words):
+                errors.append(f"deliverable is missing from the pitch: {deliverable}")
+
+    for raw_enum in ("sponsored_video", "dedicated_video", "product_placement", "shoutout_mention"):
+        if raw_enum in text_lower:
+            errors.append(f"do not use raw snake_case enum '{raw_enum}' in copy; use natural human words like '{raw_enum.replace('_', ' ')}'")
+
     for term in INTERNAL_TERMS:
         if re.search(rf"\b{re.escape(term)}\b", text_lower):
             errors.append(f"internal scoring field exposed: {term}")

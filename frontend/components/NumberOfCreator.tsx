@@ -1,5 +1,4 @@
 import { cn } from "@/lib/utils";
-import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 
 export default function NumberOfCreator({ value, onChange }: { value?: number[], onChange?: (val: number[]) => void }) {
@@ -9,8 +8,8 @@ export default function NumberOfCreator({ value, onChange }: { value?: number[],
 
  const ticks = [...Array(maxValue + 1)].map((_, i) => i);
   return (
-    <div className="*:not-first:mt-4">
-      <Label htmlFor="creator-size-slider">How many creators do you want to hire?</Label>
+    <div className="space-y-2">
+      <label htmlFor="creator-size-slider" className="text-[12px] font-medium text-zinc-700 dark:text-zinc-300">How many creators to hire?</label>
       <div>
         <Slider
           aria-label="Slider with ticks"

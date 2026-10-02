@@ -12,7 +12,6 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { Label } from "@/components/ui/label";
 import {
   Popover,
   PopoverContent,
@@ -31,8 +30,8 @@ export default function FlagAndSearchCountry() {
   const [open, setOpen] = useState<boolean>(false);
 
   return (
-    <div className="*:not-first:mt-2">
-      <Label htmlFor={id}>Audience Location <span className="text-destructive">*</span></Label>
+    <div className="space-y-2">
+      <label htmlFor={id} className="text-[12px] font-medium text-zinc-700 dark:text-zinc-300">Audience location <span className="text-rose-500">*</span></label>
       <Popover onOpenChange={setOpen} open={open}>
         <PopoverTrigger asChild>
           <Button

@@ -118,7 +118,7 @@ export const processExport = async (
   }
 };
 
-const downloadCSV = (data: any[]) => {
+const downloadCSV = (data: any[], filename = "campaign-export.csv") => {
   if (!data.length) return;
   const keys = Object.keys(data[0]);
   const replacer = (_key: any, value: any) => (value === null ? "" : value);
@@ -140,14 +140,14 @@ const downloadCSV = (data: any[]) => {
   ].join("\r\n");
 
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  triggerDownload(blob, "campaign-export.csv");
+  triggerDownload(blob, filename);
 };
 
-const downloadExcel = async (data: any[]) => {
+const downloadExcel = async (data: any[], filename = "campaign-export.xlsx") => {
   if (!data.length) return;
 
   const workbook = new ExcelJS.Workbook();
-  const worksheet = workbook.addWorksheet("Influencers");
+  const worksheet = workbook.addWorksheet("Pitches");
 
   const keys = Object.keys(data[0]);
 
@@ -174,7 +174,96 @@ const downloadExcel = async (data: any[]) => {
   const blob = new Blob([buffer], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });
-  triggerDownload(blob, "campaign-export.xlsx");
+  triggerDownload(blob, filename);
+};
+
+export interface PitchExportItem {
+  creator_id: string;
+  creator_name: string;
+  email: string;
+  instagram: string;
+  twitter: string;
+  country: string;
+  subject: string;
+  email_body: string;
+  instagram_pitch: string;
+  twitter_pitch: string;
+  pitch_angle: string;
+  status: string;
+}
+
+export interface PitchExportConfig {
+  template: "instantly" | "smartlead" | "generic";
+  format: "csv" | "excel";
+  removeNoEmail: boolean;
+}
+
+export const processPitchesExport = async (
+  pitches: PitchExportItem[],
+  config: PitchExportConfig,
+  campaignId: string
+) => {
+  let pool = pitches;
+  if (config.removeNoEmail) {
+    pool = pool.filter((p) => !!p.email);
+  }
+
+  if (pool.length === 0) {
+    alert("No pitches available to export with current settings (e.g. missing emails).");
+    return;
+  }
+
+  let data: any[] = [];
+  if (config.template === "instantly") {
+    data = pool.map((p) => {
+      const firstName = p.creator_name.split(" ")[0] || "there";
+      return {
+        email: p.email,
+        first_name: firstName,
+        company: p.creator_name,
+        subject: p.subject,
+        body: p.email_body,
+        custom_variable_1: p.pitch_angle,
+        instagram: p.instagram,
+        twitter: p.twitter,
+      };
+    });
+  } else if (config.template === "smartlead") {
+    data = pool.map((p) => {
+      const firstName = p.creator_name.split(" ")[0] || "there";
+      return {
+        email: p.email,
+        first_name: firstName,
+        company_name: p.creator_name,
+        subject: p.subject,
+        email_body: p.email_body,
+        custom_pitch: p.pitch_angle,
+        social_instagram: p.instagram,
+        social_twitter: p.twitter,
+      };
+    });
+  } else {
+    data = pool.map((p) => ({
+      "Creator Name": p.creator_name,
+      Email: p.email,
+      Country: p.country,
+      "Subject Line": p.subject,
+      "Email Pitch": p.email_body,
+      "Instagram Pitch": p.instagram_pitch,
+      "Twitter Pitch": p.twitter_pitch,
+      "Pitch Angle": p.pitch_angle,
+      Instagram: p.instagram,
+      Twitter: p.twitter,
+      Status: p.status,
+    }));
+  }
+
+  const filename = `outreach-pitches-${campaignId}.${config.format === "excel" ? "xlsx" : "csv"}`;
+  if (config.format === "csv") {
+    downloadCSV(data, filename);
+  } else {
+    await downloadExcel(data, filename);
+  }
 };
 
 const triggerDownload = (blob: Blob, filename: string) => {

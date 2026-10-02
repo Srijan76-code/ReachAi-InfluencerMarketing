@@ -1,102 +1,47 @@
 "use client";
 
-import { useState } from "react";
-import { CirclePlus, Info, Plus } from "lucide-react";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
+import { CirclePlus, Info } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
-// import {
-//   Select,
-//   SelectContent,
-//   SelectItem,
-//   SelectTrigger,
-//   SelectValue,
-// } from '@/components/ui/select';
-
-type Industry = "edtech" | "fintech" | "health" | "saas";
-
-const INDUSTRY_DEFAULTS: Record<Industry, string[]> = {
-  edtech: [
-    "Coding Bootcamp",
-    "Placement Prep",
-    "University Course",
-    "Upskilling",
-  ],
-  fintech: ["Trading App", "Credit Card", "Crypto Exchange", "Tax Tools"],
-  health: ["Weight Loss Program", "Gym Membership", "Supplements", "Yoga App"],
-  saas: ["Project Management", "CRM", "AI Tool", "Email Marketing"],
-};
-
+import { INDUSTRY_ONTOLOGY } from "@/data/INDUSTRY_ONTOLOGY";
 import { useCampaignStore } from "@/store/campaignStore";
 
 export function SmartAudienceInput() {
-  const [selectedIndustry, setSelectedIndustry] = useState<Industry>("edtech");
-
   const pitch = useCampaignStore((state) => state.pitch);
   const setField = useCampaignStore((state) => state.setField);
+
+  const chips = ["Coding Bootcamp", "Placement Prep", "University Course", "Upskilling"];
 
   const handleChipClick = (chipText: string) => {
     setField("pitch", pitch ? `${pitch} ${chipText}` : chipText);
   };
 
-  const chips = INDUSTRY_DEFAULTS[selectedIndustry];
-
   return (
-    <div className="*:not-first:mt-4 ">
-      {/* Industry Selector */}
-      {/* <div className="space-y-2">
-        <label className="text-sm font-medium text-foreground">
-          Select Industry
-        </label>
-        <Select
-          value={selectedIndustry}
-          onValueChange={(value) => setSelectedIndustry(value as Industry)}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="edtech">EdTech</SelectItem>
-            <SelectItem value="fintech">FinTech</SelectItem>
-            <SelectItem value="health">Health & Wellness</SelectItem>
-            <SelectItem value="saas">SaaS</SelectItem>
-          </SelectContent>
-        </Select>
-      </div> */}
-
-      {/* Textarea */}
-
-      <Label htmlFor="pitch">What are you selling? <span className="text-destructive">*</span></Label>
-
-        <div>
-
+    <div className="space-y-2">
+      <label className="text-[12px] font-medium text-zinc-700 dark:text-zinc-300">
+        What are you selling? <span className="text-rose-500">*</span>
+      </label>
       <Textarea
         id="pitch"
         value={pitch}
         onChange={(e) => setField("pitch", e.target.value)}
         placeholder="e.g. A comprehensive Python bootcamp that helps students get hired at top tech companies..."
+        className="text-[13px] min-h-[80px] resize-none"
       />
-
-            <div className="flex mt-1  items-center text-muted-foreground gap-1">
-        <Info size={12} />
-        <p className="text-muted-foreground  text-xs">
-          Describe your product and its main benefit in one sentence.
-        </p>
+      <div className="flex items-center gap-1 text-zinc-400">
+        <Info size={11} />
+        <p className="text-[11px]">Describe your product and its main benefit in one sentence.</p>
       </div>
-        </div>
-
-      {/* Smart Chips */}
-
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-1.5 pt-1">
         {chips.map((chip) => (
-          <Button
-            variant="outline"
+          <button
             key={chip}
+            type="button"
             onClick={() => handleChipClick(chip)}
+            className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-zinc-600 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
           >
-            <CirclePlus size={14} />
-            <span>{chip}</span>
-          </Button>
+            <CirclePlus size={11} />
+            {chip}
+          </button>
         ))}
       </div>
     </div>

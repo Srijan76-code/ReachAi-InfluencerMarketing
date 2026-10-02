@@ -25,7 +25,7 @@ export default function CampaignDetailsForm({ id }: { id: string }) {
   if (isLoadingCampaign && !brandName) {
     return (
       <div className="min-h-screen bg-zinc-50 dark:bg-[#08090a] flex items-center justify-center p-8">
-        <div className="flex items-center gap-2.5 text-zinc-500 text-xs">
+        <div className="flex items-center gap-3 text-zinc-500 text-xs">
           <Loader2 size={16} className="animate-spin text-zinc-400" />
           <span>Loading campaign details...</span>
         </div>
@@ -34,8 +34,20 @@ export default function CampaignDetailsForm({ id }: { id: string }) {
   }
 
   return (
-    <div className="max-w-full overflow-x-hidden my-36 font-raleway text-[13px] bg-zinc-50 dark:bg-[#08090a]">
-      <div className="max-w-4xl px-16 lg:px-0 flex flex-col flex-wrap mx-auto space-y-16 bg-zinc-50 dark:bg-[#08090a]">
+    <div className="min-h-screen bg-zinc-50 dark:bg-[#08090a] text-zinc-600 dark:text-zinc-400 p-8 font-sans">
+      <div className="max-w-3xl mx-auto space-y-5">
+        {/* Page header */}
+        <div className="flex items-center justify-between px-1 py-2">
+          <div className="space-y-1">
+            <h1 className="text-[16px] font-medium text-zinc-900 dark:text-zinc-100 tracking-tight">
+              Campaign details
+            </h1>
+            <p className="text-[12px] text-zinc-500">
+              Configure your brand, campaign goals, and audience targeting.
+            </p>
+          </div>
+        </div>
+
         <BrandDetails />
         <CampaignDetails />
         <AudienceDetails />
