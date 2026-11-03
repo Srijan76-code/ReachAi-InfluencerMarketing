@@ -22,7 +22,14 @@ LANGSMITH_GATEWAY_URL = os.getenv("LANGSMITH_GATEWAY_URL")
 
 # --- Jev / TypeSafe (app/judge) --------------------------------------------
 # TYPESAFE_API_KEY is read by the SDK itself; never pass it in code.
-JEV_MODEL = os.getenv("JEV_MODEL", "jev-1.13.0")  # pinned; thresholds are tuned against it
+# Jev can be reached directly (TypeSafe key) or through OpenRouter (OpenRouter key, "sk-or-...").
+# JEV_PROVIDER=auto picks OpenRouter when the key is an OpenRouter key.
+JEV_PROVIDER = os.getenv("JEV_PROVIDER", "auto")  # auto | typesafe | openrouter
+OPENROUTER_BASE_URL = "https://openrouter.ai/api"
+# Pinned versions: thresholds are tuned against one model version, so it must not change silently.
+JEV_MODEL_TYPESAFE = "jev-1.13.0"
+JEV_MODEL_OPENROUTER = "typesafe/jev-1.14-20261014"
+JEV_MODEL = os.getenv("JEV_MODEL")  # optional override of the pinned model for the chosen provider
 JEV_MAX_CONCURRENCY = int(os.getenv("JEV_MAX_CONCURRENCY", "8"))
 JEV_TIMEOUT_SECONDS = float(os.getenv("JEV_TIMEOUT_SECONDS", "10"))
 
