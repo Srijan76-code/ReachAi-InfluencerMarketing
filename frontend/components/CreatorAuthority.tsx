@@ -45,7 +45,7 @@ export default function CreatorAuthority() {
         {items.map((item) => (
           <div
             key={item.value}
-            className="relative flex w-full items-center gap-2 rounded-md border border-input p-2.5 shadow-xs outline-none has-data-[state=checked]:border-primary/50 cursor-pointer"
+            className="relative flex w-full items-center gap-2 rounded-md border border-zinc-200 bg-zinc-50 p-2.5 shadow-xs outline-none cursor-pointer has-data-[state=checked]:border-primary/50 dark:border-zinc-700 dark:bg-zinc-900/50"
           >
             <RadioGroupItem
               className="order-1 after:absolute after:inset-0 h-3.5 w-3.5 shrink-0"

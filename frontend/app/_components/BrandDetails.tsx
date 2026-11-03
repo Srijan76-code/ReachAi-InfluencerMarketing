@@ -40,7 +40,7 @@ const BrandDetails = () => {
   ];
 
   return (
-    <div className="group relative border border-zinc-200 dark:border-zinc-800 p-6 rounded-xl space-y-5 bg-white dark:bg-[#0c0d0e]">
+    <div className="group relative border border-zinc-200 dark:border-zinc-800 p-7 rounded-xl space-y-6 bg-white dark:bg-[#0c0d0e]">
       <div className="-translate-y-1/2 text-[13px] text-foreground font-medium absolute start-3 top-0 z-10 block px-2 bg-white dark:bg-[#0c0d0e]">
         <Status status="online">
           <StatusIndicator />
@@ -48,7 +48,7 @@ const BrandDetails = () => {
         </Status>
       </div>
       <NormalInputComponent value={brandName} onChange={(val) => setField("brandName", val)} />
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-7">
         <SearchAndSelectInput
           label="Industry"
           frameworks={industryFrameworks}

@@ -14,12 +14,12 @@ export default function TotalBudget() {
   return (
     <div className="space-y-2">
       <label htmlFor={id} className="text-[12px] font-medium text-zinc-700 dark:text-zinc-300">Total campaign budget</label>
-      <div className="flex rounded-md shadow-xs">
-        <span className="-z-10 inline-flex items-center rounded-s-md border border-input bg-background px-3 text-muted-foreground text-sm">
+      <div className="relative">
+        <span className="pointer-events-none absolute inset-y-0 start-3 z-10 flex items-center text-sm text-muted-foreground">
           $
         </span>
         <Input
-          className="-ms-px rounded-s-none shadow-none"
+          className="rounded-md border-zinc-200 bg-zinc-50 ps-7 text-zinc-800 dark:border-zinc-700 dark:bg-zinc-900/50 dark:text-zinc-100"
           id={id}
           placeholder="500"
           type="text"

@@ -623,67 +623,53 @@ export default function OutreachClient({
               const leadEmail = lead?.socials?.email;
 
               return (
-                <div className="flex flex-col h-full">
-                  {/* Sheet Header */}
-                  <div className="p-6 border-b border-zinc-200 dark:border-white/5 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/80 flex items-center justify-center text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                <div className="flex h-full flex-col">
+                  {/* Creator identity — uses the same hierarchy as the lead detail sheet. */}
+                  <div className="shrink-0 space-y-5 border-b border-zinc-200/60 bg-zinc-50 p-6 dark:border-zinc-800/60 dark:bg-[#08090a]">
+                    <div className="flex items-start justify-between pr-8">
+                      <div className="flex items-start gap-4">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded border border-zinc-300 bg-zinc-100 text-lg font-medium text-zinc-600 dark:border-zinc-700/50 dark:bg-zinc-800/50 dark:text-zinc-400">
                           {(lead?.title || activePitch.creator_id).charAt(0).toUpperCase()}
                         </div>
-                        <div>
-                          <SheetTitle className="text-[16px] font-semibold text-zinc-900 dark:text-zinc-100">
+                        <div className="space-y-1.5 pt-0.5">
+                          <div className="flex flex-wrap items-center gap-2.5">
+                          <SheetTitle className="text-lg font-semibold leading-none text-zinc-900 dark:text-zinc-100">
                             {lead?.title || "Creator Pitch"}
                           </SheetTitle>
-                          <span className="text-[12px] text-zinc-500">
-                            Personalized Pitch Pack • {activePitch.status}
+                          <span className="rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                            {activePitch.status === "COMPLETED" ? "Pitch ready" : activePitch.status}
                           </span>
+                          </div>
+                          <p className="text-[12px] text-zinc-500">Personalized outreach workspace</p>
                         </div>
                       </div>
                     </div>
 
-                    {/* Pitch Angle Callout */}
-                    {bundle?.pitch_angle && (
-                      <div className="p-3 bg-zinc-50 dark:bg-zinc-900/60 rounded-lg border border-zinc-200/80 dark:border-white/5 space-y-1">
-                        <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
-                          <Sparkles size={12} />
-                          Personalization Angle
-                        </div>
-                        <p className="text-[12px] text-zinc-700 dark:text-zinc-300">
-                          {bundle.pitch_angle}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Cited Evidence Tags */}
-                    {bundle?.personalization && bundle.personalization.length > 0 && (
-                      <div className="space-y-1">
-                        <span className="text-[10px] uppercase font-mono tracking-wider text-zinc-400">
-                          Grounded Creator Evidence:
-                        </span>
-                        <div className="flex flex-wrap gap-1.5">
-                          {bundle.personalization.map((ev, i) => (
-                            <div
-                              key={i}
-                              className="px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800/80 text-[11px] text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/50"
-                            >
-                              <span className="font-mono text-zinc-400 mr-1">#{ev.evidence_id}</span>
-                              <span>{ev.reason}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {leadEmail && (
+                        <a href={`mailto:${leadEmail}`} aria-label="Email creator" className="flex h-8 w-8 items-center justify-center rounded border border-zinc-200/60 bg-white/60 text-zinc-500 transition-colors hover:border-zinc-300 hover:bg-zinc-100 hover:text-zinc-800 dark:border-zinc-800/60 dark:bg-zinc-900/50 dark:text-zinc-400 dark:hover:border-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200">
+                          <Mail size={14} />
+                        </a>
+                      )}
+                      {lead?.socials?.instagram && (
+                        <a href={lead.socials.instagram} target="_blank" rel="noopener noreferrer" aria-label="Open Instagram profile" className="flex h-8 w-8 items-center justify-center rounded border border-zinc-200/60 bg-white/60 text-zinc-500 transition-colors hover:border-zinc-300 hover:bg-zinc-100 hover:text-zinc-800 dark:border-zinc-800/60 dark:bg-zinc-900/50 dark:text-zinc-400 dark:hover:border-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200">
+                          <Instagram size={14} />
+                        </a>
+                      )}
+                      <span className="ml-auto rounded-full border border-zinc-200/60 bg-white/60 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-zinc-500 dark:border-zinc-700/50 dark:bg-zinc-900/50 dark:text-zinc-400">
+                        {(activePitch.available_channels || []).length} channels ready
+                      </span>
+                    </div>
                   </div>
 
                   {/* Channel Tab Selector */}
-                  <div className="flex items-center border-b border-zinc-200 dark:border-white/5 px-6 gap-2 pt-2 bg-zinc-50/50 dark:bg-[#0c0d0e]">
+                  <div className="flex items-center gap-2 border-b border-zinc-200 bg-zinc-50/50 px-6 pt-3 dark:border-zinc-800 dark:bg-[#0c0d0e]">
                     <button
                       type="button"
                       onClick={() => setActiveTab("email")}
                       className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 transition-colors ${
                         activeTab === "email"
-                          ? "border-zinc-900 dark:border-white text-zinc-900 dark:text-zinc-100"
+                          ? "border-emerald-500 text-zinc-900 dark:text-zinc-100"
                           : "border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300"
                       }`}
                     >
@@ -697,7 +683,7 @@ export default function OutreachClient({
                         onClick={() => setActiveTab("instagram")}
                         className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 transition-colors ${
                           activeTab === "instagram"
-                            ? "border-zinc-900 dark:border-white text-zinc-900 dark:text-zinc-100"
+                            ? "border-emerald-500 text-zinc-900 dark:text-zinc-100"
                             : "border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300"
                         }`}
                       >
@@ -712,7 +698,7 @@ export default function OutreachClient({
                         onClick={() => setActiveTab("twitter")}
                         className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 transition-colors ${
                           activeTab === "twitter"
-                            ? "border-zinc-900 dark:border-white text-zinc-900 dark:text-zinc-100"
+                            ? "border-emerald-500 text-zinc-900 dark:text-zinc-100"
                             : "border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300"
                         }`}
                       >
@@ -727,7 +713,7 @@ export default function OutreachClient({
                         onClick={() => setActiveTab("linkedin")}
                         className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 transition-colors ${
                           activeTab === "linkedin"
-                            ? "border-zinc-900 dark:border-white text-zinc-900 dark:text-zinc-100"
+                            ? "border-emerald-500 text-zinc-900 dark:text-zinc-100"
                             : "border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300"
                         }`}
                       >
@@ -738,10 +724,45 @@ export default function OutreachClient({
                   </div>
 
                   {/* Channel Content Body */}
-                  <div className="flex-1 p-6 space-y-4 overflow-y-auto">
+                  <div className="flex-1 space-y-7 overflow-y-auto bg-white p-6 dark:bg-[#0c0d0e]">
+                    {bundle?.pitch_angle && (
+                      <section className="space-y-3">
+                        <h3 className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
+                          <Sparkles size={14} className="text-emerald-500" />
+                          Pitch strategy
+                        </h3>
+                        <p className="border-l-2 border-zinc-200 py-0.5 pl-4 text-[13px] leading-relaxed text-zinc-700 dark:border-zinc-800 dark:text-zinc-300">
+                          {bundle.pitch_angle}
+                        </p>
+                      </section>
+                    )}
+
+                    {bundle?.personalization && bundle.personalization.length > 0 && (
+                      <section className="space-y-3">
+                        <h3 className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
+                          <Sparkles size={14} className="text-blue-500" />
+                          Grounded creator evidence
+                        </h3>
+                        <div className="divide-y divide-zinc-200/60 overflow-hidden rounded border border-zinc-200/60 bg-zinc-50 dark:divide-zinc-800/60 dark:border-zinc-800/60 dark:bg-[#121314]">
+                          {bundle.personalization.map((ev, i) => (
+                            <div key={i} className="flex gap-3 p-3 text-[12px] leading-relaxed text-zinc-700 dark:text-zinc-300">
+                              <span className="shrink-0 font-mono text-[10px] text-zinc-400">#{ev.evidence_id}</span>
+                              <span>{ev.reason}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </section>
+                    )}
+
+                    <hr className="border-zinc-200/80 dark:border-zinc-800/60" />
+
+                    <div className="flex items-center gap-2">
+                      <Mail size={14} className="text-amber-500" />
+                      <h3 className="text-[11px] font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">Draft workspace</h3>
+                    </div>
                     {/* EMAIL TAB */}
                     {activeTab === "email" && (
-                      <div className="space-y-4">
+                      <div className="space-y-6">
                         {email ? (
                           <>
                             {/* Subject */}
@@ -759,7 +780,7 @@ export default function OutreachClient({
                                   {copiedKey === "subj" ? "Copied" : "Copy"}
                                 </button>
                               </div>
-                              <div className="p-3 bg-zinc-50 dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 text-[13px] font-medium text-zinc-900 dark:text-zinc-100 select-all">
+                              <div className="p-4 bg-zinc-50 dark:bg-zinc-900/50 rounded-lg border border-zinc-200 dark:border-zinc-700 text-[13px] font-medium text-zinc-900 dark:text-zinc-100 select-all">
                                 {email.subject}
                               </div>
                             </div>
@@ -779,7 +800,7 @@ export default function OutreachClient({
                                   {copiedKey === "body" ? "Copied" : "Copy"}
                                 </button>
                               </div>
-                              <div className="p-4 bg-zinc-50 dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 text-[13px] text-zinc-700 dark:text-zinc-200 whitespace-pre-line leading-relaxed font-sans select-all">
+                              <div className="p-5 bg-zinc-50 dark:bg-zinc-900/50 rounded-lg border border-zinc-200 dark:border-zinc-700 text-[13px] text-zinc-700 dark:text-zinc-200 whitespace-pre-line leading-relaxed font-sans select-all">
                                 {email.body}
                               </div>
                             </div>
@@ -809,7 +830,7 @@ export default function OutreachClient({
 
                     {/* INSTAGRAM TAB */}
                     {activeTab === "instagram" && (
-                      <div className="space-y-3">
+                      <div className="space-y-6">
                         <div className="flex items-center justify-between">
                           <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
                             Instagram DM Pitch
@@ -823,7 +844,7 @@ export default function OutreachClient({
                             {copiedKey === "ig" ? "Copied" : "Copy DM"}
                           </button>
                         </div>
-                        <div className="p-4 bg-zinc-50 dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 text-[13px] text-zinc-700 dark:text-zinc-200 whitespace-pre-line leading-relaxed select-all">
+                        <div className="p-5 bg-zinc-50 dark:bg-zinc-900/50 rounded-lg border border-zinc-200 dark:border-zinc-700 text-[13px] text-zinc-700 dark:text-zinc-200 whitespace-pre-line leading-relaxed select-all">
                           {instagram?.body}
                         </div>
                         {lead?.socials?.instagram && (
@@ -856,7 +877,7 @@ export default function OutreachClient({
                             {copiedKey === "tw" ? "Copied" : "Copy DM"}
                           </button>
                         </div>
-                        <div className="p-4 bg-zinc-50 dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 text-[13px] text-zinc-700 dark:text-zinc-200 whitespace-pre-line leading-relaxed select-all">
+                        <div className="p-5 bg-zinc-50 dark:bg-zinc-900/50 rounded-lg border border-zinc-200 dark:border-zinc-700 text-[13px] text-zinc-700 dark:text-zinc-200 whitespace-pre-line leading-relaxed select-all">
                           {twitter?.body}
                         </div>
                         {lead?.socials?.twitter && (
@@ -875,7 +896,7 @@ export default function OutreachClient({
 
                     {/* LINKEDIN TAB */}
                     {activeTab === "linkedin" && (
-                      <div className="space-y-3">
+                      <div className="space-y-6">
                         <div className="flex items-center justify-between">
                           <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
                             LinkedIn Connection Note
@@ -889,7 +910,7 @@ export default function OutreachClient({
                             {copiedKey === "li" ? "Copied" : "Copy"}
                           </button>
                         </div>
-                        <div className="p-4 bg-zinc-50 dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 text-[13px] text-zinc-700 dark:text-zinc-200 whitespace-pre-line leading-relaxed select-all">
+                        <div className="p-5 bg-zinc-50 dark:bg-zinc-900/50 rounded-lg border border-zinc-200 dark:border-zinc-700 text-[13px] text-zinc-700 dark:text-zinc-200 whitespace-pre-line leading-relaxed select-all">
                           {linkedin?.body}
                         </div>
                       </div>

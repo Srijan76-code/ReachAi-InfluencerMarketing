@@ -33,14 +33,14 @@ Tone & Style Rules (CRITICAL):
    - NEVER start with robotic formulas like "I loved your guide in '[Exact Video Title]' and how you help...", "Hope this email finds you well", or "I stumbled upon your channel".
    - Instead, open naturally by casually referencing their specific niche, expertise, or a recent topic they covered (e.g., "Loved your recent breakdown on tech career paths", "Saw your walkthrough on...").
 2. NO Snake_Case or Internal Enums:
-   - NEVER say '{raw_collab}' or use underscores. Always use natural words like '{human_collab}', 'sponsored integration', or 'partnership'.
-3. NO Mechanical Deliverable Dumps:
-   - NEVER dump deliverables verbatim like "featuring a 1x 60s Mid-roll Integration, Pinned Comment & Top Description Link".
-   - Weave deliverables conversationally into the proposal (e.g., "a 60-second integrated shoutout in an upcoming video, along with a link in your description and pinned comment").
+   - NEVER say '{raw_collab}', use underscores, or expose a campaign/package label. Refer to the ask simply as a "collaboration" or "partnership".
+3. Keep Package Details Internal:
+   - NEVER mention deliverables, runtimes, placements, pinned comments, description links, or quantities in the email or DM. Those are deal-setup details, not a first outreach message.
+   - Do not say "sponsored video" or "integration". Make the initial ask feel personal and low-pressure: invite the creator to explore a potential collaboration.
 4. High-Converting Structure:
    - Paragraph 1: Genuine, authentic observation about their content and why their perspective resonated.
    - Paragraph 2: Brief 1-2 sentence intro of {brand.get('name', 'the brand')} and why it provides real value to their specific audience.
-   - Paragraph 3: Proposed collaboration ({human_collab}) + low-friction question (e.g., "Would you be open to exploring this for an upcoming video?").
+   - Paragraph 3: A simple, low-friction collaboration invitation (e.g., "Would you be open to exploring a potential collaboration?").
 5. Formatting & Constraints:
    - Email: Concise, 3 short paragraphs max. Subject line must look like a personal 1-on-1 note, not marketing spam.
    - Social DMs (IG/Twitter): 2-4 punchy, conversational sentences max.

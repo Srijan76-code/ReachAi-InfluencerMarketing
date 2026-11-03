@@ -21,7 +21,7 @@ export default function NormalInputComponent({
         type="text"
         value={value || ""}
         onChange={(e) => onChange?.(e.target.value)}
-        className="text-[13px]"
+        className="border-zinc-200 bg-zinc-50 text-[13px] text-zinc-800 dark:border-zinc-700 dark:bg-zinc-900/50 dark:text-zinc-100"
       />
     </div>
   );

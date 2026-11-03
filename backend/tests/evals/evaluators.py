@@ -43,10 +43,12 @@ def evaluate_case(case: Dict[str, Any], output: Dict[str, Any]) -> List[Dict[str
     results.append(_result("creator_id_correct", bundle.get("creator_id") == expected["creator_id"], "Creator ID matches the case."))
     results.append(_result("creator_name_correct", expected["creator_name"].lower() in lowered, "Creator name is present."))
     results.append(_result("brand_name_correct", expected["brand_name"].lower() in lowered, "Brand name is present."))
-    collaboration = expected["required_facts"]["collaboration_type"].lower()
-    results.append(_result("collaboration_correct", collaboration in lowered, "Collaboration type is represented."))
-    missing_deliverables = [item for item in expected["required_facts"]["deliverables"] if item.lower() not in lowered]
-    results.append(_result("deliverables_correct", not missing_deliverables, "All deliverables are represented." if not missing_deliverables else f"Missing deliverables: {missing_deliverables}"))
+    collaboration_words = ("collaboration", "partnership", "work together")
+    has_collaboration_invitation = any(word in lowered for word in collaboration_words)
+    results.append(_result("collaboration_correct", has_collaboration_invitation, "Pitch includes a natural collaboration invitation."))
+    package_terms = ("sponsored_video", "mid-roll", "pinned comment", "description link")
+    exposed_package_terms = [term for term in package_terms if term in lowered]
+    results.append(_result("package_details_absent", not exposed_package_terms, "No internal package details exposed." if not exposed_package_terms else f"Exposed package details: {exposed_package_terms}"))
 
     actual_channels = sorted(channel for channel in CHANNELS if bundle.get(channel) is not None)
     expected_channels = sorted(expected["available_channels"])

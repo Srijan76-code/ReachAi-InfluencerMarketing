@@ -15,7 +15,7 @@ const AudienceDetails = () => {
   const setField = useCampaignStore((state) => state.setField);
 
   return (
-    <div className="group relative border border-zinc-200 dark:border-zinc-800 p-6 rounded-xl space-y-5 bg-white dark:bg-[#0c0d0e]">
+    <div className="group relative border border-zinc-200 dark:border-zinc-800 p-7 rounded-xl space-y-6 bg-white dark:bg-[#0c0d0e]">
       <div className="-translate-y-1/2 text-[13px] font-medium absolute start-3 top-0 z-10 block px-2 bg-white dark:bg-[#0c0d0e]">
         <Status status="online">
           <StatusIndicator />

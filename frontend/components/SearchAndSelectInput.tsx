@@ -38,7 +38,7 @@ export default function SearchAndSelectInput({frameworks,label, value, onChange}
         <PopoverTrigger asChild>
           <Button
             aria-expanded={open}
-            className="w-full justify-between border-input bg-background px-3 font-normal outline-none outline-offset-0 hover:bg-background focus-visible:outline-[3px]"
+            className="w-full justify-between border-zinc-200 bg-zinc-50 text-zinc-800 px-3 text-[13px] font-normal outline-none outline-offset-0 hover:bg-zinc-100 focus-visible:outline-[3px] dark:border-zinc-700 dark:bg-zinc-900/50 dark:text-zinc-100 dark:hover:bg-zinc-800"
             id={id}
             role="combobox"
             variant="outline"

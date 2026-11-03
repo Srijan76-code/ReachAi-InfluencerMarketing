@@ -15,6 +15,21 @@ CHANNEL_FIELDS = {
     "linkedin": "linkedin",
 }
 INTERNAL_TERMS = ("final_score", "semantic_score", "health_score", "trust_score", "valuation", "risk_penalty", "deal_status")
+PACKAGE_DETAIL_PATTERNS = (
+    (r"\b\d+x\s*\d+\s*(?:s|sec|secs|second|seconds)\b", "a duration/quantity"),
+    (r"\b(?:pre|mid)[-\s]?roll\b", "a placement"),
+    (r"\bsponsored video\b", "a campaign format"),
+    (r"\b(?:paid )?integration\b", "a campaign format"),
+    (r"\bpinned comment\b", "a pinned comment"),
+    (r"\b(?:top )?description link\b", "a description link"),
+    (r"\bdeliverables?\b", "deliverables"),
+)
+FORMULAIC_OPENERS = (
+    "i loved your guide in",
+    "i loved your video in",
+    "hope this email finds you well",
+    "i stumbled upon your channel",
+)
 
 
 def _bundle_text(bundle: dict) -> str:
@@ -54,30 +69,28 @@ def validate_bundle(bundle_data: dict, creator_input: CreatorPitchInput) -> list
 
     text = _bundle_text(bundle.model_dump())
     text_lower = text.lower()
-    text_normalized = text_lower.replace("_", " ")
     brand_name = str((creator_input.get("campaign_context") or {}).get("brand", {}).get("name") or "").strip()
     creator_name = str((creator_input.get("creator_identity") or {}).get("name") or "").strip()
-    collaboration_type = str((creator_input.get("collaboration") or {}).get("type") or "").strip()
-    collab_clean = collaboration_type.replace("_", " ").lower()
 
     if brand_name and brand_name.lower() not in text_lower:
         errors.append("brand name is missing from the pitch")
     if creator_name and creator_name.lower() != "unknown creator" and creator_name.lower() not in text_lower:
         errors.append("creator name is missing from the pitch")
-    if collaboration_type and (collaboration_type.lower() not in text_lower and collab_clean not in text_normalized):
-        errors.append("collaboration type is missing from the pitch")
-
-    for deliverable in creator_input.get("deliverables") or []:
-        deliv_str = str(deliverable).lower()
-        deliv_clean = re.sub(r"^\d+x\s*", "", deliv_str)
-        if deliv_str not in text_lower and deliv_clean not in text_lower:
-            words = [w for w in re.findall(r"\b[a-z]{3,}\b", deliv_clean)]
-            if not words or not all(w in text_lower for w in words):
-                errors.append(f"deliverable is missing from the pitch: {deliverable}")
+    if (creator_input.get("collaboration") or {}).get("type") and not any(
+        phrase in text_lower for phrase in ("collaboration", "partnership", "work together")
+    ):
+        errors.append("pitch does not include a clear collaboration invitation")
 
     for raw_enum in ("sponsored_video", "dedicated_video", "product_placement", "shoutout_mention"):
         if raw_enum in text_lower:
-            errors.append(f"do not use raw snake_case enum '{raw_enum}' in copy; use natural human words like '{raw_enum.replace('_', ' ')}'")
+            errors.append(f"do not use raw snake_case enum '{raw_enum}' in copy")
+
+    for pattern, description in PACKAGE_DETAIL_PATTERNS:
+        if re.search(pattern, text_lower):
+            errors.append(f"pitch exposes internal package detail: {description}")
+    for opener in FORMULAIC_OPENERS:
+        if opener in text_lower:
+            errors.append(f"pitch uses formulaic opener: '{opener}'")
 
     for term in INTERNAL_TERMS:
         if re.search(rf"\b{re.escape(term)}\b", text_lower):

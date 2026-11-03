@@ -35,7 +35,7 @@ export default function CampaignDetailsForm({ id }: { id: string }) {
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-[#08090a] text-zinc-600 dark:text-zinc-400 p-8 font-sans">
-      <div className="max-w-3xl mx-auto space-y-5">
+      <div className="max-w-3xl mx-auto space-y-9">
         {/* Page header */}
         <div className="flex items-center justify-between px-1 py-2">
           <div className="space-y-1">

@@ -32,7 +32,7 @@ export default function MultiPlatform() {
         {items.map((item) => (
           <div
             key={`${id}-${item.value}`}
-            className="relative flex items-center justify-between gap-3 rounded-md border border-input p-2.5 shadow-xs cursor-pointer has-data-[state=checked]:border-primary/50"
+            className="relative flex items-center justify-between gap-3 rounded-md border border-zinc-200 bg-zinc-50 p-2.5 shadow-xs cursor-pointer has-data-[state=checked]:border-primary/50 dark:border-zinc-700 dark:bg-zinc-900/50"
           >
             <div className="flex items-center gap-2">
               <item.Icon aria-hidden="true" className="opacity-60" size={15} />

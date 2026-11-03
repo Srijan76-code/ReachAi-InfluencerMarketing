@@ -30,7 +30,7 @@ export default function RadioCards3({
       >
         {items.map((item) => (
           <div
-            className="relative flex flex-col items-start gap-2 rounded-md border border-input p-2.5 shadow-xs outline-none has-data-[state=checked]:border-primary/50 cursor-pointer"
+            className="relative flex flex-col items-start gap-2 rounded-md border border-zinc-200 bg-zinc-50 p-2.5 shadow-xs outline-none cursor-pointer has-data-[state=checked]:border-primary/50 dark:border-zinc-700 dark:bg-zinc-900/50"
             key={`${id}-${item.value}`}
           >
             <div className="flex items-center gap-2">
