@@ -7,6 +7,13 @@ ReachAI is an end-to-end creator marketing app for startup and solo founders. It
 2. **`docs/TECHNICAL_SPEC.md`**: the full design. Each roadmap item links to its section (§).
 3. `backend/OUTREACH_EVALUATION.md`: how the outreach eval suite works.
 
+## Keep the user docs true (required)
+The public docs live in `frontend/content/docs/*.mdx` (Fumadocs, served at `/docs`, linked from the in-app navbar).
+- **Every time you ship a user-visible change, update the matching docs page and add an entry to `frontend/content/docs/changelog.mdx`** (newest date at the top, plain words, what changed for the user).
+- New page? Add it to `frontend/content/docs/meta.json` so it appears in the sidebar.
+- Only document what actually works. Things that are built but not wired in go under "Behind the scenes" or "Coming soon", never as shipped.
+- Run `cd frontend && npm run build` to check the docs compile.
+
 ## Keep the roadmap true (required)
 - When you **start** an item, set its status to `in progress` and add your branch name.
 - When you **finish**, set it to `done`, list the main files, and note anything left over as a new item.
@@ -29,7 +36,8 @@ frontend/                Next.js (App Router) + Clerk + Zustand + Inngest Realti
   app/campaign/[id]/     details, leads, saved, outreach pages
   app/ListOfInfluencer/  results table + detail sheet
   components/            UI (shadcn-style in components/ui)
-docs/                    ROADMAP.md, TECHNICAL_SPEC.md
+docs/                    ROADMAP.md, TECHNICAL_SPEC.md (internal)
+frontend/content/docs/   Public user docs (MDX, served at /docs)
 ```
 
 ## Run and test

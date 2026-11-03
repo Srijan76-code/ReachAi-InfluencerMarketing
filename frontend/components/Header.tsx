@@ -3,13 +3,13 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, Github, ArrowRight, PlusCircle, HomeIcon } from "lucide-react";
+import { Menu, X, Github, ArrowRight, PlusCircle, HomeIcon, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils"; // standard shadcn helper
 import { Skiper26 } from "./ui/skiper-ui/skiper26";
 import { Show, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
 import BreadCumb from "./BreadCumb";
 import { HoverButton } from "./buttons/HoverButton";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 const NAV_LINKS = [
   { name: "Features", href: "#features" },
@@ -20,6 +20,7 @@ const NAV_LINKS = [
 
 export default function Header() {
   const router = useRouter();
+  const pathname = usePathname();
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -28,6 +29,9 @@ export default function Header() {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  // The docs have their own navigation bar.
+  if (pathname?.startsWith("/docs")) return null;
 
   return (
     <div className="dark:bg-[#08090a] z-50 fixed top-0 inset-x-0  h-2">
@@ -91,6 +95,13 @@ export default function Header() {
             </Show>
 
             <Show when="signed-in">
+              <Link
+                href="/docs"
+                className="flex items-center gap-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 px-2 py-1 rounded-md transition-colors"
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                Docs
+              </Link>
               <HoverButton
                 onClick={() => router.push("/campaign")}
                 className="!bg-zinc-50 dark:!bg-[#08090a] border-neutral-200 dark:border-neutral-800/80 text-neutral-900 dark:text-neutral-200 rounded-lg shadow-sm h-8 flex items-center justify-center px-3"
@@ -149,6 +160,16 @@ export default function Header() {
                   {link.name}
                 </Link>
               ))} */}
+                <Show when="signed-in">
+                  <Link
+                    href="/docs"
+                    className="flex items-center gap-2 text-sm font-medium text-zinc-600 dark:text-zinc-400"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <BookOpen size={16} />
+                    Docs
+                  </Link>
+                </Show>
                 <hr className="border-zinc-200 dark:border-zinc-800" />
                 <div className="flex flex-col gap-3">
                   <button className="w-full text-center py-2 text-sm font-medium border border-zinc-200 dark:border-zinc-800 rounded-lg">

@@ -1,0 +1,16 @@
+{
+  "title": "ReachAI Docs",
+  "pages": [
+    "---Get started---",
+    "index",
+    "getting-started",
+    "writing-a-good-brief",
+    "---Using ReachAI---",
+    "understanding-results",
+    "outreach",
+    "faq",
+    "---Under the hood---",
+    "how-it-works",
+    "changelog"
+  ]
+}

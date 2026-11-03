@@ -40,6 +40,7 @@ Founders have the same problem everywhere:
 | **Personalised pitches** per creator (email, Instagram, X, LinkedIn), with rule validation and one automatic repair | ✅ Live |
 | **Durable background runs** (Inngest + Postgres checkpoints) with live progress in the UI | ✅ Live |
 | Export to Instantly / Smartlead | ✅ Live |
+| User docs and changelog at `/docs` | ✅ Live |
 | Foundations for the next version: LLM routing with fallbacks, Jev client, cost logging, shared cache | ✅ Built, not wired in yet |
 | X, Instagram, LinkedIn · in-app sending and follow-ups · post tracking · billing | 🛠 Planned (see [roadmap](docs/ROADMAP.md)) |
 
@@ -217,6 +218,7 @@ ReachAi-InfluencerMarketing/
 │   │   └── models/         SQLAlchemy models (migrations in alembic/)
 │   └── tests/              Foundations tests + outreach evals
 ├── frontend/               Next.js app (campaign flow, results, outreach)
+│   └── content/docs/       Public user docs (served at /docs)
 ├── docs/
 │   ├── ROADMAP.md          What's built, what's next, where each spec is
 │   └── TECHNICAL_SPEC.md   Full design and decisions
