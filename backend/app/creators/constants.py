@@ -1,0 +1,21 @@
+"""Creator database settings (spec §4.4, §4.9, §4.14)."""
+
+from datetime import timedelta
+
+# Reuse a stored profile (followers, bio, links) for this long; posts are always fetched fresh.
+PROFILE_MAX_AGE = timedelta(days=7)
+
+# YouTube API policy: stored API data must be refreshed or deleted after about 30 days
+# (confirm the current policy text). Other platforms have no forced expiry.
+DATA_TTL = {"youtube": timedelta(days=30)}
+
+# Embeddings for "similar creator" search (pgvector).
+EMBEDDING_MODEL = "gemini-embedding-001"
+EMBEDDING_DIM = 768  # gemini-embedding-001 supports 768 output dims; HNSW indexes allow up to 2000
+
+# Linking one person's accounts across platforms.
+LINK_SELF = "self_link"  # the account links to the other account itself: verified
+LINK_REVERSE = "reverse_link"  # the other account links back
+LINK_NAME_MATCH = "name_match"  # same name/handle, no link: only a suggestion unless confirmed
+AUTO_MERGE_SOURCES = {LINK_SELF, LINK_REVERSE}
+NAME_MATCH_MERGE_FROM = 0.85  # Jev "same person?" probability needed to merge a name match
