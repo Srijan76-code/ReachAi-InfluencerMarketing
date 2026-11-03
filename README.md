@@ -255,6 +255,7 @@ npm run dev
 ```bash
 # Tests (no live API calls)
 cd backend
+pip install -r requirements-dev.txt
 pytest tests -q
 ```
 

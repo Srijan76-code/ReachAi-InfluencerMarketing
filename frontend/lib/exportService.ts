@@ -188,6 +188,8 @@ export interface PitchExportItem {
   email_body: string;
   instagram_pitch: string;
   twitter_pitch: string;
+  linkedin?: string;
+  linkedin_pitch?: string;
   pitch_angle: string;
   status: string;
 }
@@ -251,9 +253,11 @@ export const processPitchesExport = async (
       "Email Pitch": p.email_body,
       "Instagram Pitch": p.instagram_pitch,
       "Twitter Pitch": p.twitter_pitch,
+      "LinkedIn Pitch": p.linkedin_pitch || "",
       "Pitch Angle": p.pitch_angle,
       Instagram: p.instagram,
       Twitter: p.twitter,
+      LinkedIn: p.linkedin || "",
       Status: p.status,
     }));
   }
