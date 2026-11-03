@@ -48,21 +48,25 @@ def _default_session_factory():
     return AsyncSessionLocal
 
 
-async def get_cached(namespace: str, key: str, *, session_factory=None) -> Optional[Any]:
+_MISS = object()
+
+
+async def get_cached(namespace: str, key: str, *, session_factory=None) -> Any:
+    """Return the stored value, or _MISS. Values are wrapped so None/[]/0 are valid cached results."""
     factory = session_factory or _default_session_factory()
     async with factory() as session:
         row = (
             await session.execute(select(CacheEntry).where(CacheEntry.namespace == namespace, CacheEntry.key == key))
         ).scalar_one_or_none()
         if row is None or _aware(row.expires_at) <= _now():
-            return None
-        return row.value
+            return _MISS
+        return row.value.get("v") if isinstance(row.value, dict) else row.value
 
 
 async def set_cached(namespace: str, key: str, value: Any, ttl: timedelta, *, session_factory=None) -> None:
     factory = session_factory or _default_session_factory()
     async with factory() as session:
-        await session.merge(CacheEntry(namespace=namespace, key=key, value=value, expires_at=_now() + ttl))
+        await session.merge(CacheEntry(namespace=namespace, key=key, value={"v": value}, expires_at=_now() + ttl))
         await session.commit()
 
 
@@ -79,7 +83,7 @@ async def cached(
     ttl = ttl or TTL.get(namespace, timedelta(hours=24))
     try:
         hit = await get_cached(namespace, key, session_factory=session_factory)
-        if hit is not None:
+        if hit is not _MISS:
             return hit, True
     except Exception:
         logger.exception("Cache read failed for %s", namespace)
