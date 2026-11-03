@@ -21,10 +21,10 @@
 | Pricing | **Small plan + rollover credits**. Costly platforms use more credits |
 | Payments | **Cashfree** (Indian entity). Billing logic lives in our backend; Cashfree only collects money |
 | Validation | Skipped. To compensate, every user action is instrumented from day one (§11) |
-| Platform choice | **Preset by founder type + AI check + user toggle.** B2B/AI → X, LinkedIn, YouTube · Consumer → Instagram, YouTube (§4.10) |
-| Discovery strategy | **Cheapest-first ladder**: our creator DB → YouTube → expand through creators' own links → small native search only to fill gaps (§4.10) |
-| Extra sources | Competitor sponsors, lookalikes, founder's own X followers, pre-warmed trending niches (§4.11) |
-| Results UX | **Stream results as they arrive** (§4.12) |
+| Platform choice | **Preset by founder type + AI check + user toggle.** B2B/AI → X, LinkedIn, YouTube · Consumer → Instagram, YouTube (§4.9) |
+| Discovery strategy | **Cheapest-first ladder**: our creator DB → YouTube → expand through creators' own links → small native search only to fill gaps (§4.9) |
+| Extra sources | Competitor sponsors, lookalikes, founder's own X followers, pre-warmed trending niches (§4.10) |
+| Results UX | **Stream results as they arrive** (§4.11) |
 
 ### Core principle (kept from the current version)
 Cheap filters first, expensive work last. Everything is batched, cached and resumable. The LLM only sees the final shortlist, and only to **write** text.
@@ -194,7 +194,7 @@ class PlatformAdapter(Protocol):
 | # | Node | Kind | Output |
 |---|---|---|---|
 | 1 | `strategy` | LLM, route `strategy`, **1 call** (merges today's two calls) | topics, pain points, formats, platform-specific queries/hashtags, `trend_topics`, primary metric, safety level |
-| 2 | `source` | **Discovery ladder** (§4.10) across selected platforms, in parallel; extra sources (§4.11) | Candidate refs, deduplicated across queries and platforms, with `found_via` |
+| 2 | `source` | **Discovery ladder** (§4.9) across selected platforms, in parallel; extra sources (§4.10) | Candidate refs, deduplicated across queries and platforms, with `found_via` |
 | 3 | `cheap_filter` | Code | Drops by follower range, country (if the platform provides it), posting recency |
 | 4 | `fetch` | Adapter + creator cache | `CreatorProfile[]` |
 | 5 | `metrics` | Stats / ML (§4.5) | Metrics, anomaly score, health gates |
@@ -302,7 +302,7 @@ All weights and thresholds are **starting values**, to be tuned on the labelled 
 - **Quota:** request a quota extension (YouTube API compliance audit). Until then, keep total searches per run ≤ 8 and cache channel data.
 - Replace the in-memory `checkpointer` in `my_agent/agent.py` (unused in production; the runtime already uses Postgres) when the module is removed.
 
-### 4.10 Platform selection and the cheapest-first discovery ladder
+### 4.9 Platform selection and the cheapest-first discovery ladder
 
 **Platform selection** (runs once per campaign):
 1. **Preset** by founder type, set in the brief: `b2b` → {youtube, x, linkedin}; `consumer` → {youtube, instagram}.
@@ -334,7 +334,7 @@ person_links(person_id, creator_id, link_source [self_link, reverse_link, name_m
 - **name_match** (same name/handle, no link) is only *suggested*. It needs a code check (handle similarity, matching avatar hash or website) **plus** the Jev Noul "Do `account_a` and `account_b` belong to the same person?" above 0.85. Otherwise it's never merged automatically.
 - The UI shows one card per person: combined reach, per-platform metrics, best contact. Pitches can offer a **bundle** across the person's platforms.
 
-### 4.11 Extra discovery sources
+### 4.10 Extra discovery sources
 | Source | How | Cost | Value |
 |---|---|---|---|
 | **Competitor sponsors** | Strategy outputs 3–5 competitor names → search YouTube descriptions / X posts for "sponsored by", "use code", "#ad" + competitor → Jev Noul "Is `post.text` a paid promotion of `competitor`?" | Low | Creators proven to accept deals; likely to reply; tells us their price range |
@@ -344,7 +344,7 @@ person_links(person_id, creator_id, link_source [self_link, reverse_link, name_m
 
 Each source becomes an extra **rung-0 input**. Its candidates go through the same filters, Jev judging and scoring, tagged with `found_via` so the UI can show "Promoted a competitor" or "Follows you".
 
-### 4.12 Cost and latency optimisations (built into Phase 1)
+### 4.11 Cost and latency optimisations (built into Phase 1)
 | # | Optimisation | Effect |
 |---|---|---|
 | 1 | Creator DB as rung 1 (pgvector) | Repeat niches are near-free and instant |
@@ -359,13 +359,13 @@ Each source becomes an extra **rung-0 input**. Its candidates go through the sam
 | 10 | **Incremental refresh** on re-runs: fetch only posts newer than the last snapshot | Faster, cheaper re-runs |
 | 11 | YouTube quota discipline: ≤ 8 searches per run; `playlistItems` / `videos.list` batched (1 unit per 50 IDs) | More runs per day |
 
-### 4.13 Streaming results
+### 4.12 Streaming results
 - The pipeline publishes results **per rung**: DB and YouTube results appear first (~20–40 s), then expansion and native results.
 - Inngest Realtime topic `campaign:{run_id}` / `leads`, payload = scored creators (delta) + `is_final=false|true`.
 - UI: show a "More creators arriving…" bar. Rows don't reshuffle while the user is reading; new rows are inserted below with a "New" chip. A final **"Re-rank"** happens when `is_final` arrives (one animation, with a toggle to keep the order).
 - Credits are committed at the end, per §5.2.
 
-### 4.14 Frontend (Phase 1)
+### 4.13 Frontend (Phase 1)
 - `MultiPlatform.tsx`: enable platforms based on a flag from the backend (`/platforms` endpoint).
 - Lead table and detail sheet:
   - Badges: platform, rising, trend, suspicious engagement.
