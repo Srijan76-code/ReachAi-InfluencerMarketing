@@ -21,6 +21,10 @@
 | Pricing | **Small plan + rollover credits**. Costly platforms use more credits |
 | Payments | **Cashfree** (Indian entity). Billing logic lives in our backend; Cashfree only collects money |
 | Validation | Skipped. To compensate, every user action is instrumented from day one (§11) |
+| Platform choice | **Preset by founder type + AI check + user toggle.** B2B/AI → X, LinkedIn, YouTube · Consumer → Instagram, YouTube (§4.10) |
+| Discovery strategy | **Cheapest-first ladder**: our creator DB → YouTube → expand through creators' own links → small native search only to fill gaps (§4.10) |
+| Extra sources | Competitor sponsors, lookalikes, founder's own X followers, pre-warmed trending niches (§4.11) |
+| Results UX | **Stream results as they arrive** (§4.12) |
 
 ### Core principle (kept from the current version)
 Cheap filters first, expensive work last. Everything is batched, cached and resumable. The LLM only sees the final shortlist, and only to **write** text.
@@ -190,7 +194,7 @@ class PlatformAdapter(Protocol):
 | # | Node | Kind | Output |
 |---|---|---|---|
 | 1 | `strategy` | LLM, route `strategy`, **1 call** (merges today's two calls) | topics, pain points, formats, platform-specific queries/hashtags, `trend_topics`, primary metric, safety level |
-| 2 | `source` | Adapter | Candidate refs, deduplicated across queries |
+| 2 | `source` | **Discovery ladder** (§4.10) across selected platforms, in parallel; extra sources (§4.11) | Candidate refs, deduplicated across queries and platforms, with `found_via` |
 | 3 | `cheap_filter` | Code | Drops by follower range, country (if the platform provides it), posting recency |
 | 4 | `fetch` | Adapter + creator cache | `CreatorProfile[]` |
 | 5 | `metrics` | Stats / ML (§4.5) | Metrics, anomaly score, health gates |
@@ -298,7 +302,70 @@ All weights and thresholds are **starting values**, to be tuned on the labelled 
 - **Quota:** request a quota extension (YouTube API compliance audit). Until then, keep total searches per run ≤ 8 and cache channel data.
 - Replace the in-memory `checkpointer` in `my_agent/agent.py` (unused in production; the runtime already uses Postgres) when the module is removed.
 
-### 4.9 Frontend (Phase 1)
+### 4.10 Platform selection and the cheapest-first discovery ladder
+
+**Platform selection** (runs once per campaign):
+1. **Preset** by founder type, set in the brief: `b2b` → {youtube, x, linkedin}; `consumer` → {youtube, instagram}.
+2. **AI check:** one Jev request with a Noul per platform: "Would buyers of `brief.product` (described in `brief.persona`) follow creators on {platform} for this topic?" A platform is **added** if its Noul is above 0.7, and flagged "low fit" if it's below 0.3. Cost < $0.001.
+3. **User toggle** on the brief form, which shows the preset + AI suggestion and the credit estimate per platform.
+4. Output: `platform_weights {platform: 0..1}`. Used for sourcing budget (below) and as a small scoring prior.
+
+**Discovery ladder.** Each rung runs only if the rungs before it didn't fill the target:
+
+| Rung | Source | Cost | What it gives |
+|---|---|---|---|
+| 1 | **Creator DB**: vector search (pgvector) over stored creators' bio + recent-post embeddings, filtered by selected platforms, constraints and freshness | ~$0 | Instant results for niches we've seen before |
+| 2 | **YouTube search** (channel + recent-video search, §4.8) | Quota only | Rich data, public views, links to other socials |
+| 3 | **Expand through creators' own links**: follow cross-links from rung 1–2 creators to their accounts on the *selected* platforms; fetch those exact profiles | Cheap (profile fetch, no search) | Verified multi-platform creators |
+| 4 | **Native gap-fill search** on a selected platform, only if it still has fewer than `target_per_platform` qualified candidates; search size scales with the gap | Paid | Platform-only creators, rising creators, trends |
+
+- `target_per_platform = ceil(creator_count × 10 × platform_weight)` qualified candidates, meaning they passed `cheap_filter` + metrics gates.
+- **Exception, always run a small native search on X and Instagram** (`min_native_queries = 2`) even when the target is met. Trends and platform-only rising creators start there, and YouTube-first sourcing would miss them.
+- **Reverse expansion:** creators found by native search also expose links (X bio → YouTube, Instagram → website). Follow them the same way, so the person record fills in.
+
+**Identity and the person model.** One person can own several accounts:
+```
+creator_persons(person_id PK, display_name, primary_contact JSONB, created_at)
+creators.person_id FK → creator_persons        -- one row per platform account (existing table)
+person_links(person_id, creator_id, link_source [self_link, reverse_link, name_match],
+             confidence, verified_at)
+```
+- **self_link** (the account links to the other account itself) = verified, confidence 1.0.
+- **name_match** (same name/handle, no link) is only *suggested*. It needs a code check (handle similarity, matching avatar hash or website) **plus** the Jev Noul "Do `account_a` and `account_b` belong to the same person?" above 0.85. Otherwise it's never merged automatically.
+- The UI shows one card per person: combined reach, per-platform metrics, best contact. Pitches can offer a **bundle** across the person's platforms.
+
+### 4.11 Extra discovery sources
+| Source | How | Cost | Value |
+|---|---|---|---|
+| **Competitor sponsors** | Strategy outputs 3–5 competitor names → search YouTube descriptions / X posts for "sponsored by", "use code", "#ad" + competitor → Jev Noul "Is `post.text` a paid promotion of `competitor`?" | Low | Creators proven to accept deals; likely to reply; tells us their price range |
+| **Lookalikes** | The user pastes 1–3 creator URLs → fetch and embed them → nearest neighbours in the creator DB + their cross-links → normal pipeline | ~$0 after the DB is warm | Very precise; great for founders who know one creator they like |
+| **Founder's own followers** | Optional: connect the founder's X handle → fetch follower IDs (~$0.02 per 5k via a third-party provider) → keep accounts above a follower threshold → normal pipeline | Low | Warm audience that already knows the founder |
+| **Pre-warmed trending niches** | Nightly Inngest cron per popular niche (top niches by run count): fetch trending posts on YouTube/X/Instagram, update the creator DB and snapshots | Amortised across users | Near-instant runs for common niches; better rising-creator detection (real time series). Turn on once ≥ 20 runs per niche per week |
+
+Each source becomes an extra **rung-0 input**. Its candidates go through the same filters, Jev judging and scoring, tagged with `found_via` so the UI can show "Promoted a competitor" or "Follows you".
+
+### 4.12 Cost and latency optimisations (built into Phase 1)
+| # | Optimisation | Effect |
+|---|---|---|
+| 1 | Creator DB as rung 1 (pgvector) | Repeat niches are near-free and instant |
+| 2 | **Search cache**: `(platform, query, region, window)` → results, TTL 24–72 h | No paying twice for the same search |
+| 3 | **Early stop**: stop sourcing once `target_per_platform` is met | No over-fetching |
+| 4 | **Bio-only Jev gate before paid post fetch** (`is_individual`, rough `topic_fit` on bio) | Skips obvious misses before Apify / X post fetches |
+| 5 | **One provider job per batch** (Apify actor run with all usernames; batched X lookups) | Avoids per-run startup time and minimum charges |
+| 6 | **Content-hash caches** for embeddings and Jev answers: key = hash(creator content) + hash(brief) + `questions_version` | Never pay twice |
+| 7 | **Lazy work**: "why this creator" brief and contact finding only for creators shown or opened | Fewer LLM calls and verifier calls |
+| 8 | **Prompt caching** for pitches (shared campaign context prefix) where the provider supports it | Lower pitch cost and latency |
+| 9 | **Platforms in parallel** (LangGraph `Send` per platform) | Total time ≈ slowest platform, not the sum |
+| 10 | **Incremental refresh** on re-runs: fetch only posts newer than the last snapshot | Faster, cheaper re-runs |
+| 11 | YouTube quota discipline: ≤ 8 searches per run; `playlistItems` / `videos.list` batched (1 unit per 50 IDs) | More runs per day |
+
+### 4.13 Streaming results
+- The pipeline publishes results **per rung**: DB and YouTube results appear first (~20–40 s), then expansion and native results.
+- Inngest Realtime topic `campaign:{run_id}` / `leads`, payload = scored creators (delta) + `is_final=false|true`.
+- UI: show a "More creators arriving…" bar. Rows don't reshuffle while the user is reading; new rows are inserted below with a "New" chip. A final **"Re-rank"** happens when `is_final` arrives (one animation, with a toggle to keep the order).
+- Credits are committed at the end, per §5.2.
+
+### 4.14 Frontend (Phase 1)
 - `MultiPlatform.tsx`: enable platforms based on a flag from the backend (`/platforms` endpoint).
 - Lead table and detail sheet:
   - Badges: platform, rising, trend, suspicious engagement.
@@ -562,13 +629,14 @@ Since validation was skipped, these are **required** from Phase 1:
 | Phase | Contents | Depends on | Size (rough) |
 |---|---|---|---|
 | 0 | LLM gateway wrapper + routes, Jev client, config, cost logging | — | S |
-| 1 | `CreatorProfile`, creator DB + cache + YouTube 30-day job, adapters base, generic graph, metrics + anomaly, Jev judge + scoring, YouTube migrated, UI badges | 0 | L |
+| 1 | `CreatorProfile`, person model, creator DB (pgvector) + caches + YouTube 30-day job, discovery ladder + streaming, adapters base, generic graph, metrics + anomaly, Jev judge + scoring, YouTube migrated, UI badges | 0 | L |
 | 2 | Credits ledger, reservations, plans, Cashfree subscriptions/top-ups/webhooks, billing UI | 0 | M |
 | 3 | X adapter | 1, 2 | M |
 | 4 | Instagram adapter | 1, 2 | M |
 | 5 | LinkedIn adapter (public post search + pasted URLs) | 1, 2 | M |
 | 6 | Contacts + verification, Unipile inbox, sequences, inbox UI, reply classifier, assisted DMs, pitch validation upgrade | 1, 2 | L |
 | 7 | Deals pipeline, negotiation helper, go-live + disclosure checks, tracking links | 6 | M |
+| 7b | Extra sources: lookalikes, competitor sponsors (with Phase 3), founder followers (with X), pre-warmed niches (after usage) | 1, 3 | M |
 | 8 | Learned ranker + valuation model | data from 6–7 | M |
 
 Phases 3 and 6 can run in parallel after 1 and 2.
