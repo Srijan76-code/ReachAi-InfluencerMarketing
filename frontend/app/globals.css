@@ -51,6 +51,8 @@
 }
 
 :root {
+  --page-bg: #fafafa; /* zinc-50 */
+  --color-fd-background: var(--page-bg);
   --radius: 0.625rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -86,6 +88,8 @@
 }
 
 .dark {
+  --page-bg: #08090a;
+  --color-fd-background: var(--page-bg);
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
@@ -123,8 +127,14 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /* One fixed page background everywhere (the /campaign look), so reloads,
+     loading screens and short pages never flash a different colour. */
+  html,
   body {
-    @apply bg-background text-foreground;
+    background-color: var(--page-bg);
+  }
+  body {
+    @apply text-foreground;
   }
 }
 
