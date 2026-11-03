@@ -1,0 +1,37 @@
+---
+title: How it works
+description: How ReachAI finds creators quickly, cheaply and accurately.
+---
+
+## Cheap work first, expensive work last
+
+Every campaign runs as a pipeline. Each step narrows the list before a more expensive step runs:
+
+| Step | Who does it | What happens |
+|---|---|---|
+| Understand the brief | Language model (1 call) | Topics, audience problems, formats and search terms |
+| Find candidates | Platform API | Search for creators across many angles of your brief |
+| Filter and measure | Code | Size, country, activity, views, reliability, engagement |
+| Shortlist | Semantic search | Keep the creators whose content is closest to your brief |
+| Judge fit | Language model, in batches | Brand and audience fit for the shortlist only |
+| Score | Code | Fit + health → final score, fair price, forecast |
+| Explain | Language model | One-line reason, only for the creators you get |
+
+## How we made it 99% cheaper
+
+The first version cost about **$5 per run** and took **4+ minutes**. By batching work, running steps in parallel, filtering in code before calling AI, and only writing reasons for the final list, a run now costs about **$0.04** and takes **1–2 minutes**.
+
+## What's next: judgments by Jev
+
+Most AI work in creator discovery is judging, not writing: *is this a real person? does the audience match? is it brand-safe?* We're moving these judgments to **[Jev](https://docs.typesafe.ai/introduction)**, a fast model built for yes/no, label and scale questions:
+
+- about **100 ms** per request, with all of a creator's questions answered at once;
+- about **$0.006 to judge 100 creators**;
+- answers come with **probabilities**, so thresholds mean something and we can tune them.
+
+Language models will only write the text you read: the reasons and the pitches. Numbers like views, growth and fair price always stay in code.
+
+## Reliability
+
+- Runs happen in the background and survive restarts; you can close the page.
+- Coming with the next discovery update: automatic backup AI models if a provider is down, and cost tracking for every AI call, so pricing stays fair and sustainable.

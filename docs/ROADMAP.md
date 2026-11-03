@@ -25,6 +25,11 @@ Known gaps in what's built:
 
 ---
 
+## Docs
+| ID | Feature | Status | Main files |
+|---|---|---|---|
+| D1 | Public docs site (Fumadocs at `/docs`): welcome, getting started, writing a brief, results, outreach, FAQ, how it works, changelog; search; Docs link in the in-app navbar. Next.js 16.1→16.2 and Tailwind 4.1→4.3 upgrades were needed | done (`docs-site`) | `frontend/content/docs/`, `frontend/app/docs/`, `frontend/lib/source.ts`, `frontend/source.config.ts` |
+
 ## Phase 0: Foundations · §3
 | ID | Feature | Status | Spec | Main files |
 |---|---|---|---|---|
