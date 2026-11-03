@@ -39,7 +39,7 @@ Known gaps in what's built:
 | F0.3 | Cost logging (`cost_events`) for every paid call | done (`foundations`) | §5.2 | `app/billing/costs.py`, `app/models/cost_event.py`, migration `c3f1a9d4e2b0` |
 | F0.4 | Config/env additions + `.env.example` update | done (`foundations`) | §3.4 | `app/core/config.py`, `backend/.env.example` |
 | F0.5 | Postgres cache helper (`cached()`), one `cache_entries` table with namespaces (`search`, `llm`) | done (`foundations`) | §4.14 | `app/discovery/cache.py`, `app/models/cache_entry.py`, migration `c3f1a9d4e2b0` |
-| F0.6 | Run execution: `discovery/run` + `discovery/platform` Inngest functions with steps, `run_candidates` / `run_strategy` tables, concurrency keys, limits module | next | §4.14 | `app/inngest/discovery.py`, `app/discovery/limits.py` |
+| F0.6 | Run execution: `discovery/run` Inngest function running/resuming the LangGraph discovery graph, `run_candidates` / `run_strategy` tables, concurrency/singleton/idempotency, limits module | in progress (`run-engine`) | §4.14 | `app/inngest/discovery.py`, `app/discovery/limits.py` |
 
 ## Phase 1: Shared core + lead generation · §4
 **Decisions (Nov 3):**
@@ -58,10 +58,10 @@ Known gaps in what's built:
 | F1.4 | Caches: profile (7 d), search results (24–72 h), embeddings + Jev answers by content hash | done (`creator-db`) | §4.4, §4.11 | profile reuse (`split_fresh`, 7 d), Jev answer + embedding caches by content hash (`app/creators/repository.py`); search cache already in `app/discovery/cache.py` |
 | F1.5 | Metrics: robust stats, momentum, outperformance, per-platform percentiles, IsolationForest anomaly | done (`shared-core`) | §4.5 | `app/metrics/` (stats, baselines, anomaly, pricing, compute, constants), `tests/shared_core/test_metrics.py` |
 | F1.6 | Jev judging questions + scoring combine | done (`shared-core`) | §4.6–4.7 | `app/judge/questions.py`, `constants.py`, `combine.py`, `tests/shared_core/test_judging.py` |
-| F1.7 | Generic discovery graph (strategy → ladder sourcing → filter → fetch → metrics → recall → judge → score → brief) | next | §4.3 | `app/discovery/graph.py`, `nodes/*` |
-| F1.8 | Platform selection (preset + Jev check + user toggle) and discovery ladder with probe-then-expand | next | §4.9 | `app/discovery/ladder.py` |
+| F1.7 | Generic discovery graph (strategy → ladder sourcing → filter → fetch → metrics → recall → judge → score → brief) | in progress (`run-engine`) | §4.3 | `app/discovery/graph.py`, `nodes/*` |
+| F1.8 | Platform selection (preset + Jev check + user toggle) and discovery ladder with probe-then-expand | in progress (`run-engine`) | §4.9 | `app/discovery/ladder.py` |
 | F1.9 | YouTube adapter on the core (+ recent-video trend search, quota discipline) | done (`youtube-adapter`) | §4.8 | `app/platforms/youtube.py`, `youtube_api.py`, `tests/platforms/`, recorded fixture `tests/fixtures/youtube/recording.json` (re-record: `python -m scripts.record_youtube_fixtures`) |
-| F1.10 | Streaming results per rung (Inngest Realtime `leads` topic) | next | §4.12 | `app/workflow/runtime.py`, frontend results |
+| F1.10 | Streaming results per rung (Inngest Realtime `leads` topic) | in progress (`run-engine`) | §4.12 | `app/workflow/runtime.py`, frontend results |
 | F1.11 | YouTube 30-day data refresh/delete job | next | §4.4 | `app/creators/refresh.py`, Inngest cron |
 | F1.12 | Frontend: platform toggles, badges (rising, trend, suspicious), score breakdown, credit estimate | next | §4.13 | `frontend/components/MultiPlatform.tsx`, `frontend/app/ListOfInfluencer/*` |
 | F1.13 | Compare old vs new pipeline on 3 briefs with live keys, then remove `app/my_agent/` and `app/core/model.py` | later | §13 file map | — |

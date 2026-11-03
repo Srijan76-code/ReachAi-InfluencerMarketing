@@ -27,7 +27,7 @@
 | Results UX | **Stream results as they arrive** (§4.12) |
 | Discovery quality rule | **Probe every selected platform, expand where a probe beats the current top N**; fit floor as a safety net; recall benchmark ≥ 90% (§4.9) |
 | Pipeline rollout | Replace the old YouTube pipeline directly once the new one works; compare both on 3 briefs before deleting the old code (roadmap Phase 1) |
-| Run execution | Inngest steps with LangGraph inside each platform step; backend stays on Vercel; caches in Postgres only; cross-run limits via Inngest concurrency keys (§4.14) |
+| Run execution | LangGraph runs and resumes the pipeline from Postgres checkpoints; Inngest starts, retries (resume), limits (2 per user, 10 total) and cancels runs (a re-run cancels the previous one); platforms are parallel LangGraph branches; Vercel; Postgres caches (§4.14) |
 | After the deal | Founder pays creators directly (we send pay-on-proof requests and track); own short links; promo codes + signup snippet/server event; tracking included in paid plans (§8) |
 | Outreach | **Connected inbox**; founder approves first messages, follow-ups automatic; A/B test soft vs. concrete-offer first message (§7) |
 
@@ -391,68 +391,54 @@ Each source becomes an extra **rung-0 input**. Its candidates go through the sam
 - UI: show a "More creators arriving…" bar. Rows don't reshuffle while the user is reading; new rows are inserted below with a "New" chip. A final **"Re-rank"** happens when `is_final` arrives (one animation, with a toggle to keep the order).
 - Credits are committed at the end, per §5.2.
 
-### 4.14 Run execution model (decided)
-**Decisions:**
-- Each run is split into **Inngest steps**, with **LangGraph inside each platform step**.
-- The backend stays on **Vercel**.
-- Caches live in **Postgres only**.
-- Limits that span all runs use **Inngest concurrency keys**.
+### 4.14 Run execution model (decided, revised Nov 3)
+**Decisions:** LangGraph runs the pipeline and makes it durable inside a run; Inngest starts, retries, limits and cancels runs. Platforms run as parallel LangGraph branches in one run. Re-running a campaign cancels the previous run. Limits: 2 runs per user, 10 at once overall. Backend stays on Vercel; caches in Postgres.
 
-**Why:** today the whole graph runs inside one Inngest call, which is bound by Vercel's per-request time limit, and a failure restarts most of the run. Steps are short requests: a failure retries only that step, and finished steps are memoised.
+**Why (checked in code, Nov 3):** the old runner re-sent the input on every Inngest retry. In LangGraph that starts a new run from the first step and duplicates accumulated state (a test showed `['a','a','b']`), so the Postgres checkpoints were saved but never used. Resuming needs `None` as the input. The old runner also used one thread per campaign (so runs shared history), marked the campaign failed before Inngest retried, and used `InMemoryCache`, which doesn't survive between serverless requests.
 
-**Function layout**
+**Run lifecycle**
 ```
-discovery/run            event: campaign/run          concurrency: key=user_id limit=2
-  step strategy          1 LLM call (route strategy)  → writes run_strategy
-  step select_platforms  preset + Jev Nouls
-  parallel steps         step.invoke("discovery/platform", {run_id, platform, rung, budget}) per platform
-  step merge_rank        cross-platform scoring from run_candidates
-  step probe_check       decide expansions (§4.9); invoke discovery/platform again for those platforms
-  step brief             LLM "why this creator" for top N (5 at a time)
-  step finalize          commit credits, status=COMPLETED, final realtime event
-
-discovery/platform       invoked                      concurrency: key="platform:"+platform limit=10
-  LangGraph graph (compiled with AsyncPostgresSaver, thread_id = run_id + ":" + platform + ":" + rung):
-  source → cheap_filter → fetch (batched) → metrics → recall → judge → score_partial → persist
-  After persist: publish Inngest Realtime `campaign:{run_id}` / `leads` with the new rows (is_final=false)
-
-judge/batch (optional)   used by any step that needs many Jev calls   concurrency: key="jev" limit=8
+campaign/run (event id = run_id)  ->  discovery/run  [concurrency: 2 per user, 10 per account; singleton key=campaign_id mode=cancel;
+                                                      retries 3; timeouts.finish 15 min; cancel on campaign/cancel; on_failure handler]
+   thread_id = run_id
+   checkpoint with pending steps?  yes -> astream_events(None)   (resume)
+                                   no  -> astream_events(brief)  (fresh)
+   durability = "sync"   (each step's checkpoint is saved before the next starts)
+   on error: re-raise; Inngest retries and the retry resumes. on_failure marks the campaign failed after the last retry.
 ```
-- **Steps pass IDs, never big payloads.** Inngest step outputs have size limits, so candidates live in Postgres:
-  ```
-  run_candidates(run_id, creator_id, platform, found_via, rung, stage
-                 [sourced, filtered_out, fetched, judged, scored, shortlisted],
-                 metrics JSONB, judgment_id, fit, health, risk, final_score, drop_reason,
-                 created_at, updated_at, PRIMARY KEY(run_id, creator_id))
-  run_strategy(run_id PK, strategy JSONB, platform_weights JSONB, created_at)
-  ```
-- **Idempotency:** every step upserts by `(run_id, creator_id)`, so a retried step never duplicates rows. Inngest event IDs = `run_id` (dedupe double clicks).
-- **Failure policy:** each step has 3 retries with backoff. If one platform step finally fails, the run continues with the other platforms and records `platform_errors`; the UI shows "X results unavailable this run". The strategy step failing fails the run (credits released).
+
+**Graph** (`app/discovery/graph.py`)
+```
+START -> [strategy (LLM) | platform_select (preset + Jev) | db_search (embedding -> pgvector)]   parallel
+      -> fan_out: Send(platform_branch, {platform, mode})  per selected platform
+             full search on preset platforms with a working adapter; probe (2 queries) on the others,
+             all running at the same time
+      -> platform_branch (subgraph, checkpointed): search -> fetch -> measure -> shortlist -> judge -> score
+             each step streams newly scored creators (custom stream) to the UI
+      -> merge_rank (defer=True: waits for all branches)
+      -> probe_check (conditional): Send(platform_branch, mode=expand) where a probe creator beats the top-N
+             cutoff or the top-N fit is below FIT_FLOOR; else continue
+      -> reasons: Send(reason, creator) per top-N creator, in parallel (LLM, cached)
+      -> finalize: campaign_leads in the legacy shape, status COMPLETED
+```
+Node settings: `retry_policy` on every node that calls an API; `timeout` on long nodes; an error handler on `platform_branch` turns a failed platform into a warning so the other branches continue.
+
+**State stays small:** profiles and posts live in the creator database; the graph state holds creator ids plus small score records, so checkpoints stay fast.
+
+**Caching:** a LangGraph node cache backed by `cache_entries` (Postgres) replaces `InMemoryCache`, plus the creator-database caches (profiles, Jev answers, embeddings), the search cache, and strategy reuse for an identical brief.
 
 **Concurrency and batching** (all limits in `app/discovery/limits.py`)
-| Resource | Limit | Batch size | Enforced by |
-|---|---|---|---|
-| Runs per user | 2 | — | Inngest concurrency key `user_id` |
-| Platform steps | 10 per platform globally | — | Inngest key `platform:<name>` |
-| YouTube `search.list` | 4 concurrent per step | — | asyncio semaphore |
-| YouTube `channels.list` / `videos.list` | 20 concurrent per step | 50 IDs per call | semaphore |
-| Jev | **8 concurrent globally** | 1 creator per request (all questions) | Inngest key `jev` (judge batches) + SDK `RetryPolicy` |
-| LLM | 5 concurrent per run | 1 creator per brief call | semaphore + gateway rate limits |
-| Embeddings | 4 concurrent | ~100 texts per call | semaphore |
-| Apify / X provider | 3 concurrent jobs per platform globally | all handles in one job | Inngest key `provider:<name>` |
+| Resource | Limit |
+|---|---|
+| Runs | 2 per user, 10 per account (Inngest) |
+| YouTube | 4 searches at once; lookups 20 at once, 50 ids per call |
+| Jev | 8 at once per process; 1 request per creator with all questions |
+| LLM | reasons in parallel, 5 at once |
+| Embeddings | batches of 100 |
 
-**Caching (Postgres; replaces LangGraph `InMemoryCache`, which doesn't survive across serverless calls)**
-| Cache | Table | Key | TTL |
-|---|---|---|---|
-| Search results | `cache_entries` (namespace `search`) | sha256(platform, query, region, window) | 24–72 h |
-| Creator profile | `creators` | (platform, platform_id) | 7 days; YouTube data refreshed/deleted by day 30 |
-| Embeddings | `creator_embeddings` (pgvector) | sha256(text) + model | until text changes |
-| Jev answers | `creator_judgments` | sha256(content) + sha256(brief) + questions_version | until any key part changes |
-| LLM outputs (briefs, pitches) | `cache_entries` (namespace `llm`) | sha256(inputs) + route + prompt_version | 7 days |
+**Tables:** `run_strategy(run_id, strategy, platform_weights)` and `run_candidates(run_id, creator_id, platform, found_via, mode, stage, metrics, fit, health, risk, final_score, deal_status, flags, drop_reason)` for streaming, status and debugging.
 
-Read-through helper: `cached(table, key, ttl, compute)` in `app/discovery/cache.py`. Cache hits still charge the user's normal credits; they only cut our cost and latency.
-
-**Tracing:** LangSmith traces the LangGraph graphs and LLM calls. Each Inngest step adds `run_id`, `platform` and `rung` as trace metadata, so one run can be followed end to end.
+**Switch-over:** `DISCOVERY_ENGINE=legacy|graph` (default `legacy`). Flip it after the 3-brief comparison, then delete the old pipeline (F1.13) and the setting.
 
 ### 4.13 Frontend (Phase 1)
 - `MultiPlatform.tsx`: enable platforms based on a flag from the backend (`/platforms` endpoint).
