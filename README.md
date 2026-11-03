@@ -1,94 +1,168 @@
 <div align="center">
   <br>
-  <h1>REACH AI : End-to-End Influencer Marketing Automation</h1>
-  <!-- <p><strong>End-to-End Influencer Marketing Automation</strong></p> -->
-  <!-- <hr width="72%"> -->
-  <p align="right">
-    From deep lead discovery to hyper-personalized outreach -- Fully automated.
-  </p>
+  <h1>Reach AI</h1>
+  <p><strong>Creator marketing that startup and solo founders can actually run</strong></p>
+  <p>Find the creators who will convert for your product, see what each one should cost, reach them, and track what they deliver, all in one app.</p>
   <br>
-  <a href="#-project-overview">Project Overview</a> ✦
-  <a href="#-core-features">Key Features</a> ✦
-  <a href="#-traditional-platforms-vs-reach-ai">Comparison</a> ✦
-  <a href="#-system-architecture">Architecture</a> ✦
-  <a href="#-project-structure">Structure</a> ✦
-  <a href="#-installation">Installation</a> ✦
-  <a href="#-api-configuration">API</a> ✦
-  <a href="#-tech-stack">Tech Stack</a>
+  <a href="#-why-reach-ai">Why</a> ✦
+  <a href="#-what-it-does-today">What it does</a> ✦
+  <a href="#-how-we-improved-it">How we improved it</a> ✦
+  <a href="#-where-its-going">Where it's going</a> ✦
+  <a href="#-why-jev">Why Jev</a> ✦
+  <a href="#-architecture">Architecture</a> ✦
+  <a href="#-getting-started">Getting started</a>
   <br>
 </div>
 
 <hr>
 
-## ◈ Project Overview
+## ◈ Why Reach AI
 
-**Reach AI** is an end-to-end agentic platform that automates the influencer marketing funnel. It replaces manual spreadsheet scouting with an intelligent LangGraph pipeline that discovers, qualifies, and ranks influencers — using real-time metrics, semantic analysis, and brand-fit & safety analysis.
+I built Reach AI after seeing how hard creator discovery was while building **Haven**, a college dating app. Our first organic campaign reached 17k+ views in a week, but finding the right creators still meant hours of manual scrolling and guesswork, with no idea what a fair price was.
 
-The platform understands your **actual campaign context** — your brand's industry, price point, target persona, and goals — and uses that understanding to find creators who are a genuine strategic fit, not just names that match a hashtag.
+Founders have the same problem everywhere:
+- **No marketing team, small budgets.** Solo founders spend roughly $60–180 a month on all their software, and one sponsored post costs $200–2,000.
+- **Existing tools aren't built for them.** Database tools (Modash, Upfluence) cost $199–600 a month, often on annual contracts, and still leave the founder doing the work.
+- **The two biggest fears are wasted time and overpaying.** Founders don't know which creators will convert, or what a creator should cost.
 
-
-**Why Reach AI**
->
-> I built Reach AI after seeing how difficult influencer discovery was while building Haven, a college dating app. Our first organic campaign reached 17k+ views in a week, but finding the right creators still required hours of manual scrolling and guesswork. Reach AI turns that process into a campaign-aware, measurable workflow that can run cheaply at scale.
-
-### How I Improved it
-
->
-> The first working version cost approximately **$5 per run** and took **4+ minutes**. After tracing the workflow in LangSmith, I moved expensive work toward concurrent batched processing, cached repeated work, and removed unnecessary sequential model calls.   This helped me do :
->
-> - **99% lower AI inference cost:** approximately **$5 to $0.04 per run**.
-> - **60%+ lower pipeline latency:** approximately **4+ minutes to 1–2 minutes**.
-> - **Quality validated and improved:** outperformed Aha (market leader) and the previous version on the same product brief, then checked across different campaign briefs, including edtech, which also surfaced stronger creator matches.
-
-
-### Tech Stack
-
-`Next.js` ·  `TypeScript` ·  `Python` · `FastAPI` · `LangGraph` · `Inngest` · `Gemini AI` · `PostgreSQL` · `LangSmith` · `Zustand`
+**Positioning:** *the creators who will actually convert for you, and what you should pay them.* We compete on match quality and fair pricing, not on being the cheapest.
 
 <br>
 
-## ◈ Core Features
+## ◈ What it does today
 
-### Core Capabilities
-
-| <kbd>01</kbd> Deep Campaign-Aware Discovery                                                                                                                                  | <kbd>02</kbd> Brand-Fit Ranking                                                                                                                 |
-| :------------------------------------------------------------------------------------------------------------------------------------------------------------ | :----------------------------------------------------------------------------------------------------------------------------------------------- |
-| Reads your full campaign brief and generates dozens of strategic search queries across niches, audience struggles, and formats to surface creators manual searches miss. | Evaluates each creator on actual content relevance to your brand, independent of metrics, with a written reasoning explaining exactly why they're a fit. |
-
-| <kbd>03</kbd> Performance Intelligence                                                                                                                                 | <kbd>04</kbd> Real-Time Risk Detection                                                                                                                        |
-| :--------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------- |
-| Metrics that matter: Fair valuation, estimated CPM, trust scores, consistency, and expected link clicks per video based on industry-specific benchmarks. | Automatically filters out dead channels, zombie engagement, geo-mismatches, and channels not meeting your view thresholds. |
-
-### Platform and Reliability Features
-
-| <kbd>05</kbd> Durable Background Workflows | <kbd>06</kbd> Resumable AI Pipelines |
-| :--- | :--- |
-| Inngest runs campaign jobs asynchronously with event-driven execution, while LangGraph retry policies recover from transient failures. | PostgreSQL-backed LangGraph checkpoints preserve workflow state by campaign thread, making long-running runs inspectable and resumable. |
-
-| <kbd>07</kbd> Live Progress and Reconciliation | <kbd>08</kbd> Cost and Latency Optimization |
-| :--- | :--- |
-| Signed Inngest Realtime subscriptions stream stage and completion events to the campaign UI, while Zustand reconciles state with the backend. | Batched processing, selective model usage, and caching reduce inference cost and unnecessary sequential work. |
+| Feature | Status |
+|---|---|
+| **Campaign-aware YouTube discovery**: reads the brief (product, price point, persona, goal) and generates strategic search queries, not just hashtags | ✅ Live |
+| **Brand-fit ranking** with a written reason for each creator | ✅ Live |
+| **Performance and fair price**: median views, reliability, engagement, estimated CPM, valuation and expected clicks per video | ✅ Live |
+| **Risk filters**: inactive channels, suspicious engagement, geo mismatch, view floors | ✅ Live |
+| **Personalised pitches** per creator (email, Instagram, X, LinkedIn), with rule validation and one automatic repair | ✅ Live |
+| **Durable background runs** (Inngest + Postgres checkpoints) with live progress in the UI | ✅ Live |
+| Export to Instantly / Smartlead | ✅ Live |
+| Foundations for the next version: LLM routing with fallbacks, Jev client, cost logging, shared cache | ✅ Built, not wired in yet |
+| X, Instagram, LinkedIn · in-app sending and follow-ups · post tracking · billing | 🛠 Planned (see [roadmap](docs/ROADMAP.md)) |
 
 <br>
 
-## ◈ Traditional Platforms vs Reach AI
+## ◈ How we improved it
 
-| Domain             | Traditional Platforms (Modash, Upfluence)                             | Reach AI                                     |
-| :----------------- | :------------------------------------------------ | :------------------------------------------- |
-| **Discovery**      | Browse static database filtered by tags, category | AI generates strategic queries to find what creators *actually* talk about     |
-| **Evaluation**     | Surface-level: followers, avg likes              | Deep: fair-price valuation, consistency, expected ROI per video  |
-| **Brand Safety**   | Little to no safety screening        | Real-time risk detection (flags dead channels, fake engagement)          |
-| **Ranking**        | Hidden algorithm or basic sorting by follower count  | Every creator has a written explanation of their strategic relevance |
-| **Pricing**        | Generic rate cards or no pricing data  | Per-creator valuation adjusted for industry, geo, and actual performance |
+### v1 → v2: from $5 to $0.04 per run
+The first working version cost about **$5 per run** and took **4+ minutes**. Tracing every step in LangSmith showed where the time and money went, so I:
+- moved expensive work to **concurrent, batched** processing (enrichment 20 channels at a time, LLM reranking in batches of 15);
+- put **cheap filters first** (subscriber, country, activity and engagement checks in code) so the LLM only sees a shortlist;
+- added a **hybrid semantic filter** (embeddings + BM25) that keeps the top 30 before any LLM call;
+- **cached** repeated work and removed unnecessary sequential model calls;
+- wrote the "why this creator" reasoning **only for the creators the user actually gets**.
+
+| Metric | v1 | v2 |
+|---|---|---|
+| AI cost per run | ~$5 | **~$0.04** (−99%) |
+| Run time | 4+ min | **1–2 min** (−60%+) |
+| Quality | — | Beat Aha (market leader) and v1 on the same brief, then held up across other briefs, including edtech |
+
+### Outreach: tested, not guessed
+Pitch generation runs one branch per creator. A **rule validator** catches AI clichés, leaked internal scores, wrong channels and too many questions, and repairs a pitch at most once. A **LangSmith eval suite** (28 cases from real leads) scores groundedness, personalisation, tone and CTA quality, so prompt changes are measured before they ship. See [`backend/OUTREACH_EVALUATION.md`](backend/OUTREACH_EVALUATION.md).
 
 <br>
 
-## ◈ System Architecture
+## ◈ Where it's going
 
-### Campaign Generation Workflow
+The next version keeps the same rule that made v2 cheap (**cheap work first, expensive work last**) and applies it across the whole funnel. Full design: [`docs/TECHNICAL_SPEC.md`](docs/TECHNICAL_SPEC.md). Status of every feature: [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
-The user submits a campaign, Inngest runs the job in the background, LangGraph evaluates creators, and the frontend receives live progress through a signed, run-scoped Inngest Realtime subscription.
+**1. Who does what.** Every step goes to the cheapest thing that can do it well:
 
+```
+Code / APIs  →  Statistics / ML  →  Jev (judgments)  →  Code (scoring)  →  LLM (writing)
+   free             ~free              ~$0.01/run            free            top picks only
+```
+
+- **Numbers stay in code**: median views, growth momentum, engagement compared with creators of the same size, fake-engagement detection (Isolation Forest), fair price.
+- **Judgments go to Jev**: is this a real person, does the content fit the product, is the audience right, is it brand-safe, is it for kids.
+- **LLMs only write** what people read: the campaign strategy, the "why this creator" brief, pitches and replies.
+
+**2. More platforms, chosen by founder type.**
+- B2B and AI founders get **YouTube, X and LinkedIn**.
+- Consumer-app founders get **Instagram and YouTube**.
+- A quick Jev check adjusts this for each product, and the founder can switch any platform on or off.
+
+**3. Cheapest sources first, without missing the best creators.**
+- Each run checks, in order: our own creator database, YouTube, then the other accounts creators link from their own profiles.
+- A **small test search on every selected platform** follows. If any creator from it would make the current top list, that platform gets a full search.
+- A benchmark against full searches must find at least 90% of the same top 10.
+
+**4. Outreach that founders can trust.** A founder contacts about 15–40 creators, so every message matters:
+- the creator's own business email, verified, with sponsor and guest addresses filtered out;
+- one research profile per creator, reused by every message;
+- every claim in a pitch checked against the creator's real content;
+- sent from the founder's own inbox, after approval;
+- follow-ups that stop the moment the creator replies on any platform.
+
+**5. After the deal.**
+- A creator page to sign and submit drafts.
+- Automatic checks that the post went live, with the link, promo code and #ad disclosure.
+- Views, clicks and signups compared with our forecast.
+- A pay-now request once the post is verified.
+- A budget planner that picks the creators with the most expected clicks per dollar.
+
+**6. Pricing.** A small monthly plan with credits that carry over (Starter $49, Growth $129, Agency $349). Payments go through Cashfree. Costlier platforms use more credits, and writing pitches is free.
+
+<br>
+
+## ◈ Why Jev
+
+Most of the AI work in an influencer pipeline isn't writing. It's **judging**: *is this a real creator? does this audience match the persona? is this post sponsored? is this reply interested or declining?* Using an LLM for these is slow, expensive and hard to calibrate, because LLMs tend to hand out the same few scores (70, 85…) and their numbers aren't real probabilities.
+
+[**Jev**](https://docs.typesafe.ai/introduction) by TypeSafe AI is a *System One* model built for exactly this. You send it some state and typed questions, and it returns typed answers with probabilities:
+
+| Question type | Returns | Example in Reach AI |
+|---|---|---|
+| **Noul** (yes/no) | P(yes) | "Is this account a single person, not a brand or reupload page?" |
+| **Choice** (one of a list) | option + confidence | "Main niche?", "Is this reply interested, asking for rates, or declining?" |
+| **Score** (scale of situations) | level 0…n, can be fractional | "How closely do the recent posts match the product?" |
+
+**Why it fits:**
+- **Cost:** about **$0.042 per million input tokens**, and output is free. Judging 100 creators with ~10 questions each costs about **$0.006**.
+- **Speed:** about 100 ms per request, and all of an item's questions run in parallel inside one request.
+- **Calibrated numbers:** thresholds like "drop if P(individual) < 0.4" mean something, and the numbers can become features for a learned ranker later.
+- **It doesn't write text**, so it can't invent claims. Writing stays with the LLM, on the shortlist only.
+
+**Where Jev is used in the plan:**
+- creator fit, audience, safety, kids content, language and niche;
+- picking a platform;
+- choosing the creator's real email from several candidates;
+- checking every claim in a pitch;
+- sorting replies;
+- confirming a post promotes the product and has a disclosure.
+
+**How we use it safely:**
+- The model is pinned (`jev-1.13.0`), with at most 8 requests at a time.
+- Thresholds are tuned on about 300 labelled creators.
+- If Jev is unavailable, the same questions go to an LLM fallback and come back in the same shape.
+- A Jev answer alone can never trigger a send or a payment.
+
+<br>
+
+## ◈ Architecture
+
+### Today's discovery pipeline (YouTube)
+A LangGraph `StateGraph` with 9 nodes, retry policies and Postgres checkpointing, run in the background by Inngest:
+
+```mermaid
+graph LR
+    START((START)) --> A[Campaign<br/>Understanding]
+    A --> B[Keyword<br/>Generator]
+    B --> C[YouTube<br/>Search]
+    C --> D[Subscriber &<br/>Country Filter]
+    D --> E[Channel<br/>Enrichment]
+    E --> F[Semantic<br/>Filter]
+    F --> G[LLM<br/>Reranker]
+    G --> H[Final<br/>Scoring]
+    H --> I[LLM<br/>Reasoning]
+    I --> END((END))
+```
+
+### Run flow and live progress
 ```mermaid
 sequenceDiagram
   autonumber
@@ -97,164 +171,109 @@ sequenceDiagram
   participant API as FastAPI
   participant DB as PostgreSQL
   participant Inngest
-  participant Graph as LangGraph Agent
-  participant YouTube as YouTube API
-  participant Gemini
+  participant Graph as LangGraph
 
   User->>UI: Submit campaign brief
   UI->>API: POST /api/campaigns/{id}/generate
-  API->>DB: Save brief and set status PENDING
+  API->>DB: Save brief, status PENDING
   API->>Inngest: Send campaign/run event
-  API-->>UI: Return campaign and run IDs
-  UI->>API: Request signed Realtime token for run_id
-  API-->>UI: Return signed token
-  UI->>Inngest: Subscribe to campaign:{run_id} / status
-
-  Inngest->>Graph: Start campaign workflow
-  loop Each LangGraph node
-    Graph->>Graph: Run current node
-    opt Search or enrichment node
-      Graph->>YouTube: Search channels and fetch metrics
-      YouTube-->>Graph: Return creator data
-    end
-    opt Analysis or ranking node
-      Graph->>Gemini: Analyze fit, safety, and performance
-      Gemini-->>Graph: Return AI evaluation
-    end
-    Graph->>DB: Save current stage and progress
-    Graph-->>Inngest: Publish campaign/stage event
-    Inngest-->>UI: Deliver status update over Realtime
+  UI->>Inngest: Subscribe to campaign:{run_id} (signed token)
+  Inngest->>Graph: Run the workflow
+  loop Each node
+    Graph->>DB: Checkpoint state
+    Graph-->>Inngest: Publish stage event
+    Inngest-->>UI: Live progress
   end
-
-  Graph->>DB: Save ranked leads and set COMPLETED
-  Inngest-->>UI: Deliver completed event
-  UI->>API: Reconcile state and fetch completed leads
-  UI-->>User: Display ranked influencer leads
+  Graph->>DB: Save ranked leads, COMPLETED
+  UI->>API: Reconcile and load leads
 ```
 
-**Important:** Inngest handles both background execution and live progress delivery. The backend publishes run-scoped `campaign/stage` events, and the frontend subscribes to the `campaign:{run_id}` topic with the `status` event using a signed token. PostgreSQL remains the durable source of truth used for reconciliation and loading completed leads.
-
-### LangGraph Processing Pipeline
-
-The backend uses a **linear LangGraph StateGraph** with 9 nodes, automatic retry policies, PostgreSQL checkpointing, and in-memory caching.
-
-```mermaid
-graph LR
-    START((START)) --> A[Campaign<br/>Understanding]
-    A --> B[Keyword<br/>Generator]
-    B --> C[YouTube<br/>Search Gate]
-    C --> D[Subscriber<br/>Filter]
-    D --> E[Channel<br/>Enrichment]
-    E --> F[Semantic<br/>Processor]
-    F --> G[LLM<br/>Reranker]
-    G --> H[Final<br/>Scoring]
-    H --> I[LLM<br/>Reasoning]
-    I --> END((END))
-
-    style START fill:#10b981,stroke:#059669,color:#fff
-    style END fill:#ef4444,stroke:#dc2626,color:#fff
-    style A fill:#6366f1,stroke:#4f46e5,color:#fff
-    style B fill:#6366f1,stroke:#4f46e5,color:#fff
-    style C fill:#f59e0b,stroke:#d97706,color:#fff
-    style D fill:#f59e0b,stroke:#d97706,color:#fff
-    style E fill:#f59e0b,stroke:#d97706,color:#fff
-    style F fill:#8b5cf6,stroke:#7c3aed,color:#fff
-    style G fill:#8b5cf6,stroke:#7c3aed,color:#fff
-    style H fill:#ec4899,stroke:#db2777,color:#fff
-    style I fill:#ec4899,stroke:#db2777,color:#fff
-```
+### Next: durable steps per platform
+To stay within Vercel's per-request time limits as platforms are added, each run becomes short **Inngest steps**: strategy, then one step per platform in parallel (each a LangGraph graph), then merge and rank, a probe check, briefs and finalise. A failed step retries alone. Shared limits (for example, at most 8 Jev requests across all runs) use Inngest concurrency keys. Caches live in Postgres so they survive across serverless calls. Details in spec §4.14.
 
 <br>
 
-## ◈ Project Structure
+## ◈ Tech stack
+
+`Next.js` · `TypeScript` · `Python` · `FastAPI` · `LangGraph` · `Inngest` · `PostgreSQL` · `LangSmith` · `Jev (TypeSafe AI)` · `Gemini` / `gpt-oss-120b` (Groq, Cerebras) · `Clerk` · `Zustand` · `Vercel`
+
+<br>
+
+## ◈ Project structure
 
 ```text
-  ReachAi-InfluencerMarketing/
-  ├── backend/
-  │   ├── app/
-  │   │   ├── api/routes/           — Campaign, lead, and Realtime API routes
-  │   │   ├── inngest/              — Inngest client and background functions
-  │   │   ├── my_agent/             — LangGraph nodes and agent state
-  │   │   ├── models/               — SQLAlchemy database models
-  │   │   └── workflow/             — Graph runtime, checkpoints, and stage events
-  │   ├── alembic/                  — Database migrations
-  │   ├── requirements.txt
-  │   └── Makefile
-  ├── frontend/
-  │   ├── app/                      — Next.js pages, campaign flow, and API routes
-  │   ├── components/               — Reusable UI components
-  │   ├── store/                    — Zustand campaign state and reconciliation
-  │   └── package.json
-  └── README.md
+ReachAi-InfluencerMarketing/
+├── backend/
+│   ├── app/
+│   │   ├── api/routes/     Campaign, saved-lead and outreach routes
+│   │   ├── my_agent/       Current YouTube discovery graph
+│   │   ├── outreach/       Pitch generation graph (generate → validate → repair)
+│   │   ├── workflow/       Graph runtime, checkpoints, live stage events
+│   │   ├── inngest/        Background functions
+│   │   ├── llm/            LLM routes with fallbacks (new)
+│   │   ├── judge/          Jev client with LLM fallback (new)
+│   │   ├── billing/        Cost logging (new)
+│   │   ├── discovery/      Postgres cache (new; next-version pipeline goes here)
+│   │   └── models/         SQLAlchemy models (migrations in alembic/)
+│   └── tests/              Foundations tests + outreach evals
+├── frontend/               Next.js app (campaign flow, results, outreach)
+├── docs/
+│   ├── ROADMAP.md          What's built, what's next, where each spec is
+│   └── TECHNICAL_SPEC.md   Full design and decisions
+└── CLAUDE.md               Guide for coding agents working on this repo
 ```
 
 <br>
 
-## ◈ Installation
+## ◈ Getting started
 
-**Prerequisites:** Python 3.11+, Node.js 20+, PostgreSQL, a Google Cloud project with YouTube Data API v3 enabled, and a Google AI Studio key.
-
-<details>
-<summary><b>Quick Setup</b></summary>
-
-<br>
-
-**1. Backend Setup**
+**Prerequisites:** Python 3.11+, Node.js 20+, PostgreSQL, a Google Cloud project with YouTube Data API v3, and a Google AI Studio key.
 
 ```bash
+# Backend
 cd backend
-python -m venv .venv
-source .venv/bin/activate
+python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-touch .env
+cp .env.example .env            # then fill in the keys below
+alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
-**2. Inngest Dev Server**
-
-In a second terminal:
-
 ```bash
+# Inngest dev server (second terminal)
 cd backend
 npx inngest-cli@latest dev -u http://localhost:8000/api/inngest
 ```
 
-**3. Frontend Setup**
-
 ```bash
+# Frontend (third terminal)
 cd frontend
 npm install
 npm run dev
 ```
 
-</details>
-
-<br>
-
-## ◈ API Configuration
-
-Create a `.env` file in the `backend/` directory:
-
-```dotenv
-GOOGLE_API_KEY=your_google_ai_studio_key
-YOUTUBE_API_KEY=your_youtube_data_api_key
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/reachai
-LANGGRAPH_CHECKPOINTER_URL=postgresql://postgres:postgres@localhost:5432/reachai
-INNGEST_DEV=1
-INNGEST_APP_ID=reach-ai
-CLERK_JWKS_URL=your_clerk_jwks_url
+```bash
+# Tests (no live API calls)
+cd backend
+pytest tests -q
 ```
 
-| Variable          | Description                               | Required |
-| ----------------- | ----------------------------------------- | -------- |
-| `GOOGLE_API_KEY`  | Google AI Studio key for Gemini 2.5 Flash | ✅       |
-| `YOUTUBE_API_KEY` | YouTube Data API v3 key                   | ✅       |
-| `DATABASE_URL`    | PostgreSQL connection URL                 | ✅       |
-| `INNGEST_DEV`     | Enables local Inngest signing defaults    | Local    |
-| `APIFY_API_TOKEN` | Apify client token (for social scraping)  | Optional |
+### Environment variables (`backend/.env`)
+| Variable | What it's for | Required |
+|---|---|---|
+| `DATABASE_URL` | PostgreSQL (`postgresql+asyncpg://…`) | ✅ |
+| `GOOGLE_API_KEY` | Gemini models | ✅ |
+| `YOUTUBE_API_KEY` | YouTube Data API v3 | ✅ |
+| `INNGEST_DEV` | `1` for local development | Local |
+| `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY` | Inngest Cloud | Production |
+| `CLERK_JWKS_URL` | Clerk auth | Production |
+| `GROQ_API_KEY`, `CEREBRAS_API_KEY` | gpt-oss-120b fallbacks | Optional |
+| `TYPESAFE_API_KEY` | Jev | Optional (next version) |
+| `LLM_BACKEND`, `LANGSMITH_GATEWAY_URL` | Use the LangSmith LLM Gateway instead of direct calls | Optional |
+| `APIFY_TOKEN` | Social data (Instagram, LinkedIn) | Later |
 
 > [!IMPORTANT]
-> The YouTube Data API has a daily quota of **10,000 units**. Each search query costs ~100 units. Running the full pipeline with 10 keywords consumes ~1,000 units from search alone, plus additional units for channel and video detail fetches. Monitor your usage in the Google Cloud Console.
+> The YouTube Data API allows **10,000 units a day**. Each search costs ~100 units, so one run uses ~1,000 units, about 10 runs a day. A quota increase and caching are planned.
 
 <br>
 
