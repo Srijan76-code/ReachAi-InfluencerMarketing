@@ -32,6 +32,8 @@ Known gaps in what's built:
 | F0.2 | Jev client (pinned model, ≤ 8 workers, retry policy, LLM fallback) | next | §3.3 | `app/judge/client.py` |
 | F0.3 | Cost logging (`cost_events`) for every paid call | next | §5.2 | `app/billing/costs.py`, model + migration |
 | F0.4 | Config/env additions + `.env.example` update | next | §3.4 | `app/core/config.py`, `backend/.env.example` |
+| F0.5 | Postgres cache helper (`cached()`), `search_cache`, `llm_cache` tables | next | §4.14 | `app/discovery/cache.py`, models + migration |
+| F0.6 | Run execution: `discovery/run` + `discovery/platform` Inngest functions with steps, `run_candidates` / `run_strategy` tables, concurrency keys, limits module | next | §4.14 | `app/inngest/discovery.py`, `app/discovery/limits.py` |
 
 ## Phase 1: Shared core + lead generation · §4
 | ID | Feature | Status | Spec | Main files |
