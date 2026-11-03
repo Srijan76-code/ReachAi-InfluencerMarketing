@@ -24,7 +24,7 @@
 | Platform choice | **Preset by founder type + AI check + user toggle.** B2B/AI → X, LinkedIn, YouTube · Consumer → Instagram, YouTube (§4.9) |
 | Discovery strategy | **Cheapest-first ladder**: our creator DB → YouTube → expand through creators' own links → small native search only to fill gaps (§4.9) |
 | Extra sources | Competitor sponsors, lookalikes, founder's own X followers, pre-warmed trending niches (§4.10) |
-| Results UX | **Stream results as they arrive** (§4.11) |
+| Results UX | **Stream results as they arrive** (§4.12) |
 
 ### Core principle (kept from the current version)
 Cheap filters first, expensive work last. Everything is batched, cached and resumable. The LLM only sees the final shortlist, and only to **write** text.
