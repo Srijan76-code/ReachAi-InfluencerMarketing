@@ -26,6 +26,8 @@
 | Extra sources | Competitor sponsors, lookalikes, founder's own X followers, pre-warmed trending niches (§4.10) |
 | Results UX | **Stream results as they arrive** (§4.12) |
 | Discovery quality rule | **Probe every selected platform, expand where a probe beats the current top N**; fit floor as a safety net; recall benchmark ≥ 90% (§4.9) |
+| Run execution | Inngest steps with LangGraph inside each platform step; backend stays on Vercel; caches in Postgres only; cross-run limits via Inngest concurrency keys (§4.14) |
+| After the deal | Founder pays creators directly (we send pay-on-proof requests and track); own short links; promo codes + signup snippet/server event; tracking included in paid plans (§8) |
 | Outreach | **Connected inbox**; founder approves first messages, follow-ups automatic; A/B test soft vs. concrete-offer first message (§7) |
 
 ### Core principle (kept from the current version)
@@ -379,6 +381,69 @@ Each source becomes an extra **rung-0 input**. Its candidates go through the sam
 - UI: show a "More creators arriving…" bar. Rows don't reshuffle while the user is reading; new rows are inserted below with a "New" chip. A final **"Re-rank"** happens when `is_final` arrives (one animation, with a toggle to keep the order).
 - Credits are committed at the end, per §5.2.
 
+### 4.14 Run execution model (decided)
+**Decisions:**
+- Each run is split into **Inngest steps**, with **LangGraph inside each platform step**.
+- The backend stays on **Vercel**.
+- Caches live in **Postgres only**.
+- Limits that span all runs use **Inngest concurrency keys**.
+
+**Why:** today the whole graph runs inside one Inngest call, which is bound by Vercel's per-request time limit, and a failure restarts most of the run. Steps are short requests: a failure retries only that step, and finished steps are memoised.
+
+**Function layout**
+```
+discovery/run            event: campaign/run          concurrency: key=user_id limit=2
+  step strategy          1 LLM call (route strategy)  → writes run_strategy
+  step select_platforms  preset + Jev Nouls
+  parallel steps         step.invoke("discovery/platform", {run_id, platform, rung, budget}) per platform
+  step merge_rank        cross-platform scoring from run_candidates
+  step probe_check       decide expansions (§4.9); invoke discovery/platform again for those platforms
+  step brief             LLM "why this creator" for top N (5 at a time)
+  step finalize          commit credits, status=COMPLETED, final realtime event
+
+discovery/platform       invoked                      concurrency: key="platform:"+platform limit=10
+  LangGraph graph (compiled with AsyncPostgresSaver, thread_id = run_id + ":" + platform + ":" + rung):
+  source → cheap_filter → fetch (batched) → metrics → recall → judge → score_partial → persist
+  After persist: publish Inngest Realtime `campaign:{run_id}` / `leads` with the new rows (is_final=false)
+
+judge/batch (optional)   used by any step that needs many Jev calls   concurrency: key="jev" limit=8
+```
+- **Steps pass IDs, never big payloads.** Inngest step outputs have size limits, so candidates live in Postgres:
+  ```
+  run_candidates(run_id, creator_id, platform, found_via, rung, stage
+                 [sourced, filtered_out, fetched, judged, scored, shortlisted],
+                 metrics JSONB, judgment_id, fit, health, risk, final_score, drop_reason,
+                 created_at, updated_at, PRIMARY KEY(run_id, creator_id))
+  run_strategy(run_id PK, strategy JSONB, platform_weights JSONB, created_at)
+  ```
+- **Idempotency:** every step upserts by `(run_id, creator_id)`, so a retried step never duplicates rows. Inngest event IDs = `run_id` (dedupe double clicks).
+- **Failure policy:** each step has 3 retries with backoff. If one platform step finally fails, the run continues with the other platforms and records `platform_errors`; the UI shows "X results unavailable this run". The strategy step failing fails the run (credits released).
+
+**Concurrency and batching** (all limits in `app/discovery/limits.py`)
+| Resource | Limit | Batch size | Enforced by |
+|---|---|---|---|
+| Runs per user | 2 | — | Inngest concurrency key `user_id` |
+| Platform steps | 10 per platform globally | — | Inngest key `platform:<name>` |
+| YouTube `search.list` | 4 concurrent per step | — | asyncio semaphore |
+| YouTube `channels.list` / `videos.list` | 20 concurrent per step | 50 IDs per call | semaphore |
+| Jev | **8 concurrent globally** | 1 creator per request (all questions) | Inngest key `jev` (judge batches) + SDK `RetryPolicy` |
+| LLM | 5 concurrent per run | 1 creator per brief call | semaphore + gateway rate limits |
+| Embeddings | 4 concurrent | ~100 texts per call | semaphore |
+| Apify / X provider | 3 concurrent jobs per platform globally | all handles in one job | Inngest key `provider:<name>` |
+
+**Caching (Postgres; replaces LangGraph `InMemoryCache`, which doesn't survive across serverless calls)**
+| Cache | Table | Key | TTL |
+|---|---|---|---|
+| Search results | `search_cache` | sha256(platform, query, region, window) | 24–72 h |
+| Creator profile | `creators` | (platform, platform_id) | 7 days; YouTube data refreshed/deleted by day 30 |
+| Embeddings | `creator_embeddings` (pgvector) | sha256(text) + model | until text changes |
+| Jev answers | `creator_judgments` | sha256(content) + sha256(brief) + questions_version | until any key part changes |
+| LLM outputs (briefs, pitches) | `llm_cache` | sha256(inputs) + route + prompt_version | 7 days |
+
+Read-through helper: `cached(table, key, ttl, compute)` in `app/discovery/cache.py`. Cache hits still charge the user's normal credits; they only cut our cost and latency.
+
+**Tracing:** LangSmith traces the LangGraph graphs and LLM calls. Each Inngest step adds `run_id`, `platform` and `rung` as trace metadata, so one run can be followed end to end.
+
 ### 4.13 Frontend (Phase 1)
 - `MultiPlatform.tsx`: enable platforms based on a flag from the backend (`/platforms` endpoint).
 - Lead table and detail sheet:
@@ -618,23 +683,154 @@ Default sequence (editable per campaign):
 
 ---
 
-## 8. Phase 7: Deals, negotiation, tracking
+## 8. Phase 7: Deals, posting, tracking, payments
 
+**Decisions:**
+- Founder pays creators directly; we send "pay now" requests and track payments.
+- Our own short links for clicks.
+- Promo codes + a signup snippet / server event for conversions.
+- Tracking is included in every paid plan (no credits).
+
+**Lifecycle:** `agreed → brief_contract → draft_review (optional) → live → results (day 1–30) → paid → rebook?`
+
+### 8.1 Deal record (everything later is checked against it)
 ```
-creator_deals(deal_id, campaign_id, creator_id, stage
-              [prospect, contacted, replied, negotiating, agreed, content_review, live, paid, lost],
-              quoted_rate, agreed_rate, currency, valuation_at_quote, deliverables JSONB,
-              brief_url, contract_url, notes, updated_at)
-tracking_links(link_id, deal_id, short_url, destination, clicks, created_at)
+creator_deals(deal_id, campaign_id, person_id, stage
+              [prospect, contacted, replied, negotiating, agreed, draft_review, live, paid, lost],
+              platform, format [dedicated, integration, short, post, story], post_window_start,
+              post_window_end, deal_type [flat, base_plus_commission, cpm_capped, affiliate, gifting],
+              quoted_rate, agreed_rate, currency, commission_pct, cpm_cap, fair_low, fair_high,
+              usage_rights JSONB, exclusivity JSONB, disclosure_required, link_id, promo_code,
+              payment_terms [on_live, split_50_50], creator_payment_details JSONB (encrypted),
+              tax_ids JSONB (encrypted), contract_url, notes, updated_at)
 deal_events(event_id, deal_id, type, payload JSONB, created_at)
 ```
-- **Pipeline board** `/campaign/[id]/pipeline`: drag-and-drop between stages. Stages move automatically from outreach events (sent → contacted, reply → replied).
-- **Negotiation helper:** when `quoted_rate` is set → show `valuation`, a fair range (valuation × 0.8–1.3), and a suggested counter-offer (code) + a drafted reply (LLM `reply`).
-- **Brief and contract:** the LLM generates a brief from the campaign and deliverables. E-sign with DocuSeal (open source, self-hostable) later.
-- **Go-live detection:** a nightly Inngest cron checks `agreed` creators' new posts → Jev Noul "Does `post.text` promote `brief.product`?" plus a code check for the tracking link → move to `live`.
-- **Disclosure check:** Jev Noul "Does `post.text` disclose the partnership (#ad, 'sponsored', 'paid partnership')?"
-- **Tracking:** short links (Dub.co API or our own redirect endpoint) + promo-code field → clicks per deal → **actual vs. forecast**.
-- **Payments to creators:** out of scope (invoice + "mark paid"). Holding and paying out money is heavily regulated in India.
+Stages move automatically from outreach events (sent → contacted, reply → replied) and from the detections below.
+
+### 8.2 Brief, contract, draft review
+- The **brief** is generated by the LLM (`reply` route) from the campaign + deal record. The founder edits it.
+- **Contract:** a generated simple agreement (deliverables, dates, disclosure, usage rights, payment terms, cancellation, tax ID field) + e-sign (DocuSeal, open source; later).
+- **Creator portal:** a magic link, no login: `/c/{token}`.
+  - The creator can view the brief, sign, submit a draft (script, file or unlisted link), and later submit the live link and insight screenshots.
+  - Tokens are per deal, expire, and are revocable.
+- **Draft check:** Jev Nouls over the script or transcript, one per brief requirement:
+  - "Does `draft.text` mention `brief.product`?"
+  - "…include `brief.key_message`?"
+  - "…plan a disclosure?"
+  - "…make any claim listed in `brief.forbidden_claims`?"
+
+  The founder approves or requests changes.
+
+### 8.3 Live detection (cheapest reliable first)
+1. **Creator submits the post URL** in the portal → validate that the URL belongs to the creator's account (code).
+2. **Watcher**, only for `agreed` / `draft_review` deals:
+   - Inngest cron every hour for the first 48 h of the posting window, then daily until found or the window passes + 3 days.
+   - YouTube `playlistItems` (≈1 unit); X/IG/LinkedIn through the same platform providers (one batched job per run).
+   - Stop polling a deal once its post is found.
+3. **Match a post to the deal:**
+   - Our short-link code or promo code present → **auto-confirm** (exact).
+   - Else, brand mentioned (code) **and** Jev Noul "Does `post.text` promote `brief.product`?" > 0.7 → **suggest** a match; the founder confirms in one click. Fuzzy matches are never auto-confirmed.
+   - YouTube's paid-promotion flag (`paidProductPlacementDetails`) is readable only by the video owner, so it's not used.
+4. **Post checklist** (stored on the deal):
+
+   | Check | How |
+   |---|---|
+   | `has_link` | Code |
+   | `has_code` | Code |
+   | `mentions_product` | Jev |
+   | `posted_in_window` | Code |
+   | `disclosure` | Code checks for labels, then Jev reads the description/transcript |
+   | `still_live_d7`, `still_live_d30` | Code re-check |
+
+   For `disclosure`:
+   - Code looks for #ad, #collab, #promo, #sponsored, #partnership (ASCI), plus "paid partnership" or "sponsored".
+   - Then a Jev Noul on the description/transcript: "Does `post` clearly tell viewers it is paid or sponsored?"
+   - We recommend "#ad" in briefs, since one source says #collab alone may not satisfy ASCI's 2026 update (unverified).
+5. **Alerts** in the "Needs you" panel: posted, missing link/code, no disclosure, deadline passed, post deleted.
+
+### 8.4 Results tracking
+```
+post_snapshots(snapshot_id, deal_id, captured_at, views, likes, comments, shares, source)
+tracking_links(link_id, deal_id, slug, destination, created_at)
+link_clicks(click_id, link_id, ts, ip_hash, ua_hash, country, referrer, is_bot)
+conversions(conversion_id, deal_id, link_id, type [signup, purchase], value, currency,
+            source [snippet, server_event, promo_code], external_id, ts)
+```
+- **Snapshots** at day 1, 3, 7, 14, 30 after live (Inngest scheduled steps). Few posts per campaign, so the cost is very low.
+- **Instagram Stories:** they expire in 24 h, so the creator uploads an insights screenshot in the portal. An LLM with vision (`brief` route or a vision-capable route) reads the numbers; code checks they're plausible (e.g. views ≤ followers × 3); the founder sees "creator-reported".
+- **Clicks, using our own short links:**
+  - `GET /r/{slug}` → log the click → `302` to the destination with UTM params (`utm_source=reachai&utm_medium=creator&utm_campaign={campaign}&utm_content={slug}`) + `rid={click_id}`.
+  - Bot filter: known bot user agents, prefetchers, and repeat clicks from the same `ip_hash` within 30 s.
+  - The IP is hashed, never stored raw.
+  - Later: a custom domain per user (e.g. `go.theirbrand.com`).
+- **Conversions:**
+  - **Promo codes:** a unique code per deal. Redemptions arrive through the server event below, or are entered by the founder.
+  - **Signup snippet:** `<script src="…/rt.js" data-key="…">`. It stores `rid` from the landing URL in a first-party cookie (30 days), and the founder calls `reachai.track('signup')` on their signup success.
+  - **Server event:** `POST /v1/conversions` with an API key: `{rid | promo_code, type, value, currency, external_id}`. Deduplicated on `external_id`.
+  - Stripe/Shopify connect: later.
+- **Computed metrics (code):**
+  - Actual CPM = fee / views × 1000; CPC = fee / clicks; cost per signup; ROI = revenue / fee.
+  - **Forecast vs. actual** (views, clicks).
+  - Earned media value shown as a secondary number only.
+- Results feed the learning loop (§9): `agreed_rate` + outcomes → the pricing model; beat/miss forecast → the ranker.
+
+### 8.5 Results UI
+- **Campaign → Results tab:**
+  1. **Summary row:** spent, posts live (x of y), views, clicks, signups, cost per signup, each with its forecast.
+  2. **One row per creator:** stage pill, checklist icons, view-curve sparkline, clicks, signups, "×-forecast" badge.
+  3. **Creator detail:** timeline of `deal_events`, post preview, contract, payment status.
+  4. **"Needs you" panel:** alerts from §8.3 + payment due.
+  5. **"Rebook" list:** creators above forecast.
+  6. Later: a shareable read-only report link.
+- **Pipeline board** `/campaign/[id]/pipeline`: drag-and-drop across stages.
+
+### 8.6 Paying creators (decided: founder pays, we track)
+- No funds pass through ReachAI, so no payment-aggregator or escrow licence is needed.
+- **Payment request:** when a deal's terms are met (`on_live`: post confirmed and checklist passed; `split_50_50`: on signing + on live), the founder gets a "Pay $X to {creator}" card with the creator's payment details (from the portal: bank/UPI/PayPal/Wise email) and the due date.
+- "Mark paid" (with optional reference or receipt upload) → `stage=paid` → a "Paid" receipt is shown to the creator in the portal.
+- Reminders: the due date, then +3 days and +7 days.
+- **Tax reminders (not advice):**
+  - India: TDS on cash fees (commonly 10%); TDS on gifted products worth more than ₹20,000 a year (10%, previously §194R; reportedly moved to the Income Tax Act 2025 from Apr 2026, unverified).
+  - US: a 1099 above the IRS threshold (verify).
+  - Tax IDs (PAN / W-9) are collected in the contract step and encrypted at rest.
+- **Later (option, not now):** payments through a licensed payout partner (money held until verified, then paid out) for a ~3–5% fee, once volume justifies it.
+
+### 8.7 Pricing a creator (fair range + deal design)
+- **Fair range** `fair_low…fair_high` (P25–P75):
+  - From now on: median views × platform CPM prior (by industry and geo), with the spread from view volatility.
+  - LinkedIn (no public views): a transacted-price prior by follower tier.
+  - Later: the regression in §9.
+- **Add-ons** (config in `deals/pricing_constants.py`, market priors from vendor blogs, to be tuned):
+
+  | Add-on | Uplift |
+  |---|---|
+  | Paid-ads usage 30–90 days | +30–50% |
+  | Full buyout | +100–150% |
+  | Exclusivity | +20–30% |
+  | Dedicated vs. integration | Separate base |
+
+- **Deal type suggestion** by campaign goal:
+
+  | Goal | Deal type |
+  |---|---|
+  | Awareness | Flat |
+  | Signups/sales | Base + 5–20% commission |
+  | Proven reach | CPM-capped |
+  | Small creators | Affiliate / gifting |
+
+- **Negotiation helper:** quote vs. fair range → `accept` (≤ fair_high), `counter` (> fair_high: counter at the midpoint, with the reason shown from median views and forecast), `walk_away` (> 2 × fair_high). Draft reply via the LLM `reply` route. The founder approves.
+- **Budget planner** (code):
+  - Input: total budget, goal metric, candidate creators with fair ranges and forecasts.
+  - Choose the set that maximises expected clicks (or signups) within budget: 0/1 knapsack with ≤ 50 items, using an exact DP on budget buckets of $10.
+  - Output: "With $3,000: these 5 creators, ~2,100 expected clicks."
+
+### 8.8 Error checks and cost controls
+- Only watch agreed deals, more often inside the window, and stop when found.
+- The creator-submitted link comes first; automatic detection is the backup.
+- Only exact link/code matches are auto-confirmed.
+- Bot-click filter; conversions deduplicated by `external_id`.
+- Snapshots on a fixed schedule, not continuous polling.
+- Payment details and tax IDs encrypted; the portal tokens are scoped to one deal.
 
 ---
 
@@ -716,7 +912,7 @@ Since validation was skipped, these are **required** from Phase 1:
 | 4 | Instagram adapter | 1, 2 | M |
 | 5 | LinkedIn adapter (public post search + pasted URLs) | 1, 2 | M |
 | 6 | Contacts + verification, Unipile inbox, sequences, inbox UI, reply classifier, assisted DMs, pitch validation upgrade | 1, 2 | L |
-| 7 | Deals pipeline, negotiation helper, go-live + disclosure checks, tracking links | 6 | M |
+| 7 | Deal record, creator portal, draft review, live detection + checklist, snapshots, short links, conversions (promo codes, snippet, server event), results UI, pay-on-proof requests, fair range + budget planner | 6 | L |
 | 7b | Extra sources: lookalikes, competitor sponsors (with Phase 3), founder followers (with X), pre-warmed niches (after usage) | 1, 3 | M |
 | 8 | Learned ranker + valuation model | data from 6–7 | M |
 
