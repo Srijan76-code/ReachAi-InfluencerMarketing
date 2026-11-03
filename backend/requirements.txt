@@ -10,7 +10,6 @@ numpy
 isodate
 google-api-python-client
 pydantic
-pytest
 langsmith
 scikit-learn
 rank_bm25
@@ -19,7 +18,6 @@ uvicorn[standard]
 sqlalchemy[asyncio]
 asyncpg
 alembic
-clerk-backend-apilangchain-openai
+clerk-backend-api
+langchain-openai
 typesafe-sdk
-pytest-asyncio
-aiosqlite

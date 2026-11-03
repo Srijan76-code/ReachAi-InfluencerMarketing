@@ -30,6 +30,7 @@ export interface Influencer {
     email: string | null;
     instagram: string | null;
     twitter: string | null;
+    linkedin?: string | null; // not always extracted by the backend
   };
 
   // ---------- CONTENT ----------

@@ -1,0 +1,5 @@
+# Test-only packages (not deployed to Vercel)
+-r requirements.txt
+pytest
+pytest-asyncio
+aiosqlite

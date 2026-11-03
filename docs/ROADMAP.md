@@ -107,7 +107,7 @@ Known gaps in what's built:
 ## Known issues
 | ID | Issue | Status |
 |---|---|---|
-| K1 | `tests/evals/test_evaluators.py::test_deterministic_evaluators_accept_valid_bundle` fails on `main`: its sample pitch has no "collaboration"/"partnership" wording, which the evaluator now requires. Fix the test fixture, not the evaluator | next |
+| K1 | Eval test fixture had no "collaboration" wording and exposed package terms; fixed the fixture and added edge-case tests (`foundations`) | done |
 | K2 | Old pipeline nodes still call `app/core/model.py` directly; they move to `app/llm` as part of F1.7/F1.9 | later |
 | K3 | Route models for `strategy`, `pitch`, `reply` are placeholders (current Gemini first); pick them with the LangSmith evals | next |
 

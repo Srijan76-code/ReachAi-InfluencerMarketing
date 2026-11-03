@@ -132,3 +132,46 @@ async def test_gateway_mode_uses_single_gateway_model(monkeypatch, cost_log):
 def test_unknown_route_is_an_error():
     with pytest.raises(ValueError):
         client.route_models("nope")
+
+
+@pytest.mark.asyncio
+async def test_plain_text_reply_without_schema(two_model_route, monkeypatch, cost_log):
+    class TextModel:
+        async def ainvoke(self, messages):
+            return AIMessage(content="plain answer", usage_metadata={"input_tokens": 5, "output_tokens": 2, "total_tokens": 7})
+
+    monkeypatch.setattr(client, "_build_model", lambda spec, t: TextModel())
+    assert await client.achat("test_route", "hi") == "plain answer"
+    assert cost_log[0].input_tokens == 5
+
+
+@pytest.mark.asyncio
+async def test_missing_usage_metadata_still_logs(two_model_route, monkeypatch, cost_log):
+    raw = AIMessage(content="{}")
+    monkeypatch.setattr(client, "_build_model", lambda spec, t: FakeModel(lambda: {"parsed": Brief(reasoning="x"), "raw": raw}))
+    await client.achat("test_route", "hi", schema=Brief)
+    assert cost_log[0].input_tokens is None and cost_log[0].usd == Decimal("0.000000")
+
+
+@pytest.mark.asyncio
+async def test_dict_parse_result_is_validated(two_model_route, monkeypatch, cost_log):
+    raw = AIMessage(content="{}")
+    monkeypatch.setattr(client, "_build_model", lambda spec, t: FakeModel(lambda: {"parsed": {"reasoning": "from dict"}, "raw": raw}))
+    result = await client.achat("test_route", "hi", schema=Brief)
+    assert isinstance(result, Brief) and result.reasoning == "from dict"
+
+
+@pytest.mark.asyncio
+async def test_gateway_without_url_is_a_clear_error(monkeypatch):
+    monkeypatch.setattr(client.config, "LLM_BACKEND", "gateway")
+    monkeypatch.setattr(client.config, "LANGSMITH_GATEWAY_URL", None)
+    with pytest.raises(client.LLMUnavailableError, match="LANGSMITH_GATEWAY_URL"):
+        await client.achat("brief", "hi")
+
+
+@pytest.mark.asyncio
+async def test_no_keys_at_all_raises_with_reasons(two_model_route, monkeypatch):
+    monkeypatch.delenv("GROQ_API_KEY")
+    monkeypatch.delenv("CEREBRAS_API_KEY")
+    with pytest.raises(client.LLMUnavailableError, match="not set"):
+        await client.achat("test_route", "hi")
