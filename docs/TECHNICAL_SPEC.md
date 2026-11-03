@@ -25,6 +25,8 @@
 | Discovery strategy | **Cheapest-first ladder**: our creator DB → YouTube → expand through creators' own links → small native search only to fill gaps (§4.9) |
 | Extra sources | Competitor sponsors, lookalikes, founder's own X followers, pre-warmed trending niches (§4.10) |
 | Results UX | **Stream results as they arrive** (§4.12) |
+| Discovery quality rule | **Probe every selected platform, expand where a probe beats the current top N**; fit floor as a safety net; recall benchmark ≥ 90% (§4.9) |
+| Outreach | **Connected inbox**; founder approves first messages, follow-ups automatic; A/B test soft vs. concrete-offer first message (§7) |
 
 ### Core principle (kept from the current version)
 Cheap filters first, expensive work last. Everything is batched, cached and resumable. The LLM only sees the final shortlist, and only to **write** text.
@@ -320,7 +322,19 @@ All weights and thresholds are **starting values**, to be tuned on the labelled 
 | 4 | **Native gap-fill search** on a selected platform, only if it still has fewer than `target_per_platform` qualified candidates; search size scales with the gap | Paid | Platform-only creators, rising creators, trends |
 
 - `target_per_platform = ceil(creator_count × 10 × platform_weight)` qualified candidates, meaning they passed `cheap_filter` + metrics gates.
-- **Exception, always run a small native search on X and Instagram** (`min_native_queries = 2`) even when the target is met. Trends and platform-only rising creators start there, and YouTube-first sourcing would miss them.
+
+**Quality rule: probe, then expand.** Stopping when there are *enough* creators can miss *better* ones, so rung 4 is decided by quality, not count:
+1. **Probe:** run 1–2 native queries on **every selected platform** (`probe_queries = 2`, ~10% of a full search's cost), even when rungs 1–3 filled the target.
+2. Score the probe candidates with the same pipeline (metrics → Jev → score).
+3. **Expand rule:** run the full native search on platform P if **any** probe candidate on P would enter the current top `creator_count`, i.e. its score is above the current top-N cutoff (`expand_margin = 0`). Otherwise stop on P.
+4. **Quality floor** (safety net): if the mean `fit` of the current top N is below `FIT_FLOOR = 0.55` (to be tuned), expand on all selected platforms regardless.
+5. **"Search deeper"** button in the results: the user can pay the credits to expand any platform. The UI shows what was searched ("LinkedIn: probe only, nothing better found").
+
+**Fair comparison across platforms.** `health` uses **percentiles within each platform** (and follower tier), never raw counts. Otherwise YouTube's larger numbers would always win. Fit comes from Jev and is the same scale on every platform.
+
+**Learned probe sizes.** Store `platform_win_rate[niche][platform]`, the share of runs where a creator found on that platform ended in the final top N. Once a group has ≥ 30 runs: platforms that often win get `probe_queries = 3`, and platforms that never win (< 5%) get 1. Recompute nightly.
+
+**Recall benchmark (required before launch, then monthly).** On ~30 real briefs, run the ladder **and** a full search on every selected platform. Metric: the share of the full search's top 10 that the ladder also found. **Target ≥ 90%.** Tune `probe_queries`, `expand_margin` and `FIT_FLOOR` until it's met. Track it as a dashboard metric.
 - **Reverse expansion:** creators found by native search also expose links (X bio → YouTube, Instagram → website). Follow them the same way, so the person record fills in.
 
 **Identity and the person model.** One person can own several accounts:
@@ -479,31 +493,96 @@ Daily per-user caps protect against abuse. Provider budget alerts (Apify, gatewa
 
 ## 7. Phase 6: Outreach loop (send, follow up, inbox, classify)
 
-### 7.1 Contacts and verification
-1. Candidates: regex over bio and posts, the link-in-bio page, the website contact page, IG business email, cross-platform links.
-2. **Jev picks** the creator's own address: Choice over the candidate emails + `none_of_these`. Question: "Which address in `candidates` is most likely the business contact of `creator.display_name`?"
-3. **Verify** with an email verifier API (ZeroBounce / MillionVerifier / Reoon). Only `valid` (and optionally `catch_all`) can be sent to.
-4. Charge 1 credit per creator, only when a verified contact is found.
+**Design premise.** A founder contacts about **15–40 creators** per campaign to sign 3–8. That's an estimate; measure the real rates. This is **not** mass email. Every message is high-stakes and costs only cents, so we spend on correctness and quality, not on saving tokens. Mistakes (wrong person, wrong name, false claims) are the main risk, not cost.
 
-### 7.2 Sending from the user's own inbox (Unipile)
+**Errors in today's flow that this phase fixes:**
+| Today | Risk | Fix |
+|---|---|---|
+| `extract_socials` takes the **first** email / IG / X match from the channel description **plus 15 video descriptions** | Sponsor's, guest's or agency's address/handle picked | §7.1 source ranking + Jev pick + sponsor blocklist |
+| Greeting uses the channel title | "Hi TechWithTim" | §7.1 first-name resolution |
+| Validation checks evidence IDs exist, not that the claims are true | False statements about the creator's content | §7.6 claim check |
+| Pitch sees video titles only | Shallow personalisation | §7.2 creator dossier |
+| A pitch is written for every available channel | ~3× wasted generation | §7.3 primary channel |
+| No cross-campaign memory | The same creator is contacted twice | §7.1 contact ledger + suppression list |
+
+### 7.1 Identity: the right person, the right address, the right name
+1. **Email candidates, ranked by source.** Platform business-email field (IG business email, YouTube about text) > link-in-bio page > the creator's own website contact page > channel description > **video descriptions (only if Jev confirms)**.
+2. **Sponsor/guest blocklist:** drop domains of brands mentioned with "sponsored by", "use code", "#ad"; drop addresses that appear on many different creators (agency/sponsor addresses, computed from the creator DB).
+3. **Jev pick:** Choice over the remaining candidates + `none_of_these`. "Which address in `candidates` is the business contact of the person who runs `creator`? An address belonging to a sponsor, guest or brand mentioned in a post is not their contact." Accept if confidence ≥ 0.8; otherwise mark "needs review".
+4. **Verify** with an email verifier (ZeroBounce / MillionVerifier / Reoon). Send only to `valid`; `catch_all` only after user confirmation. 1 credit per creator, charged only when a verified contact is found.
+5. **First name:** regex candidates from about text, link page, email local part, sign-offs in posts → Jev Choice + `not_stated`. Fallback greeting: "Hi there" (no channel names).
+6. **Social handles:** the same ranking; accept cross-links only from the creator's **own** profile fields (self-links, §4.9).
+7. **Contact ledger:** `contact_history(user_id, person_id, campaign_id, channel, first_contacted_at, last_outcome)`. Warn before contacting someone the same user already contacted in the last 90 days.
+8. **Global suppression list:** `suppression_list(email_or_handle_hash, reason [opt_out, bounce, complaint], created_at)`. Checked before every send, across all users, for opt-outs.
+
+### 7.2 Creator dossier (research once, reuse everywhere)
+`creator_dossiers(person_id, built_at, content_hash, recent_items JSONB, themes JSONB, past_sponsors JSONB, tone_notes, evidence JSONB)`
+- Built once per person (cached across campaigns; rebuilt when `content_hash` changes):
+  - The last 2–3 videos/posts, with a **transcript excerpt** where available (YouTube captions).
+  - Recurring themes and past sponsors (Jev Nouls over posts).
+- Every claim the pitch can make must come from `evidence` items with IDs.
+- Pitches, follow-ups and reply drafts all read the dossier.
+
+### 7.3 One primary channel per creator
+- Pick `primary_channel` in code:
+  - Verified business email → **email**.
+  - Else X-native creator with open DMs → **X DM** (assisted).
+  - Else Instagram → **IG DM** (assisted).
+  - LinkedIn creators → email if found, else an assisted message.
+- Generate the **primary pitch only**. Secondary-channel copy is generated when a sequence step needs it. This cuts pitch generation by ~60–75%.
+
+### 7.4 Pitch quality
+- **Founder voice profile:** the founder edits or writes 1–2 pitches → we store `voice_profile(user_id, examples, style_notes)`. Generation includes 1–2 examples so later pitches sound like the founder.
+- **Two first-message styles, A/B tested across all users (decided: data picks the winner):**
+  - `soft`: a low-pressure invitation, no price or package details (current behaviour).
+  - `offer`: a clear offer type (paid, affiliate or gifting) plus a fair fee range from `valuation`.
+  - Assignment: random 50/50 per creator, stored on the pitch (`variant`). Evaluate the reply rate and the positive-reply rate per variant, per segment (B2B vs consumer, platform). Switch the default when one wins by a clear margin over ≥ 300 sends per arm.
+- **Plain-text first email:** no links, images or tracking pixel; short subject, written like a 1:1 note.
+- Generation still uses LLM route `pitch` with the existing rule validation + at most 1 repair.
+
+### 7.5 Sending from the user's own inbox (decided: connected inbox)
 - Settings → "Connect inbox" → Unipile hosted auth (Gmail / Outlook / IMAP) → store `connected_accounts(account_id, user_id, provider, unipile_account_id, email, status, daily_cap)`.
 - Unipile cost: €49/mo minimum for up to 10 accounts, then ~€5 per account.
-- Send through the Unipile API. Store `outreach_messages(message_id, pitch_id, account_id, channel, direction[out,in], provider_message_id, thread_id, subject, body, status, sent_at)`.
-- **Deliverability guardrails:** ≤ 40 new conversations per inbox per day, randomised gaps of 2–6 minutes, a short unsubscribe line in every message (CAN-SPAM/GDPR), and stopping automatically on bounce.
+- Send through the Unipile API. Store `outreach_messages(message_id, pitch_id, person_id, account_id, channel, direction[out,in], provider_message_id, thread_id, subject, body, variant, status, sent_at)`.
+- **Approval rule (decided):**
+  - The **first message** to each creator requires founder approval in the review queue (§7.8).
+  - **Follow-ups send automatically** unless the founder pauses them.
+  - **Every reply** to a creator needs the founder's approval.
+- **Deliverability guardrails:** ≤ 40 new conversations per inbox per day; randomised gaps of 2–6 minutes; sent in the creator's local morning (timezone from country, else the founder's); unsubscribe line; stop on bounce.
 
-### 7.3 Sequences on Inngest
-```
-sequence_enrollments(enrollment_id, pitch_id, sequence_id, step_index, status
-                     [active, replied, stopped, finished, bounced], next_run_at)
-```
-- Inngest function `outreach/sequence`:
-  1. Send step 0.
-  2. `step.wait_for_event("message/replied", match="data.thread_id", timeout="3d")`.
-  3. If there's a reply → stop. If not → follow-up 1 (LLM, route `pitch`, short "bump" grounded in the original). Then wait 4 days → follow-up 2 → finish.
-- Unipile webhook `/webhooks/unipile` → normalise → emit `message/replied` / `message/bounced`.
+### 7.6 Claim check (before approval)
+- Split the pitch into sentences (code). For each sentence that states something about the creator, ask a Jev Noul: "Is the statement in `sentence` supported by `dossier.evidence`?"
+- Any sentence below 0.6 → repair that sentence (LLM) once. If it's still unsupported → flag it in the review queue with the evidence shown.
+- Keep the existing rule checks and the Jev style Nouls:
+  - `specific_reference` (want high)
+  - `template_feel` (want low)
+  - `pressure` (want low; skipped for the `offer` variant's fee line)
 
-### 7.4 Inbox and reply classification
-- Page `/campaign/[id]/inbox`: threads grouped by creator, with classification chips.
+### 7.7 Follow-ups that feel human (Inngest sequences)
+```
+sequence_enrollments(enrollment_id, person_id, pitch_id, sequence_id, step_index, status
+                     [active, replied, paused, stopped, finished, bounced], next_run_at)
+```
+Default sequence (editable per campaign):
+| Step | When | Channel | Content |
+|---|---|---|---|
+| 0 | Day 0 | Primary (email) | Approved first message |
+| 1 | Day 3–4 | Same thread | Short follow-up written **at send time**: references the creator's newest post if there is one, otherwise adds one new reason |
+| 2 | Day 7 | Second platform (assisted DM) | Short note pointing to the email |
+| 3 | Day 10–14 | Email | Final, polite close ("happy to circle back later") |
+
+- **Stop on any reply on any platform** (the person model links the threads), on a bounce, or on an opt-out.
+- Before each step: a Jev Noul "Does `creator.recent_posts` say they are not taking sponsorships right now?" If above 0.7 → pause, and tell the founder.
+- Implementation: one Inngest function per enrollment: `step.sleep_until` → check stop conditions → generate → send → `step.wait_for_event("message/replied", match="data.person_id", timeout=…)`.
+- Unipile webhook `/webhooks/unipile` → normalise → emit `message/replied` / `message/bounced`. Assisted DMs: the founder marks "they replied" in one click.
+
+### 7.8 Review queue (founder approval UX)
+- One screen, one card per creator: the pitch, each claim with its evidence chip, contact source + verification status, variant, a send-time preview.
+- Actions: **Approve**, **Edit** (the edit is saved to the voice profile), **Skip**. Keyboard shortcuts; target < 10 s per creator.
+- "Approve all with no flags" button for creators with zero flags.
+
+### 7.9 Inbox and reply classification
+- Page `/campaign/[id]/inbox`: threads grouped by **person** (all channels), with classification chips.
 - **Jev reply classifier** (one request per inbound message):
   - `intent` Choice:
     - `interested`
@@ -520,20 +599,22 @@ sequence_enrollments(enrollment_id, pitch_id, sequence_id, step_index, status
   - `mentions_price` Noul. If above 0.5: regex finds amounts → Jev picks "Which amount in `candidates` is the creator's quoted price?" → **code** converts currency and compares with `valuation`.
   - `needs_human` Noul ("Does `message.text` raise legal, payment-terms or contract questions?").
 - **Routing:**
-  - High confidence and a low-risk intent → auto-draft a reply (LLM `reply`) for **one-click approval**. Nothing is sent without the user.
+  - `out_of_office` → reschedule the sequence after the return date (date parts from Jev Choices, comparison in code).
+  - `wrong_person_or_agency` → extract the new contact (regex candidates + Jev pick) → ask the founder.
+  - Other intents with high confidence → draft a reply (LLM `reply`, with the fair-price range for rate intents) for approval.
   - Low confidence or `needs_human` → "Needs you" tab.
 
-### 7.5 Assisted DMs (X / Instagram / LinkedIn)
-- "Copy and open DM" button: copies the pitch and opens `x.com/messages/compose?recipient_id=…`, `ig.me/m/<handle>` or the LinkedIn profile. The user marks it sent in one click → `outreach_messages(channel=dm, status=sent_manual)`.
+### 7.10 Assisted DMs (X / Instagram / LinkedIn)
+- "Copy and open DM" button: copies the message and opens `x.com/messages/compose?recipient_id=…`, `ig.me/m/<handle>` or the LinkedIn profile. The founder marks it sent in one click → `outreach_messages(channel=dm, status=sent_manual)`.
 - No automated cold DMs: they break X's automation rules and put the user's LinkedIn/Instagram account at risk.
 
-### 7.6 Pitch validation upgrade
-Keep the existing rule checks (`validate_creator_pitch.py`) first. Add Jev Nouls on the generated copy:
-- `specific_reference`: "Does `pitch.body` mention something specific from `creator.recent_posts`?" (want high)
-- `template_feel`: "Would `pitch.body` read as a mass template to `creator.display_name`?" (want low)
-- `pressure`: "Does `pitch.body` push for a commitment instead of inviting a conversation?" (want low)
-
-Repair if the highest flag is over 0.6 (at most 1 repair, as today). Optional: the LLM proposes 3 angles → Jev picks one (`select-from-candidates`) → the LLM writes it.
+### 7.11 Learning what gets replies
+- Store per message: variant, angle, prompt version, channel, step, send hour, and creator segment.
+- Dashboard:
+  - Reply rate and positive-reply rate by variant, angle, channel and step.
+  - Time to first reply.
+  - Founder edit distance, as a measure of how much the AI got wrong.
+- Monthly: feed the most-edited patterns back into the pitch prompt (offline, eval-gated with the existing LangSmith suite).
 
 ---
 
