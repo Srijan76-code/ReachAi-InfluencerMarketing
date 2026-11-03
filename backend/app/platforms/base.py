@@ -18,6 +18,7 @@ class Post(TypedDict, total=False):
     post_id: str
     url: str
     text: str  # YouTube: title; Instagram: caption; X/LinkedIn: post text
+    description: str  # YouTube video description (not sent to Jev; used for links and sponsor checks)
     published_at: Optional[datetime]
     views: Optional[int]  # None where the platform doesn't show views (LinkedIn)
     likes: int
@@ -41,6 +42,7 @@ class CreatorProfile(TypedDict, total=False):
     contacts: dict  # {"emails": [...candidates], "business_email": ..., "booking_url": ...}
     cross_links: dict  # {"instagram": url, "x": url, ...} found on the creator's own profile
     recent_posts: list[Post]  # newest first, 12–20 items
+    platform_stats: dict  # extra numbers the platform gives (e.g. YouTube lifetime views, video count)
     fetched_at: datetime
     source: str  # e.g. "youtube_api", "apify:instagram-profile-scraper"
 
@@ -92,7 +94,12 @@ class PlatformAdapter(Protocol):
 
     async def source_candidates(self, strategy: Strategy, limits: Limits) -> list[CandidateRef]: ...
 
-    async def fetch_profiles(self, refs: list[CandidateRef]) -> list[CreatorProfile]: ...
+    async def fetch_profiles(
+        self, refs: list[CandidateRef], constraints: Optional[dict] = None
+    ) -> list[CreatorProfile]:
+        """Fetch profiles + recent posts. With `constraints`, `cheap_filter` runs after the cheap
+        profile lookup and before the expensive post fetch, so dropped creators cost nothing more."""
+        ...
 
     def cheap_filter(self, profile: CreatorProfile, constraints: dict) -> tuple[bool, Optional[str]]: ...
 
