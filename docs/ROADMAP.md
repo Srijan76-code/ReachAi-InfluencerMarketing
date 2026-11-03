@@ -28,11 +28,11 @@ Known gaps in what's built:
 ## Phase 0: Foundations · §3
 | ID | Feature | Status | Spec | Main files |
 |---|---|---|---|---|
-| F0.1 | LLM gateway wrapper with named routes + fallbacks (LangSmith LLM Gateway, `LLM_BACKEND` switch) | next | §3.1–3.2 | `app/llm/client.py`, `app/llm/routes.py` |
-| F0.2 | Jev client (pinned model, ≤ 8 workers, retry policy, LLM fallback) | next | §3.3 | `app/judge/client.py` |
-| F0.3 | Cost logging (`cost_events`) for every paid call | next | §5.2 | `app/billing/costs.py`, model + migration |
-| F0.4 | Config/env additions + `.env.example` update | next | §3.4 | `app/core/config.py`, `backend/.env.example` |
-| F0.5 | Postgres cache helper (`cached()`), `search_cache`, `llm_cache` tables | next | §4.14 | `app/discovery/cache.py`, models + migration |
+| F0.1 | LLM gateway wrapper with named routes + fallbacks (LangSmith LLM Gateway, `LLM_BACKEND` switch) | done (`foundations`) | §3.1–3.2 | `app/llm/client.py`, `app/llm/routes.py`, `tests/foundations/test_llm_client.py` |
+| F0.2 | Jev client (pinned model, ≤ 8 workers, retry policy, LLM fallback) | done (`foundations`) | §3.3 | `app/judge/client.py`, `tests/foundations/test_judge_client.py` |
+| F0.3 | Cost logging (`cost_events`) for every paid call | done (`foundations`) | §5.2 | `app/billing/costs.py`, `app/models/cost_event.py`, migration `c3f1a9d4e2b0` |
+| F0.4 | Config/env additions + `.env.example` update | done (`foundations`) | §3.4 | `app/core/config.py`, `backend/.env.example` |
+| F0.5 | Postgres cache helper (`cached()`), one `cache_entries` table with namespaces (`search`, `llm`) | done (`foundations`) | §4.14 | `app/discovery/cache.py`, `app/models/cache_entry.py`, migration `c3f1a9d4e2b0` |
 | F0.6 | Run execution: `discovery/run` + `discovery/platform` Inngest functions with steps, `run_candidates` / `run_strategy` tables, concurrency keys, limits module | next | §4.14 | `app/inngest/discovery.py`, `app/discovery/limits.py` |
 
 ## Phase 1: Shared core + lead generation · §4
@@ -103,6 +103,13 @@ Known gaps in what's built:
 | F8.3 | Product event tracking + dashboards (needed from Phase 1) | later | §11 |
 
 ---
+
+## Known issues
+| ID | Issue | Status |
+|---|---|---|
+| K1 | `tests/evals/test_evaluators.py::test_deterministic_evaluators_accept_valid_bundle` fails on `main`: its sample pitch has no "collaboration"/"partnership" wording, which the evaluator now requires. Fix the test fixture, not the evaluator | next |
+| K2 | Old pipeline nodes still call `app/core/model.py` directly; they move to `app/llm` as part of F1.7/F1.9 | later |
+| K3 | Route models for `strategy`, `pitch`, `reply` are placeholders (current Gemini first); pick them with the LangSmith evals | next |
 
 ## Open questions waiting on the user
 - `TYPESAFE_API_KEY` must be added in the environment settings before testing Jev live.
