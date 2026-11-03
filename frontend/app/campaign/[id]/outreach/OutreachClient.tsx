@@ -37,6 +37,7 @@ import { useCampaignStore } from "@/store/campaignStore";
 import { outreachChannel } from "@/inngest/channels";
 import { getOutreachRealtimeToken } from "@/app/actions/realtime";
 import { ExportPitchesDialog } from "@/components/ExportPitchesDialog";
+import type { PitchExportItem } from "@/lib/exportService";
 import type { Influencer } from "@/data/influencerList";
 
 interface OutreachPitchItem {
@@ -285,20 +286,23 @@ export default function OutreachClient({
       .filter((p) => p.status === "COMPLETED" || p.status === "NEEDS_REVIEW")
       .map((p) => {
         const lead = influencersMap.get(p.creator_id);
-        return {
+        const item: PitchExportItem = {
+          creator_id: p.creator_id,
           creator_name: lead?.title || p.creator_id,
           email: lead?.socials?.email || "",
           country: lead?.country || "",
-          instagram_handle: lead?.socials?.instagram || "",
-          twitter_handle: lead?.socials?.twitter || "",
-          linkedin_handle: lead?.socials?.linkedin || "",
+          instagram: lead?.socials?.instagram || "",
+          twitter: lead?.socials?.twitter || "",
+          linkedin: lead?.socials?.linkedin || "",
           pitch_angle: p.pitch_bundle?.pitch_angle || "",
           subject: p.pitch_bundle?.email?.subject || "",
           email_body: p.pitch_bundle?.email?.body || "",
           instagram_pitch: p.pitch_bundle?.instagram?.body || "",
           twitter_pitch: p.pitch_bundle?.twitter?.body || "",
           linkedin_pitch: p.pitch_bundle?.linkedin?.body || "",
+          status: p.status,
         };
+        return item;
       });
   }, [job?.pitches, influencersMap]);
 
