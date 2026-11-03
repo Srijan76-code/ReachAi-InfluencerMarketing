@@ -130,6 +130,7 @@ The model for each route is picked with the **existing LangSmith eval suite** (`
 
 ### 3.3 Jev client (`app/judge/client.py`)
 - Uses `typesafe_sdk` (Python). The key comes from the `TYPESAFE_API_KEY` env var only; never pass it in code.
+- **Provider:** a TypeSafe key goes to TypeSafe directly (pinned `jev-1.13.0`); an OpenRouter key (`sk-or-...`) goes through OpenRouter's Jev gateway (`https://openrouter.ai/api`, pinned `typesafe/jev-1.14-20261014`). `JEV_PROVIDER` / `JEV_MODEL` override. Cost rows are logged under the provider used.
 - **Pin the model** `jev-1.13.0`, and log `response.model` together with `usage.input_tokens`.
 - Concurrency ≤ 8 workers per key. Account limits are about 1,200 requests/min and 250k tokens/s.
 - Use the SDK's `RetryPolicy` for 429/5xx; don't write a custom retry loop.
