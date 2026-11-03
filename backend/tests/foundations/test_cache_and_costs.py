@@ -77,3 +77,68 @@ async def test_cost_event_row_shape(session_factory):
         await s.commit()
         row = (await s.execute(select(CostEvent))).scalar_one()
     assert row.event_id and row.run_id == "r1" and row.provider == "typesafe"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("empty_value", [None, [], 0, "", {}])
+async def test_empty_results_are_cached_too(session_factory, empty_value):
+    calls = []
+
+    async def compute():
+        calls.append(1)
+        return empty_value
+
+    for _ in range(2):
+        value, _ = await cache.cached("search", {"q": repr(empty_value)}, timedelta(hours=1), compute, session_factory=session_factory)
+        assert value == empty_value
+    assert len(calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_namespaces_do_not_collide(session_factory):
+    async def a():
+        return "search-value"
+
+    async def b():
+        return "llm-value"
+
+    parts = {"same": "key"}
+    va, _ = await cache.cached("search", parts, timedelta(hours=1), a, session_factory=session_factory)
+    vb, _ = await cache.cached("llm", parts, timedelta(hours=1), b, session_factory=session_factory)
+    assert (va, vb) == ("search-value", "llm-value")
+
+
+@pytest.mark.asyncio
+async def test_compute_error_propagates_and_is_not_cached(session_factory):
+    async def failing():
+        raise RuntimeError("provider down")
+
+    with pytest.raises(RuntimeError):
+        await cache.cached("search", {"q": "x"}, timedelta(hours=1), failing, session_factory=session_factory)
+
+    async def ok():
+        return "ok"
+
+    value, hit = await cache.cached("search", {"q": "x"}, timedelta(hours=1), ok, session_factory=session_factory)
+    assert (value, hit) == ("ok", False)
+
+
+@pytest.mark.asyncio
+async def test_overwrite_after_expiry_keeps_one_row(session_factory):
+    async def v1():
+        return 1
+
+    async def v2():
+        return 2
+
+    await cache.cached("search", {"q": "y"}, timedelta(seconds=-1), v1, session_factory=session_factory)
+    value, _ = await cache.cached("search", {"q": "y"}, timedelta(hours=1), v2, session_factory=session_factory)
+    assert value == 2
+    async with session_factory() as s:
+        from app.models.cache_entry import CacheEntry
+        rows = (await s.execute(select(CacheEntry))).scalars().all()
+    assert len(rows) == 1
+
+
+def test_token_cost_handles_missing_tokens():
+    assert costs.token_cost(None, None, 1.0, 1.0) == Decimal("0.000000")
