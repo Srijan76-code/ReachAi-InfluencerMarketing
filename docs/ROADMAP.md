@@ -28,6 +28,7 @@ Known gaps in what's built:
 ## Docs
 | ID | Feature | Status | Main files |
 |---|---|---|---|
+| D2 | Public demo campaign at `/demo` (saved real brief + 7 leads, emails removed, sample pitches checked by the real validator in `tests/test_demo_data.py`) and a temporary "Coming soon" landing page with sign-up, log-in, demo and docs links | done (`landing-and-demo`) | `frontend/app/demo/`, `frontend/data/demo/`, `frontend/app/page.tsx` |
 | D1 | Public docs site (Fumadocs at `/docs`): welcome, getting started, writing a brief, results, outreach, FAQ, how it works, changelog; search; Docs link in the in-app navbar. Next.js 16.1→16.2 and Tailwind 4.1→4.3 upgrades were needed | done (`docs-site`) | `frontend/content/docs/`, `frontend/app/docs/`, `frontend/lib/source.ts`, `frontend/source.config.ts` |
 
 ## Phase 0: Foundations · §3
