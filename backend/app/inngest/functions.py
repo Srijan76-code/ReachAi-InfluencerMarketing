@@ -1,3 +1,4 @@
+import datetime
 import logging
 import uuid
 
@@ -5,6 +6,8 @@ import inngest
 from sqlalchemy import update
 
 from app.db.database import AsyncSessionLocal
+from app.core import config
+from app.discovery import limits as L
 from app.inngest.client import inngest_client
 from app.models.campaign import Campaign, CampaignStatus
 from app.workflow.runtime import run_graph_with_stage_events
@@ -24,9 +27,31 @@ STAGES = [
     {"stage": "llm_reasoning_node", "message": "Synthesizing comprehensive lead dossiers & outreach pitch..."},
 ]
 
+async def _campaign_run_failed(ctx: inngest.Context):
+    """Runs once, after the last retry of run_campaign: mark the campaign failed."""
+    original = (ctx.event.data or {}).get("event", {}).get("data", {})
+    error = (ctx.event.data or {}).get("error", {})
+    if original.get("campaign_id") and original.get("run_id"):
+        from app.discovery.runtime import mark_failed
+
+        await mark_failed(campaign_id=original["campaign_id"], run_id=original["run_id"],
+                          error=str(error.get("message") or error)[:500])
+
+
 @inngest_client.create_function(
     fn_id="run_campaign",
     trigger=inngest.TriggerEvent(event="campaign/run"),
+    retries=L.RUN_RETRIES,  # each retry resumes the LangGraph checkpoint (graph engine)
+    concurrency=[
+        inngest.Concurrency(key="event.data.user_id", limit=L.RUNS_PER_USER),
+        inngest.Concurrency(limit=L.RUNS_PER_ACCOUNT),
+    ],
+    # a re-run of the same campaign cancels the run still going
+    singleton=inngest.Singleton(key="event.data.campaign_id", mode="cancel"),
+    idempotency="event.data.run_id",  # a repeated event for the same run doesn't start it twice
+    cancel=[inngest.Cancel(event="campaign/cancel", if_exp="event.data.campaign_id == async.data.campaign_id")],
+    timeouts=inngest.Timeouts(finish=datetime.timedelta(minutes=L.RUN_TIMEOUT_MINUTES)),
+    on_failure=_campaign_run_failed,
 )
 async def run_campaign(ctx: inngest.Context):
     campaign_id = ctx.event.data["campaign_id"]
@@ -34,6 +59,15 @@ async def run_campaign(ctx: inngest.Context):
     user_id = ctx.event.data.get("user_id")
     thread_id = ctx.event.data.get("thread_id") or str(uuid.uuid4())
     run_id = ctx.event.data["run_id"]
+
+    if config.DISCOVERY_ENGINE == "graph":
+        from app.discovery.runtime import run_discovery
+
+        # No try/except here: errors go back to Inngest, which retries and the retry resumes.
+        result = await run_discovery(campaign_id=campaign_id, run_id=run_id,
+                                     campaign_details=campaign_details, user_id=user_id)
+        return {"success": True, "campaign_id": campaign_id, "run_id": run_id,
+                "leads": len(result["leads"]), "resumed": result["resumed"], "warnings": result["warnings"]}
 
     async with AsyncSessionLocal() as db:
         try:

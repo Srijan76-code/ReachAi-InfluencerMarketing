@@ -1,0 +1,163 @@
+"""Run (or resume) the discovery graph for one campaign run (spec §4.14).
+
+- One LangGraph thread per run. If the thread already has a checkpoint with steps left
+  (an Inngest retry after a crash or timeout), resume with `None` instead of starting over.
+- durability="sync": each step's checkpoint is saved before the next starts.
+- Progress and newly scored creators are published live; the campaign row is updated.
+- Errors are re-raised so Inngest retries (and the retry resumes). The campaign is marked
+  failed only by the function's on_failure handler, after the last retry.
+"""
+
+from __future__ import annotations
+
+import logging
+import time
+from typing import Any, Optional
+
+from inngest.experimental.realtime import publish as publish_realtime
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from sqlalchemy import update
+
+from app.billing.costs import CostContext
+from app.core.config import LANGGRAPH_CHECKPOINTER_URL
+from app.discovery.brief import parse_brief
+from app.discovery.graph import build_discovery_graph
+from app.discovery.node_cache import PostgresNodeCache
+from app.discovery.state import Deps
+
+logger = logging.getLogger(__name__)
+
+STAGE_LABELS = {
+    "strategy": "Understanding the brief",
+    "platform_select": "Choosing platforms",
+    "db_search": "Checking creators we already know",
+    "plan": "Planning the search",
+    "search": "Searching for creators",
+    "fetch_measure": "Measuring creators",
+    "shortlist": "Shortlisting the closest matches",
+    "judge_score": "Judging fit and risk",
+    "merge_rank": "Ranking creators",
+    "reason": "Writing why each creator fits",
+    "finalize": "Finishing up",
+}
+
+
+def thread_for(run_id: str) -> str:
+    return f"discovery-{run_id}"
+
+
+def default_deps(ctx: CostContext) -> Deps:
+    from app.platforms.youtube import YouTubeAdapter
+    from app.platforms.youtube_api import HttpYouTubeAPI
+
+    shared: dict[str, Any] = {}
+
+    def youtube():
+        if "api" not in shared:
+            shared["api"] = HttpYouTubeAPI(context=ctx)
+        return YouTubeAdapter(shared["api"])
+
+    return Deps(adapters={"youtube": youtube}, cost_context=ctx, extra=shared)
+
+
+async def _publish(run_id: str, topic: str, data: dict) -> None:
+    try:
+        from app.inngest.client import inngest_client
+
+        await publish_realtime(inngest_client, channel=f"campaign:{run_id}", topic=topic,
+                               data={"run_id": run_id, "ts": int(time.time() * 1000), **data})
+    except Exception:
+        logger.exception("realtime publish failed (%s)", topic)
+
+
+async def _set_campaign(campaign_id: str, session_factory=None, **values) -> None:
+    from app.db.database import AsyncSessionLocal
+    from app.models.campaign import Campaign
+
+    async with (session_factory or AsyncSessionLocal)() as db:
+        await db.execute(update(Campaign).where(Campaign.campaign_id == campaign_id).values(**values))
+        await db.commit()
+
+
+async def run_discovery(
+    *,
+    campaign_id: str,
+    run_id: str,
+    campaign_details: dict,
+    user_id: Optional[str] = None,
+    deps: Optional[Deps] = None,
+    checkpointer=None,
+    session_factory=None,
+    publish=None,
+) -> dict:
+    """Returns {"leads": [...], "warnings": [...], "resumed": bool}."""
+    from app.models.campaign import CampaignStatus
+
+    ctx = CostContext(user_id=user_id, campaign_id=campaign_id, run_id=run_id)
+    deps = default_deps(ctx) if deps is None else deps
+    deps.session_factory = deps.session_factory or session_factory
+    publish = _publish if publish is None else publish
+    thread_id = thread_for(run_id)
+    cfg = {"configurable": {"thread_id": thread_id}}
+
+    async def body(saver):
+        graph = build_discovery_graph().compile(
+            checkpointer=saver, cache=PostgresNodeCache(session_factory=deps.session_factory)
+        )
+        snapshot = await graph.aget_state(cfg)
+        resumed = bool(snapshot and snapshot.next)
+        start = None if resumed else {
+            "run_id": run_id, "campaign_id": campaign_id, "brief": parse_brief(campaign_details).to_dict(),
+        }
+        if resumed:
+            logger.info("Resuming discovery run %s at %s", run_id, snapshot.next)
+        last_stage = None
+        async for _ns, mode, chunk in graph.astream(start, cfg, context=deps, stream_mode=["updates", "custom"],
+                                                     subgraphs=True, durability="sync"):
+            if mode == "custom":
+                if chunk.get("type") == "leads":
+                    await publish(run_id, "leads", {"platform": chunk.get("platform"), "items": chunk.get("items", [])})
+                elif chunk.get("type") == "stage":
+                    await publish(run_id, "status", {"thread_id": thread_id, "stage": chunk["stage"], "status": "running"})
+                continue
+            for node in chunk or {}:
+                label = STAGE_LABELS.get(node)
+                if label and label != last_stage:
+                    last_stage = label
+                    await publish(run_id, "status", {"thread_id": thread_id, "stage": label, "status": "running"})
+                    await _set_campaign(campaign_id, deps.session_factory, current_stage=label, workflow_status={
+                        "run_id": run_id, "thread_id": thread_id, "stage": label, "status": "running"})
+        final = (await graph.aget_state(cfg)).values
+        return final, resumed
+
+    if checkpointer is not None:
+        final, resumed = await body(checkpointer)
+    else:
+        async with AsyncPostgresSaver.from_conn_string(LANGGRAPH_CHECKPOINTER_URL) as saver:
+            await saver.setup()
+            final, resumed = await body(saver)
+
+    leads = final.get("final_leads") or []
+    warnings = final.get("warnings") or []
+    await _set_campaign(
+        campaign_id, deps.session_factory, campaign_leads=leads, status=CampaignStatus.COMPLETED, thread_id=thread_id,
+        current_stage="completed",
+        workflow_status={"run_id": run_id, "thread_id": thread_id, "stage": "completed", "status": "completed",
+                         "warnings": warnings, "engine": "graph"},
+    )
+    await publish(run_id, "status", {"thread_id": thread_id, "stage": "completed", "status": "completed"})
+    api = (deps.extra or {}).get("api")
+    if api is not None and hasattr(api, "aclose"):
+        await api.aclose()
+    return {"leads": leads, "warnings": warnings, "resumed": resumed}
+
+
+async def mark_failed(*, campaign_id: str, run_id: str, error: str, session_factory=None, publish=None) -> None:
+    """Called once, after the last retry (Inngest on_failure)."""
+    from app.models.campaign import CampaignStatus
+
+    publish = _publish if publish is None else publish
+    await _set_campaign(campaign_id, session_factory, status=CampaignStatus.CREATED, current_stage="failed",
+                        workflow_status={"run_id": run_id, "thread_id": thread_for(run_id), "stage": "failed",
+                                         "status": "failed", "error": error[:500]})
+    await publish(run_id, "status", {"thread_id": thread_for(run_id), "stage": "failed", "status": "failed"})
