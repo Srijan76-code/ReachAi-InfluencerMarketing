@@ -54,8 +54,8 @@ Known gaps in what's built:
 |---|---|---|---|---|
 | F1.1 | `CreatorProfile` + `Post` types | done (`shared-core`) | §4.1 | `app/platforms/base.py` |
 | F1.2 | Platform adapter interface | done (`shared-core`) | §4.2 | `app/platforms/base.py` |
-| F1.3 | Creator DB: `creators`, `creator_snapshots`, `creator_judgments`, `creator_persons`, `person_links` + pgvector | next | §4.4, §4.9 | `app/models/creator.py`, migration, `app/creators/repository.py` |
-| F1.4 | Caches: profile (7 d), search results (24–72 h), embeddings + Jev answers by content hash | next | §4.4, §4.11 | `app/creators/`, `app/discovery/cache.py` |
+| F1.3 | Creator DB: `creators`, `creator_snapshots`, `creator_judgments`, `creator_persons`, `person_links` + pgvector | done (`creator-db`) | §4.4, §4.9 | `app/models/creator.py`, migration `d7a2e5c9b1f3` (pgvector + HNSW), `app/creators/repository.py`, `tests/creators/` |
+| F1.4 | Caches: profile (7 d), search results (24–72 h), embeddings + Jev answers by content hash | done (`creator-db`) | §4.4, §4.11 | profile reuse (`split_fresh`, 7 d), Jev answer + embedding caches by content hash (`app/creators/repository.py`); search cache already in `app/discovery/cache.py` |
 | F1.5 | Metrics: robust stats, momentum, outperformance, per-platform percentiles, IsolationForest anomaly | done (`shared-core`) | §4.5 | `app/metrics/` (stats, baselines, anomaly, pricing, compute, constants), `tests/shared_core/test_metrics.py` |
 | F1.6 | Jev judging questions + scoring combine | done (`shared-core`) | §4.6–4.7 | `app/judge/questions.py`, `constants.py`, `combine.py`, `tests/shared_core/test_judging.py` |
 | F1.7 | Generic discovery graph (strategy → ladder sourcing → filter → fetch → metrics → recall → judge → score → brief) | next | §4.3 | `app/discovery/graph.py`, `nodes/*` |
@@ -124,6 +124,8 @@ Known gaps in what's built:
 | K1 | Eval test fixture had no "collaboration" wording and exposed package terms; fixed the fixture and added edge-case tests (`foundations`) | done |
 | K2 | Old pipeline nodes still call `app/core/model.py` directly; they move to `app/llm` as part of F1.7/F1.9 | later |
 | K6 | Jev thresholds and scoring weights are spec starting values; tune them on ~300 AI-labelled creators (user spot-checks 20%) once `TYPESAFE_API_KEY` is set | next |
+| K7 | `outreach_pitches` index name differs between the old migration (`ix_outreach_pitches_job_id`) and the model (`ix_outreach_pitches_outreach_job_id`); `alembic check` reports it. Harmless; align with a tiny migration later | later |
+| K8 | Production DB needs `alembic upgrade head` (creates the pgvector extension and creator tables). Vercel deploys don't run migrations | next (user) |
 | K3 | Route models for `strategy`, `pitch`, `reply` are placeholders (current Gemini first); pick them with the LangSmith evals | next |
 
 ## Open questions waiting on the user

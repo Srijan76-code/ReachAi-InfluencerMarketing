@@ -43,6 +43,8 @@ frontend/content/docs/   Public user docs (MDX, served at /docs)
 ## Run and test
 - Backend dev: `cd backend && make dev` (runs migrations, uvicorn on :8000, and the Inngest dev server).
 - Backend tests: `cd backend && pip install -r requirements-dev.txt && pytest tests -q`. Tests must not call live APIs; use recorded fixtures. Test-only packages go in `requirements-dev.txt`, never `requirements.txt` (it's what Vercel deploys, and the bundle is already near the size limit).
+- Creator-database tests also run on real Postgres + pgvector when `PG_TEST_URL` points at a **throwaway** database (it's wiped): `PG_TEST_URL=postgresql+asyncpg://postgres@localhost:5433/reachai_unit pytest tests/creators`. Without it they run on SQLite only.
+- Check migrations against a real database with `alembic upgrade head` then `alembic check` (models and database must match).
 - Outreach evals (LangSmith, live LLM): `cd backend && python -m tests.evals.runner --experiment-prefix <name>`.
 - Frontend: `cd frontend && npm run dev`. **Before pushing any frontend change, run `npx tsc --noEmit` and `npm run build`**: Vercel fails the whole deploy on a single TypeScript error.
 - Migrations: `cd backend && alembic revision --autogenerate -m "<what>"`, then `alembic upgrade head`.
