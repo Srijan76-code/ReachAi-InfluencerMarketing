@@ -109,6 +109,8 @@ Known gaps in what's built:
 |---|---|---|
 | K1 | Eval test fixture had no "collaboration" wording and exposed package terms; fixed the fixture and added edge-case tests (`foundations`) | done |
 | K2 | Old pipeline nodes still call `app/core/model.py` directly; they move to `app/llm` as part of F1.7/F1.9 | later |
+| K4 | Vercel builds failed since commit `4034f7b`: frontend type error (`socials.linkedin`), and the pitch export sent the wrong field names (empty Instagram/Twitter/Status columns). Fixed on `build-fix`, verified by a READY preview build | done |
+| K5 | `requirements.txt` had two packages merged into one line (`clerk-backend-apilangchain-openai`), which broke the backend install. Fixed, and `tests/test_requirements.py` now guards it | done |
 | K3 | Route models for `strategy`, `pitch`, `reply` are placeholders (current Gemini first); pick them with the LangSmith evals | next |
 
 ## Open questions waiting on the user
