@@ -42,14 +42,22 @@ Known gaps in what's built:
 | F0.6 | Run execution: `discovery/run` + `discovery/platform` Inngest functions with steps, `run_candidates` / `run_strategy` tables, concurrency keys, limits module | next | §4.14 | `app/inngest/discovery.py`, `app/discovery/limits.py` |
 
 ## Phase 1: Shared core + lead generation · §4
+**Decisions (Nov 3):**
+- **Replace the old pipeline directly** (no old/new switch). Before deleting `app/my_agent/`, run both on the same 3 briefs with live keys and compare.
+- Database: Neon/Supabase, so **pgvector** is used.
+- Jev thresholds: **AI-labelled ~300 creators, user spot-checks 20%**.
+- Live keys (`TYPESAFE_API_KEY`, `YOUTUBE_API_KEY`, `GROQ_API_KEY`/`GOOGLE_API_KEY`) will be added to the environment; until then, build and test against recorded samples.
+
+**Build order (one PR each):** `shared-core` (F1.1, F1.2, F1.5, F1.6) → `creator-db` (F1.3, F1.4) → `youtube-adapter` (F1.9) → `run-engine` (F0.6, F1.7, F1.8, F1.10) → `results-ui` (F1.12) → F1.11 → F1.13.
+
 | ID | Feature | Status | Spec | Main files |
 |---|---|---|---|---|
-| F1.1 | `CreatorProfile` + `Post` types | next | §4.1 | `app/platforms/base.py` |
-| F1.2 | Platform adapter interface | next | §4.2 | `app/platforms/base.py` |
+| F1.1 | `CreatorProfile` + `Post` types | done (`shared-core`) | §4.1 | `app/platforms/base.py` |
+| F1.2 | Platform adapter interface | done (`shared-core`) | §4.2 | `app/platforms/base.py` |
 | F1.3 | Creator DB: `creators`, `creator_snapshots`, `creator_judgments`, `creator_persons`, `person_links` + pgvector | next | §4.4, §4.9 | `app/models/creator.py`, migration, `app/creators/repository.py` |
 | F1.4 | Caches: profile (7 d), search results (24–72 h), embeddings + Jev answers by content hash | next | §4.4, §4.11 | `app/creators/`, `app/discovery/cache.py` |
-| F1.5 | Metrics: robust stats, momentum, outperformance, per-platform percentiles, IsolationForest anomaly | next | §4.5 | `app/metrics/*` |
-| F1.6 | Jev judging questions + scoring combine | next | §4.6–4.7 | `app/judge/questions.py`, `constants.py`, `combine.py` |
+| F1.5 | Metrics: robust stats, momentum, outperformance, per-platform percentiles, IsolationForest anomaly | done (`shared-core`) | §4.5 | `app/metrics/` (stats, baselines, anomaly, pricing, compute, constants), `tests/shared_core/test_metrics.py` |
+| F1.6 | Jev judging questions + scoring combine | done (`shared-core`) | §4.6–4.7 | `app/judge/questions.py`, `constants.py`, `combine.py`, `tests/shared_core/test_judging.py` |
 | F1.7 | Generic discovery graph (strategy → ladder sourcing → filter → fetch → metrics → recall → judge → score → brief) | next | §4.3 | `app/discovery/graph.py`, `nodes/*` |
 | F1.8 | Platform selection (preset + Jev check + user toggle) and discovery ladder with probe-then-expand | next | §4.9 | `app/discovery/ladder.py` |
 | F1.9 | YouTube adapter on the core (+ recent-video trend search, quota discipline); parity test against B1 | next | §4.8 | `app/platforms/youtube.py` |
@@ -115,6 +123,7 @@ Known gaps in what's built:
 |---|---|---|
 | K1 | Eval test fixture had no "collaboration" wording and exposed package terms; fixed the fixture and added edge-case tests (`foundations`) | done |
 | K2 | Old pipeline nodes still call `app/core/model.py` directly; they move to `app/llm` as part of F1.7/F1.9 | later |
+| K6 | Jev thresholds and scoring weights are spec starting values; tune them on ~300 AI-labelled creators (user spot-checks 20%) once `TYPESAFE_API_KEY` is set | next |
 | K3 | Route models for `strategy`, `pitch`, `reply` are placeholders (current Gemini first); pick them with the LangSmith evals | next |
 
 ## Open questions waiting on the user

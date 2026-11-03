@@ -26,6 +26,7 @@
 | Extra sources | Competitor sponsors, lookalikes, founder's own X followers, pre-warmed trending niches (§4.10) |
 | Results UX | **Stream results as they arrive** (§4.12) |
 | Discovery quality rule | **Probe every selected platform, expand where a probe beats the current top N**; fit floor as a safety net; recall benchmark ≥ 90% (§4.9) |
+| Pipeline rollout | Replace the old YouTube pipeline directly once the new one works; compare both on 3 briefs before deleting the old code (roadmap Phase 1) |
 | Run execution | Inngest steps with LangGraph inside each platform step; backend stays on Vercel; caches in Postgres only; cross-run limits via Inngest concurrency keys (§4.14) |
 | After the deal | Founder pays creators directly (we send pay-on-proof requests and track); own short links; promo codes + signup snippet/server event; tracking included in paid plans (§8) |
 | Outreach | **Connected inbox**; founder approves first messages, follow-ups automatic; A/B test soft vs. concrete-offer first message (§7) |
@@ -245,7 +246,7 @@ Computed per creator from `recent_posts` (long-form and short-form kept separate
 | `valuation` | median_views / 1000 × CPM(platform, industry, geo) | same idea, robust input |
 | `forecast_clicks` | median_views × CTR(platform, industry) | same |
 
-- **Rising creator:** `momentum ≥ 1.5` and `days_since_last_post ≤ 14`, or `outperformance ≥ 1.0` with followers below the tier median. Shown as a badge, and adds a scoring bonus (§4.7).
+- **Rising creator:** `momentum ≥ 1.5` and `days_since_last_post ≤ 14`, or `outperformance ≥ 1.0` for nano/micro creators (under 100k followers; a stand-in for "below the tier median" until peer data exists). Shown as a badge, and adds a scoring bonus (§4.7).
 - **Trend-relevant creator:** the Jev Noul `posts_on_trend` (§4.6) is above 0.6 for any of the newest 5 posts.
 - **Anomaly model** (`app/metrics/anomaly.py`):
   - **Features:** log(followers), ER, comments/likes, views/followers, coefficient of variation of views, coefficient of variation of posting intervals, and on LinkedIn, comment-author repetition when available.
