@@ -14,3 +14,18 @@ INNGEST_EVENT_KEY = os.getenv("INNGEST_EVENT_KEY")
 INNGEST_SIGNING_KEY = os.getenv("INNGEST_SIGNING_KEY") or (
     "signkey-dev-" + ("0" * 64) if os.getenv("INNGEST_DEV") == "1" else None
 )
+# --- LLM layer (app/llm) ---------------------------------------------------
+# "direct": call providers in each route's fallback order (app/llm/routes.py).
+# "gateway": send every call to the LangSmith LLM Gateway, which holds the fallback chains.
+LLM_BACKEND = os.getenv("LLM_BACKEND", "direct")
+LANGSMITH_GATEWAY_URL = os.getenv("LANGSMITH_GATEWAY_URL")
+
+# --- Jev / TypeSafe (app/judge) --------------------------------------------
+# TYPESAFE_API_KEY is read by the SDK itself; never pass it in code.
+JEV_MODEL = os.getenv("JEV_MODEL", "jev-1.13.0")  # pinned; thresholds are tuned against it
+JEV_MAX_CONCURRENCY = int(os.getenv("JEV_MAX_CONCURRENCY", "8"))
+JEV_TIMEOUT_SECONDS = float(os.getenv("JEV_TIMEOUT_SECONDS", "10"))
+
+# --- Platform data providers (later phases) --------------------------------
+X_PROVIDER = os.getenv("X_PROVIDER", "twitterapi")  # twitterapi | official
+APIFY_TOKEN = os.getenv("APIFY_TOKEN") or os.getenv("APIFY_API_TOKEN")

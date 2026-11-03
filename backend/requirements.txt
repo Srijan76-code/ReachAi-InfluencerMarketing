@@ -19,4 +19,7 @@ uvicorn[standard]
 sqlalchemy[asyncio]
 asyncpg
 alembic
-clerk-backend-api
+clerk-backend-apilangchain-openai
+typesafe-sdk
+pytest-asyncio
+aiosqlite

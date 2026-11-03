@@ -434,11 +434,11 @@ judge/batch (optional)   used by any step that needs many Jev calls   concurrenc
 **Caching (Postgres; replaces LangGraph `InMemoryCache`, which doesn't survive across serverless calls)**
 | Cache | Table | Key | TTL |
 |---|---|---|---|
-| Search results | `search_cache` | sha256(platform, query, region, window) | 24–72 h |
+| Search results | `cache_entries` (namespace `search`) | sha256(platform, query, region, window) | 24–72 h |
 | Creator profile | `creators` | (platform, platform_id) | 7 days; YouTube data refreshed/deleted by day 30 |
 | Embeddings | `creator_embeddings` (pgvector) | sha256(text) + model | until text changes |
 | Jev answers | `creator_judgments` | sha256(content) + sha256(brief) + questions_version | until any key part changes |
-| LLM outputs (briefs, pitches) | `llm_cache` | sha256(inputs) + route + prompt_version | 7 days |
+| LLM outputs (briefs, pitches) | `cache_entries` (namespace `llm`) | sha256(inputs) + route + prompt_version | 7 days |
 
 Read-through helper: `cached(table, key, ttl, compute)` in `app/discovery/cache.py`. Cache hits still charge the user's normal credits; they only cut our cost and latency.
 
