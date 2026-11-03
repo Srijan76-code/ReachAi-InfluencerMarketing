@@ -18,5 +18,6 @@ uvicorn[standard]
 sqlalchemy[asyncio]
 asyncpg
 alembic
-clerk-backend-apilangchain-openai
+clerk-backend-api
+langchain-openai
 typesafe-sdk
