@@ -60,11 +60,11 @@ Known gaps in what's built:
 | F1.6 | Jev judging questions + scoring combine | done (`shared-core`) | §4.6–4.7 | `app/judge/questions.py`, `constants.py`, `combine.py`, `tests/shared_core/test_judging.py` |
 | F1.7 | Generic discovery graph (strategy → ladder sourcing → filter → fetch → metrics → recall → judge → score → brief) | next | §4.3 | `app/discovery/graph.py`, `nodes/*` |
 | F1.8 | Platform selection (preset + Jev check + user toggle) and discovery ladder with probe-then-expand | next | §4.9 | `app/discovery/ladder.py` |
-| F1.9 | YouTube adapter on the core (+ recent-video trend search, quota discipline); parity test against B1 | next | §4.8 | `app/platforms/youtube.py` |
+| F1.9 | YouTube adapter on the core (+ recent-video trend search, quota discipline) | done (`youtube-adapter`) | §4.8 | `app/platforms/youtube.py`, `youtube_api.py`, `tests/platforms/`, recorded fixture `tests/fixtures/youtube/recording.json` (re-record: `python -m scripts.record_youtube_fixtures`) |
 | F1.10 | Streaming results per rung (Inngest Realtime `leads` topic) | next | §4.12 | `app/workflow/runtime.py`, frontend results |
 | F1.11 | YouTube 30-day data refresh/delete job | next | §4.4 | `app/creators/refresh.py`, Inngest cron |
 | F1.12 | Frontend: platform toggles, badges (rising, trend, suspicious), score breakdown, credit estimate | next | §4.13 | `frontend/components/MultiPlatform.tsx`, `frontend/app/ListOfInfluencer/*` |
-| F1.13 | Remove `app/my_agent/` and `app/core/model.py` after parity | later | §13 file map | — |
+| F1.13 | Compare old vs new pipeline on 3 briefs with live keys, then remove `app/my_agent/` and `app/core/model.py` | later | §13 file map | — |
 | F1.14 | Recall benchmark (ladder vs full search, target ≥ 90%) | later | §4.9 | `tests/benchmarks/` |
 
 ## Phase 2: Billing · §5
@@ -126,6 +126,9 @@ Known gaps in what's built:
 | K6 | Jev thresholds and scoring weights are spec starting values; tune them on ~300 AI-labelled creators (user spot-checks 20%) once `TYPESAFE_API_KEY` is set | next |
 | K7 | `outreach_pitches` index name differs between the old migration (`ix_outreach_pitches_job_id`) and the model (`ix_outreach_pitches_outreach_job_id`); `alembic check` reports it. Harmless; align with a tiny migration later | later |
 | K8 | Production DB needs `alembic upgrade head` (creates the pgvector extension and creator tables). Vercel deploys don't run migrations | next (user) |
+| K9 | Saved demo data has a wrong channel ID: `UCkw4JCwteGrDHIsyIIKo4tQ` is labelled "Krish Naik" but belongs to edureka!. Only names/numbers are shown, so nothing breaks; fix when regenerating demo data | later |
+| K10 | `TYPESAFE_API_KEY` in the environment is rejected (401). Replace it in the environment settings; Jev threshold tuning (K6) waits on it | next (user) |
+| K11 | YouTube's API doesn't include a channel's "links" section, so cross-platform links are rarely found from YouTube alone (0 of 8 in the first recording). Links will mostly come from X/Instagram profiles and link pages | later |
 | K3 | Route models for `strategy`, `pitch`, `reply` are placeholders (current Gemini first); pick them with the LangSmith evals | next |
 
 ## Open questions waiting on the user

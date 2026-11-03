@@ -39,7 +39,8 @@ RISING_OUTPERFORMANCE = 1.0
 MIN_PEERS = 200  # below this, use the priors instead of real peers
 # prior median engagement rate (likes+comments per view) by platform and tier
 ENGAGEMENT_PRIOR: dict[str, dict[str, float]] = {
-    "youtube": {"nano": 0.06, "micro": 0.045, "mid": 0.035, "macro": 0.03, "mega": 0.025},
+    # tuned down after the first real recording (Nov 3): large education channels sit at ~1-2%
+    "youtube": {"nano": 0.05, "micro": 0.035, "mid": 0.025, "macro": 0.016, "mega": 0.011},
     "x": {"nano": 0.02, "micro": 0.012, "mid": 0.008, "macro": 0.006, "mega": 0.005},
     "instagram": {"nano": 0.05, "micro": 0.03, "mid": 0.02, "macro": 0.015, "mega": 0.012},
     # LinkedIn has no public views; engagement is per follower

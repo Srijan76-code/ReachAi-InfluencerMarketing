@@ -307,6 +307,14 @@ All weights and thresholds are **starting values**, to be tuned on the labelled 
 - **Quota:** request a quota extension (YouTube API compliance audit). Until then, keep total searches per run ≤ 8 and cache channel data.
 - Replace the in-memory `checkpointer` in `my_agent/agent.py` (unused in production; the runtime already uses Postgres) when the module is removed.
 
+### 4.8b YouTube adapter as built
+- **Unknown country is kept, not dropped.** The old pipeline dropped channels with no country set; many real channels leave it blank, so a target-country filter now only drops channels that *state* a different country.
+- **Search results are taken round-robin across searches** before the candidate cap, so trend (recent-video) results aren't crowded out by the first channel search.
+- **Video details are batched across creators** (50 ids per call), not one call per creator.
+- **Shorts** = duration ≤ 180 s (YouTube Shorts can be up to 3 minutes).
+- Contacts come from the **channel description only**, never from video descriptions (fixes the old "first email in any description" problem). The API doesn't expose the channel's links section (roadmap K11).
+- First real recording (Nov 3): YouTube engagement priors were too high for large education channels (~1-2% is normal), so they were lowered.
+
 ### 4.9 Platform selection and the cheapest-first discovery ladder
 
 **Platform selection** (runs once per campaign):
