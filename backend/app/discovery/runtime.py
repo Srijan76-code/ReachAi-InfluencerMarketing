@@ -34,6 +34,7 @@ STAGE_LABELS = {
     "plan": "Planning the search",
     "search": "Searching for creators",
     "fetch_measure": "Measuring creators",
+    "top_up": "Searching again for more creators",
     "shortlist": "Shortlisting the closest matches",
     "judge_score": "Judging fit and risk",
     "merge_rank": "Ranking creators",
@@ -47,17 +48,25 @@ def thread_for(run_id: str) -> str:
 
 
 def default_deps(ctx: CostContext) -> Deps:
+    from app.discovery.cache import cached
     from app.platforms.youtube import YouTubeAdapter
     from app.platforms.youtube_api import HttpYouTubeAPI
 
     shared: dict[str, Any] = {}
+    deps = Deps(adapters={}, cost_context=ctx, extra=shared)
+
+    async def run_cache(namespace, key, ttl, compute):
+        # Read at call time: run_discovery sets deps.session_factory after this is built, and the
+        # adapter's search cache must use the same database as the rest of the run.
+        return await cached(namespace, key, ttl, compute, session_factory=deps.session_factory)
 
     def youtube():
         if "api" not in shared:
             shared["api"] = HttpYouTubeAPI(context=ctx)
-        return YouTubeAdapter(shared["api"])
+        return YouTubeAdapter(shared["api"], cache=run_cache)
 
-    return Deps(adapters={"youtube": youtube}, cost_context=ctx, extra=shared)
+    deps.adapters = {"youtube": youtube}
+    return deps
 
 
 async def _publish(run_id: str, topic: str, data: dict) -> None:

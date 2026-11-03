@@ -413,15 +413,23 @@ START -> [strategy (LLM) | platform_select (preset + Jev) | db_search (embedding
       -> fan_out: Send(platform_branch, {platform, mode})  per selected platform
              full search on preset platforms with a working adapter; probe (2 queries) on the others,
              all running at the same time
-      -> platform_branch (subgraph, checkpointed): search -> fetch -> measure -> shortlist -> judge -> score
-             each step streams newly scored creators (custom stream) to the UI
+      -> platform_branch (subgraph, checkpointed): search -> fetch_measure
+                 -> [top_up -> fetch_measure]   conditional, at most once: a full branch that kept fewer than
+                    TOPUP_FACTOR (10) x the creators asked for searches again: unused queries first, all-time
+                    video search by views (YouTube channel search on sentence-like queries returns few channels)
+                 -> shortlist -> judge_score
+             streams newly scored creators (custom stream) to the UI
       -> merge_rank (defer=True: waits for all branches)
       -> probe_check (conditional): Send(platform_branch, mode=expand) where a probe creator beats the top-N
              cutoff or the top-N fit is below FIT_FLOOR; else continue
       -> reasons: Send(reason, creator) per top-N creator, in parallel (LLM, cached)
       -> finalize: campaign_leads in the legacy shape, status COMPLETED
 ```
-Node settings: `retry_policy` on every node that calls an API; `timeout` on long nodes; an error handler on `platform_branch` turns a failed platform into a warning so the other branches continue.
+Node settings: `retry_policy` on every node that calls an API. A failed search becomes a warning so the other branches continue; other errors retry, then fail the step so the Inngest retry resumes from the checkpoint. The whole run has a 15-minute limit (Inngest `timeouts.finish`).
+
+**Reasons** get our verdict (deal status) in the prompt and must agree with it (`reason-v2`); the verdict is part of the reason cache key.
+
+**Switch until F1.13:** `DISCOVERY_ENGINE=graph` runs this graph; the default `legacy` keeps the old pipeline until the 3-brief comparison.
 
 **State stays small:** profiles and posts live in the creator database; the graph state holds creator ids plus small score records, so checkpoints stay fast.
 

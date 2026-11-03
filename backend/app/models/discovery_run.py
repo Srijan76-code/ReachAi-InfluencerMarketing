@@ -29,7 +29,7 @@ class RunCandidate(Base):
     run_id = Column(String, primary_key=True)
     creator_id = Column(String, primary_key=True)
     platform = Column(String, nullable=False)
-    found_via = Column(String, nullable=True)  # search, trend_search, creator_db, ...
+    found_via = Column(String, nullable=True)  # search, trend_search, video_search, creator_db, ...
     mode = Column(String, nullable=True)  # full | probe | expand
     stage = Column(String, nullable=False)  # fetched, filtered_out, measured, judged, scored, shortlisted
     metrics = Column(JSONType, nullable=True)

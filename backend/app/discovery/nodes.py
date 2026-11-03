@@ -274,7 +274,10 @@ async def fetch_measure(state: BranchState, runtime: Runtime[Deps]) -> dict:
     adapter = runtime.context.adapters[platform]()
     limits = L.LIMITS_BY_MODE[state["mode"]]
     via = {r["platform_id"]: r["found_via"] for r in state.get("refs") or []}
-    refs = [CandidateRef(platform, pid, v) for pid, v in list(via.items())[: limits.max_profiles]]
+    todo = list(via) if state.get("fetch_ids") is None else state["fetch_ids"]
+    if state.get("fetch_ids") is not None:
+        limits = L.TOPUP_LIMITS
+    refs = [CandidateRef(platform, pid, via[pid]) for pid in todo[: limits.max_profiles]]
     profiles = await adapter.fetch_profiles(refs, brief.constraints())
     sf, mctx, now = runtime.context.session_factory, brief.metrics_context(), _now(runtime)
 
@@ -301,8 +304,46 @@ async def fetch_measure(state: BranchState, runtime: Runtime[Deps]) -> dict:
                                  found_via=via.get(pid), mode=state["mode"], stage="filtered_out", drop_reason=reason))
     await _save_rows(sf, rows)
     _emit({"type": "stage", "stage": f"{platform}: {len(kept)} of {len(profiles)} creators passed the checks"})
-    return {"measured": kept, "stats": {"sourced": len(refs), "fetched": len(profiles), "kept": len(kept)},
+    before = state.get("stats") or {}
+    measured = list(dict.fromkeys((state.get("measured") or []) + kept))  # a top-up round adds to the first
+    stats = {k: before.get(k, 0) + v for k, v in {"sourced": len(refs), "fetched": len(profiles), "kept": len(kept)}.items()}
+    return {"measured": measured, "stats": stats,
             "warnings": [f"{platform}: {w}" for w in getattr(adapter, "warnings", [])]}
+
+
+def needs_top_up(state: BranchState) -> str:
+    """After measuring: one extra search round when a full branch kept too few creators."""
+    wanted = L.TOPUP_FACTOR * max(1, _brief(state).creator_count)
+    if state["mode"] == "full" and not state.get("topped_up") and len(state.get("measured") or []) < wanted:
+        return "top_up"
+    return "shortlist"
+
+
+async def top_up(state: BranchState, runtime: Runtime[Deps]) -> dict:
+    """Second search round: unused queries first, all-time post search ordered by views.
+    Only creators not already looked at are fetched."""
+    platform = state["platform"]
+    adapter = runtime.context.adapters[platform]()
+    limits = replace(L.TOPUP_LIMITS, query_offset=L.LIMITS_BY_MODE[state["mode"]].max_queries)
+    brief = _brief(state)
+    if brief.target_countries:
+        limits = replace(limits, region=brief.target_countries[0])
+    warnings = []
+    try:
+        found = await adapter.source_candidates(_strategy_obj(state), limits)
+    except Exception as exc:
+        found, warnings = [], [f"{platform} extra search failed: {type(exc).__name__}"]
+    warnings += [f"{platform}: {w}" for w in getattr(adapter, "warnings", [])]
+    old = state.get("refs") or []
+    seen = {r["platform_id"] for r in old}
+    new = [{"platform_id": r.platform_id, "found_via": r.found_via} for r in found if r.platform_id not in seen]
+    new = list({r["platform_id"]: r for r in new}.values())
+    _emit({"type": "stage", "stage": f"{platform}: few creators passed, searched again and found {len(new)} more"})
+    return {"refs": old + new, "fetch_ids": [r["platform_id"] for r in new], "topped_up": True, "warnings": warnings}
+
+
+def after_top_up(state: BranchState) -> str:
+    return "fetch_measure" if state.get("fetch_ids") else "shortlist"
 
 
 async def shortlist(state: BranchState, runtime: Runtime[Deps]) -> dict:
@@ -487,7 +528,7 @@ async def reason(state: ReasonState, runtime: Runtime[Deps]) -> dict:
     profiles = await repo.get_creators([c["creator_id"]], session_factory=runtime.context.session_factory)
     p = profiles.get(c["creator_id"]) or {}
     titles = [x.get("text", "") for x in (p.get("recent_posts") or [])]
-    prompt = reason_prompt(brief, c.get("display_name", ""), titles, c.get("signals") or {})
+    prompt = reason_prompt(brief, c.get("display_name", ""), titles, c.get("signals") or {}, c.get("deal_status"))
 
     async def compute():
         out = await _llm(runtime, "brief", prompt, ReasonOut, _ctx(runtime, state))
@@ -496,7 +537,8 @@ async def reason(state: ReasonState, runtime: Runtime[Deps]) -> dict:
     try:
         from app.discovery.cache import cached
 
-        text, _ = await cached("llm", {"v": REASON_PROMPT_VERSION, "creator": repo.content_hash(p), "brief": brief.hash()},
+        text, _ = await cached("llm", {"v": REASON_PROMPT_VERSION, "creator": repo.content_hash(p), "brief": brief.hash(),
+                                "verdict": c.get("deal_status")},
                                None, compute, session_factory=runtime.context.session_factory)
     except Exception as exc:
         logger.warning("reason failed for %s: %s", c["creator_id"], exc)

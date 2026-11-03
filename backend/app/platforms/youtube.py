@@ -118,7 +118,14 @@ class YouTubeAdapter:
         ("trend") search on the top queries. Each search costs 100 quota units."""
         queries = [q.strip() for q in (strategy.queries.get("youtube") or strategy.topics) if q and q.strip()]
         queries = list(dict.fromkeys(queries))
+        if queries and limits.query_offset:
+            k = min(limits.query_offset, len(queries)) % len(queries)
+            queries = queries[k:] + queries[:k]  # unused queries first, then the rest again
         budget = max(0, limits.max_queries)
+        if limits.order:
+            # Top-up round: all-time video search ordered by `order`. Video search returns full pages
+            # where channel search on sentence-like queries often returns only a few channels.
+            return [("video", q) for q in queries[:budget]]
         n_trend = math.floor(budget * TREND_SHARE) if limits.published_within_days else 0
         n_channel = budget - n_trend
         return [("channel", q) for q in queries[:n_channel]] + [("trend", q) for q in queries[:n_trend]]
@@ -130,6 +137,8 @@ class YouTubeAdapter:
         params: dict[str, Any] = {"part": "snippet", "q": query, "maxResults": SEARCH_RESULTS, "regionCode": limits.region}
         if kind == "channel":
             params["type"] = "channel"
+        elif kind == "video":
+            params.update(type="video", order=limits.order or "relevance")
         else:
             after = self._now() - timedelta(days=limits.published_within_days or 21)
             params.update(type="video", order="viewCount", publishedAfter=after.strftime("%Y-%m-%dT00:00:00Z"))
@@ -140,6 +149,8 @@ class YouTubeAdapter:
 
         key = {"platform": "youtube", "kind": kind, "q": query, "region": limits.region,
                "after": params.get("publishedAfter")}
+        if kind == "video":
+            key["order"] = params["order"]
         try:
             ids, _ = await self._cache("search", key, timedelta(hours=SEARCH_CACHE_HOURS), run)
         except YouTubeAPIError as exc:
@@ -149,7 +160,7 @@ class YouTubeAdapter:
             else:
                 self.warnings.append(f"search failed for '{query}': {exc.reason}")
             return []
-        via = "search" if kind == "channel" else "trend_search"
+        via = {"channel": "search", "video": "video_search"}.get(kind, "trend_search")
         return [(cid, via) for cid in ids if cid]
 
     async def source_candidates(self, strategy: Strategy, limits: Limits) -> list[CandidateRef]:

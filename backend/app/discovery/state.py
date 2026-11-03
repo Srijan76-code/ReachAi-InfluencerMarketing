@@ -54,7 +54,9 @@ class BranchState(TypedDict, total=False):
     mode: str  # full | probe | expand
     db_hits: list[dict]
     refs: list[dict]  # [{platform_id, found_via}]
-    measured: list[str]  # creator_ids that passed the gates
+    measured: list[str]  # creator_ids that passed the gates (both rounds)
+    topped_up: bool  # the one extra search round has run
+    fetch_ids: list[str]  # top-up round: only these refs still need fetching
     shortlisted: list[str]
     candidates: Annotated[dict, merge_dicts]
     branch_runs: Annotated[list, operator.add]

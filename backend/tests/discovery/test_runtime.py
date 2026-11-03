@@ -143,3 +143,33 @@ async def test_resume_works_across_separate_postgres_checkpointers(sfc, monkeypa
         await saver2.adelete_thread(thread_for(run_id))
     assert out["resumed"] is True and out["leads"]
     assert counters2.get("llm:strategy", 0) == 0
+
+
+@pytest.mark.asyncio
+async def test_default_youtube_adapter_caches_in_the_runs_database(sfc, monkeypatch):
+    """The adapter's search cache must use the run's session factory, set after the deps are built."""
+    from app.billing.costs import CostContext
+    from app.discovery import cache as C
+    from app.discovery.runtime import default_deps
+
+    used = []
+
+    async def fake_cached(namespace, key, ttl, compute, *, session_factory=None):
+        used.append(session_factory)
+        return await compute(), False
+
+    monkeypatch.setattr(C, "cached", fake_cached)
+    deps = default_deps(CostContext())
+    deps.session_factory = sfc  # what run_discovery does
+    adapter = deps.adapters["youtube"]()
+    assert deps.adapters["youtube"]().api is adapter.api  # one shared HTTP client per run
+
+    class API:
+        async def search(self, **p):
+            return {"items": []}
+
+    adapter.api = API()
+    from app.platforms.base import Limits
+
+    await adapter._search("channel", "ml", Limits())
+    assert used == [sfc]

@@ -261,3 +261,94 @@ async def test_branches_run_in_parallel_not_one_after_another(sf, monkeypatch, c
     await run(sf, deps)
     (a0, a1), (b0, b1) = spans["youtube"], spans["x"]
     assert a0 < b1 and b0 < a1  # the two searches overlapped
+
+
+# --- top-up round -----------------------------------------------------------------------------------------
+
+class FakeTopUpAdapter(FakeProbeAdapter):
+    """Full-mode platform: the first round finds 3 creators, a view-ordered round finds 3 new ones and 1 repeat."""
+
+    platform = "x"
+
+    def __init__(self, calls):
+        super().__init__(calls, strong=True)
+
+    async def source_candidates(self, strategy, limits):
+        from app.platforms.base import CandidateRef
+
+        self.calls.append((limits.order, limits.query_offset))
+        ids = ["t3", "t4", "t5", "t0"] if limits.order == "viewCount" else ["t0", "t1", "t2"]
+        return [CandidateRef("x", i, "search") for i in ids]
+
+
+def x_full(monkeypatch, deps, calls):
+    from app.discovery import nodes
+
+    deps.adapters = {"x": lambda: FakeTopUpAdapter(calls)}
+    real = nodes.platform_select
+
+    async def only_x(state, runtime):
+        out = await real(state, runtime)
+        out["platforms"] = {"x": {"selected": True, "mode": "full"}}
+        return out
+    monkeypatch.setattr(nodes, "platform_select", only_x)
+
+
+@pytest.mark.asyncio
+async def test_too_few_creators_triggers_one_top_up_round(sf, monkeypatch, cost_log):
+    use_recorded_limits(monkeypatch)
+    deps, _ = make_deps(sf, yes_platforms=("x",))
+    calls = []
+    x_full(monkeypatch, deps, calls)
+    _, _, state, events = await run(sf, deps, stream=True)
+    from app.discovery import limits as L
+
+    assert calls == [(None, 0), ("viewCount", L.LIMITS_BY_MODE["full"].max_queries)]  # exactly one extra round
+    ids = {l["creator_id"] for l in state["final_leads"]}
+    assert len(ids) == 6  # both rounds' creators compete, the repeat isn't fetched twice
+    run_stats = state["branch_runs"][0]
+    assert run_stats["sourced"] == 6 and run_stats["kept"] == 6
+    assert any("searched again" in e.get("stage", "") for e in events)
+
+
+@pytest.mark.asyncio
+async def test_enough_creators_skips_the_top_up(sf, monkeypatch, cost_log):
+    use_recorded_limits(monkeypatch)
+    from app.discovery import limits as L
+
+    monkeypatch.setattr(L, "TOPUP_FACTOR", 0)
+    deps, _ = make_deps(sf, yes_platforms=("x",))
+    calls = []
+    x_full(monkeypatch, deps, calls)
+    await run(sf, deps)
+    assert calls == [(None, 0)]
+
+
+@pytest.mark.asyncio
+async def test_top_up_that_finds_nothing_new_goes_straight_to_ranking(sf, monkeypatch, cost_log):
+    """The recorded YouTube run keeps few creators; the extra search hits nothing recorded, so the run still finishes."""
+    use_recorded_limits(monkeypatch)
+    deps, _ = make_deps(sf)
+    _, _, state, events = await run(sf, deps, stream=True)
+    assert state["final_leads"]
+    assert any("found 0 more" in e.get("stage", "") for e in events)
+    assert [b["mode"] for b in state["branch_runs"]] == ["full"]  # one branch, no second pass of it
+
+
+@pytest.mark.asyncio
+async def test_reason_prompt_gets_our_verdict(sf, monkeypatch, cost_log):
+    use_recorded_limits(monkeypatch)
+    deps, _ = make_deps(sf)
+    prompts = []
+    real = deps.llm
+
+    async def spy(route, prompt, schema):
+        if route == "brief":
+            prompts.append(prompt)
+        return await real(route, prompt, schema)
+
+    deps.llm = spy
+    _, _, state, _ = await run(sf, deps)
+    labels = {l["deal_status"] for l in state["final_leads"] if l["llm_reasoning"]}
+    assert prompts and all("Our verdict:" in p for p in prompts)
+    assert any(f"Our verdict: {lab}." in p for p in prompts for lab in labels)

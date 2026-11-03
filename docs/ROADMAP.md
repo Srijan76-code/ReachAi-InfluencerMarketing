@@ -39,11 +39,11 @@ Known gaps in what's built:
 | F0.3 | Cost logging (`cost_events`) for every paid call | done (`foundations`) | §5.2 | `app/billing/costs.py`, `app/models/cost_event.py`, migration `c3f1a9d4e2b0` |
 | F0.4 | Config/env additions + `.env.example` update | done (`foundations`) | §3.4 | `app/core/config.py`, `backend/.env.example` |
 | F0.5 | Postgres cache helper (`cached()`), one `cache_entries` table with namespaces (`search`, `llm`) | done (`foundations`) | §4.14 | `app/discovery/cache.py`, `app/models/cache_entry.py`, migration `c3f1a9d4e2b0` |
-| F0.6 | Run execution: `discovery/run` Inngest function running/resuming the LangGraph discovery graph, `run_candidates` / `run_strategy` tables, concurrency/singleton/idempotency, limits module | in progress (`run-engine`) | §4.14 | `app/inngest/discovery.py`, `app/discovery/limits.py` |
+| F0.6 | Run execution: Inngest function running/resuming the LangGraph discovery graph, `run_candidates` / `run_strategy` tables, concurrency/singleton/idempotency/cancel, limits module | done (`run-engine`) | §4.14 | `app/discovery/runtime.py`, `app/inngest/functions.py`, `app/discovery/limits.py`, `app/discovery/node_cache.py`, `app/models/discovery_run.py` (migration `e4b8c1d6a2f9`), `tests/discovery/test_runtime.py` |
 
 ## Phase 1: Shared core + lead generation · §4
 **Decisions (Nov 3):**
-- **Replace the old pipeline directly** (no old/new switch). Before deleting `app/my_agent/`, run both on the same 3 briefs with live keys and compare.
+- **Replace the old pipeline** after comparing both on the same 3 briefs with live keys. Until then a temporary env switch `DISCOVERY_ENGINE` (`legacy` default, `graph`) picks the engine; it's removed in F1.13.
 - Database: Neon/Supabase, so **pgvector** is used.
 - Jev thresholds: **AI-labelled ~300 creators, user spot-checks 20%**.
 - Live keys (`TYPESAFE_API_KEY`, `YOUTUBE_API_KEY`, `GROQ_API_KEY`/`GOOGLE_API_KEY`) will be added to the environment; until then, build and test against recorded samples.
@@ -58,13 +58,13 @@ Known gaps in what's built:
 | F1.4 | Caches: profile (7 d), search results (24–72 h), embeddings + Jev answers by content hash | done (`creator-db`) | §4.4, §4.11 | profile reuse (`split_fresh`, 7 d), Jev answer + embedding caches by content hash (`app/creators/repository.py`); search cache already in `app/discovery/cache.py` |
 | F1.5 | Metrics: robust stats, momentum, outperformance, per-platform percentiles, IsolationForest anomaly | done (`shared-core`) | §4.5 | `app/metrics/` (stats, baselines, anomaly, pricing, compute, constants), `tests/shared_core/test_metrics.py` |
 | F1.6 | Jev judging questions + scoring combine | done (`shared-core`) | §4.6–4.7 | `app/judge/questions.py`, `constants.py`, `combine.py`, `tests/shared_core/test_judging.py` |
-| F1.7 | Generic discovery graph (strategy → ladder sourcing → filter → fetch → metrics → recall → judge → score → brief) | in progress (`run-engine`) | §4.3 | `app/discovery/graph.py`, `nodes/*` |
-| F1.8 | Platform selection (preset + Jev check + user toggle) and discovery ladder with probe-then-expand | in progress (`run-engine`) | §4.9 | `app/discovery/ladder.py` |
+| F1.7 | Generic discovery graph (strategy → sourcing → filter → fetch → metrics → top-up round if too few pass → shortlist → judge → score → reasons) | done (`run-engine`) | §4.3, §4.14 | `app/discovery/graph.py`, `nodes.py`, `state.py`, `brief.py`, `prompts.py`, `legacy.py`, `app/llm/embeddings.py`, `tests/discovery/test_graph.py` |
+| F1.8 | Platform selection (preset + Jev check) and probe-then-expand. User toggle moves to F1.12 | done (`run-engine`) | §4.9 | `app/discovery/nodes.py` (`platform_select`, `fan_out`, `probe_check`) |
 | F1.9 | YouTube adapter on the core (+ recent-video trend search, quota discipline) | done (`youtube-adapter`) | §4.8 | `app/platforms/youtube.py`, `youtube_api.py`, `tests/platforms/`, recorded fixture `tests/fixtures/youtube/recording.json` (re-record: `python -m scripts.record_youtube_fixtures`) |
-| F1.10 | Streaming results per rung (Inngest Realtime `leads` topic) | in progress (`run-engine`) | §4.12 | `app/workflow/runtime.py`, frontend results |
+| F1.10 | Streaming results per branch (Inngest Realtime `leads` topic, backend side). The UI doesn't read the topic yet: F1.12 | done (`run-engine`) | §4.12 | `app/discovery/runtime.py` |
 | F1.11 | YouTube 30-day data refresh/delete job | next | §4.4 | `app/creators/refresh.py`, Inngest cron |
-| F1.12 | Frontend: platform toggles, badges (rising, trend, suspicious), score breakdown, credit estimate | next | §4.13 | `frontend/components/MultiPlatform.tsx`, `frontend/app/ListOfInfluencer/*` |
-| F1.13 | Compare old vs new pipeline on 3 briefs with live keys, then remove `app/my_agent/` and `app/core/model.py` | later | §13 file map | — |
+| F1.12 | Frontend: platform toggles, badges (rising, trend, suspicious), score breakdown, credit estimate, live `leads` topic, fix K12 | next | §4.13 | `frontend/components/MultiPlatform.tsx`, `frontend/app/ListOfInfluencer/*` |
+| F1.13 | Compare old vs new pipeline on 3 briefs with live keys, run `alembic upgrade head` on production, set `DISCOVERY_ENGINE=graph`, then remove `app/my_agent/`, `app/core/model.py` and the switch | next | §13 file map | — |
 | F1.14 | Recall benchmark (ladder vs full search, target ≥ 90%) | later | §4.9 | `tests/benchmarks/` |
 
 ## Phase 2: Billing · §5
@@ -129,6 +129,9 @@ Known gaps in what's built:
 | K9 | Saved demo data has a wrong channel ID: `UCkw4JCwteGrDHIsyIIKo4tQ` is labelled "Krish Naik" but belongs to edureka!. Only names/numbers are shown, so nothing breaks; fix when regenerating demo data | later |
 | K10 | Jev key was an OpenRouter key, so TypeSafe's server rejected it. Fixed: the client detects OpenRouter keys and uses OpenRouter's Jev gateway, pinned to `typesafe/jev-1.14-20261014` (`jev-openrouter`) | done |
 | K11 | YouTube's API doesn't include a channel's "links" section, so cross-platform links are rarely found from YouTube alone (0 of 8 in the first recording). Links will mostly come from X/Instagram profiles and link pages | later |
+| K12 | Frontend bugs found while wiring the new engine: `getCountryCode` sends country names the backend can't map, and the brief form sends a hard-coded website. Fix in `results-ui` (F1.12) | next |
+| K13 | First live runs (Nov 3): most YouTube candidates fail the minimum-subscriber check (84 of 114), because channel search on sentence-like queries returns few channels. The top-up round (video search by views) doubled the leads (8 → 16). Next: shorter channel-search queries in the strategy prompt, and track pass rate per query | next |
+| K14 | No result reached "Strong Buy" in the first live runs (top 63.9, "Consider"). Check the label thresholds as part of K6 | next |
 | K3 | Route models for `strategy`, `pitch`, `reply` are placeholders (current Gemini first); pick them with the LangSmith evals | next |
 
 ## Open questions waiting on the user
