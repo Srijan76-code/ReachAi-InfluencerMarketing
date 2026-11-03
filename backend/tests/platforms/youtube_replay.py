@@ -62,6 +62,14 @@ class ReplayAPI:
         data = json.loads(path.read_text())
         self.recorded_at = data["recorded_at"]
         self.responses = {c["key"]: c["response"] for c in data["calls"]}
+        # Items by id, so lookups for a different batch of ids (e.g. after a filter dropped some)
+        # can still be answered from what was recorded.
+        self.items: dict[str, dict] = {"channels": {}, "videos": {}}
+        for c in data["calls"]:
+            resource = c["key"].split("?", 1)[0]
+            if resource in self.items:
+                for item in c["response"].get("items", []):
+                    self.items[resource][item["id"]] = item
         self.overrides = overrides or {}
         self.calls: list[str] = []
         self.misses: list[str] = []
@@ -74,10 +82,14 @@ class ReplayAPI:
             if isinstance(result, Exception):
                 raise result
             return result
-        if key not in self.responses:
-            self.misses.append(key)
-            return {"items": []}
-        return self.responses[key]
+        if key in self.responses:
+            return self.responses[key]
+        if resource in self.items and "id" in params:
+            ids = str(params["id"]).split(",")
+            if all(i in self.items[resource] for i in ids):
+                return {"items": [self.items[resource][i] for i in ids]}
+        self.misses.append(key)
+        return {"items": []}
 
     async def search(self, **p): return await self._get("search", p)
     async def channels(self, **p): return await self._get("channels", p)

@@ -36,3 +36,8 @@ JEV_TIMEOUT_SECONDS = float(os.getenv("JEV_TIMEOUT_SECONDS", "10"))
 # --- Platform data providers (later phases) --------------------------------
 X_PROVIDER = os.getenv("X_PROVIDER", "twitterapi")  # twitterapi | official
 APIFY_TOKEN = os.getenv("APIFY_TOKEN") or os.getenv("APIFY_API_TOKEN")
+
+# --- Discovery engine ----------------------------------------------------------------
+# "legacy" = old YouTube pipeline (app/my_agent); "graph" = new discovery graph (app/discovery).
+# Flip to "graph" after the 3-brief comparison; removed once the old pipeline is deleted (F1.13).
+DISCOVERY_ENGINE = os.getenv("DISCOVERY_ENGINE", "legacy")

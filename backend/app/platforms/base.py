@@ -53,7 +53,7 @@ class CandidateRef:
 
     platform: Platform
     platform_id: str
-    found_via: str  # "search", "trend_search", "cross_link", "creator_db", ...
+    found_via: str  # "search", "trend_search", "video_search", "cross_link", "creator_db", ...
     query: Optional[str] = None
 
 
@@ -77,6 +77,8 @@ class Limits:
     max_profiles: int = 150
     region: Optional[str] = None
     published_within_days: Optional[int] = 21  # for recent/trend searches
+    query_offset: int = 0  # skip this many queries first (a top-up round starts with the unused ones)
+    order: Optional[str] = None  # set for a top-up round: all-time post search in this order (e.g. "viewCount")
 
 
 @dataclass(frozen=True)

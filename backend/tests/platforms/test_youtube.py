@@ -326,3 +326,34 @@ async def test_http_client_records_quota_and_parses_errors(cost_log):
     assert "regionCode" not in str(seen[0])  # None params are not sent
     assert all("secret-key" not in str(r) for r in cost_log)
     await api.aclose()
+
+
+def test_top_up_plan_starts_with_unused_queries_and_wraps():
+    a = adapter()
+    s = Strategy(topics=[], pain_points=[], queries={"youtube": ["a", "b", "c", "d"]})
+    lim = Limits(max_queries=3, published_within_days=None, query_offset=2, order="viewCount")
+    assert a._plan_searches(s, lim) == [("video", "c"), ("video", "d"), ("video", "a")]
+    # offset past the end: every query again (all-time and by views, so new results)
+    assert [q for _, q in a._plan_searches(s, Limits(max_queries=2, query_offset=9, order="viewCount"))] == ["a", "b"]
+
+
+@pytest.mark.asyncio
+async def test_top_up_video_search_is_all_time_by_views_and_cached_separately():
+    seen_params, keys = [], []
+
+    class API:
+        async def search(self, **p):
+            seen_params.append(p)
+            return {"items": [{"snippet": {"channelId": "UC1"}}]}
+
+    async def cache(namespace, key, ttl, compute):
+        keys.append(key)
+        return await compute(), False
+
+    a = YouTubeAdapter(API(), cache=cache, now=lambda: RECORDED_AT)
+    hits = await a._search("video", "ml", Limits(order="viewCount"))
+    await a._search("channel", "ml", Limits())
+    assert hits == [("UC1", "video_search")]
+    assert seen_params[0]["type"] == "video" and seen_params[0]["order"] == "viewCount"
+    assert "publishedAfter" not in seen_params[0]
+    assert keys[0]["order"] == "viewCount" and keys[0]["kind"] == "video" and "order" not in keys[1]

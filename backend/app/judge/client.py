@@ -60,6 +60,17 @@ class Judgment:
     def score(self, qid: str) -> float:
         return float(self.answers[qid].value)
 
+    @classmethod
+    def from_dict(cls, d: dict) -> "Judgment":
+        """Rebuild a saved Judgment (creator_judgments.answers)."""
+        answers = {}
+        for qid, a in (d.get("answers") or {}).items():
+            probs = a.get("probabilities") or {}
+            if a.get("type") == "score":  # JSON turns int level keys into strings
+                probs = {int(k) if str(k).isdigit() else k: v for k, v in probs.items()}
+            answers[qid] = Answer(a["type"], a["value"], a.get("confidence"), probs)
+        return cls(answers=answers, model=d.get("model") or "", source=d.get("source") or "jev", input_tokens=d.get("input_tokens"))
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "model": self.model,
