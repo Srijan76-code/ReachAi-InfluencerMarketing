@@ -24,6 +24,9 @@ REASON_CONCURRENCY = 5
 
 # Inngest (spec §4.14)
 RUNS_PER_USER = 2
-RUNS_PER_ACCOUNT = 10
+# Inngest's free plan allows at most 5 concurrent runs per function; a higher value makes the whole app
+# fail to sync (found Nov 4: the nightly refresh and keep-warm functions were never registered).
+INNGEST_PLAN_MAX_CONCURRENCY = 5
+RUNS_PER_ACCOUNT = 5  # was 10; raise only together with the Inngest plan
 RUN_RETRIES = 3
 RUN_TIMEOUT_MINUTES = 15

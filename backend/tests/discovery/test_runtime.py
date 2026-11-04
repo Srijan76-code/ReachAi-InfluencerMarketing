@@ -191,3 +191,20 @@ async def test_default_youtube_adapter_caches_in_the_runs_database(sfc, monkeypa
 
     await adapter._search("channel", "ml", Limits())
     assert used == [sfc]
+
+
+def test_every_inngest_function_fits_the_plan_limits():
+    """Inngest rejects the whole app sync if any function asks for more concurrency than the plan
+    allows (this silently kept the nightly refresh and keep-warm functions unregistered)."""
+    from app.discovery import limits as L
+    from app.inngest import functions as F
+    from app.main import app  # noqa: F401  (the served list)
+    import inngest
+
+    fns = [v for v in vars(F).values() if isinstance(v, inngest.Function)]
+    ids = {f.id for f in fns}
+    for name in ("run_campaign", "run_outreach", "refresh_youtube_data", "keep_backend_warm"):
+        assert any(i.endswith(name) for i in ids), (name, ids)
+    for f in fns:
+        for c in f.get_config("http://x/api/inngest").main.concurrency or []:
+            assert c.limit <= L.INNGEST_PLAN_MAX_CONCURRENCY, (f.id, c)
