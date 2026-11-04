@@ -18,7 +18,9 @@ import {
   Search,
   Keyboard,
   X,
+  MoreHorizontal,
 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -101,7 +103,10 @@ const InfluencerPage = ({ campaignId }: InfluencerPageProps) => {
     try {
       raw = window.localStorage.getItem(viewKey);
     } catch {}
-    setView(parseView(raw));
+    const restored = parseView(raw);
+    // the old Saved page and shared links open straight on the shortlist
+    const wantsShortlist = new URLSearchParams(window.location.search).get("view") === "shortlist";
+    setView(wantsShortlist ? { ...restored, savedOnly: true } : restored);
     setViewLoaded(true);
   }, [viewKey]);
   useEffect(() => {
@@ -115,9 +120,11 @@ const InfluencerPage = ({ campaignId }: InfluencerPageProps) => {
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [openId, setOpenId] = useState<string | null>(null); // creator whose panel is open
-  const [cursor, setCursor] = useState<number | null>(null); // keyboard-highlighted row
+  const [cursor, setCursor] = useState<number | null>(null); // highlighted row
+  const keyboardNav = useRef(false); // the highlight stays after closing a panel only when moving with j/k
   const [helpOpen, setHelpOpen] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
   const displayedLeads = useMemo(
@@ -125,6 +132,15 @@ const InfluencerPage = ({ campaignId }: InfluencerPageProps) => {
     [final_ranked_leads, view, savedLeadsMap],
   );
   const platforms = useMemo(() => platformCounts(final_ranked_leads ?? []), [final_ranked_leads]);
+  const shortlistCount = useMemo(
+    () => (final_ranked_leads ?? []).filter((l) => savedLeadsMap[l.id]).length,
+    [final_ranked_leads, savedLeadsMap],
+  );
+  // what Start outreach and Export act on: the selected creators, else everyone in the current view
+  const actionTargets = useMemo(
+    () => (selectedIds.size > 0 ? displayedLeads.filter((l) => selectedIds.has(l.id)) : displayedLeads),
+    [displayedLeads, selectedIds],
+  );
 
   const saveError = useCampaignStore((state) => state.saveError);
   useEffect(() => {
@@ -178,6 +194,7 @@ const InfluencerPage = ({ campaignId }: InfluencerPageProps) => {
         if (!n) return;
         const from = openId ? displayedLeads.findIndex((l) => l.id === openId) : cursor;
         const next = from === null || from < 0 ? (d > 0 ? 0 : n - 1) : Math.min(n - 1, Math.max(0, from + d));
+        keyboardNav.current = true;
         moveTo(next);
         if (openId) setOpenId(displayedLeads[next].id);
       };
@@ -347,68 +364,55 @@ const InfluencerPage = ({ campaignId }: InfluencerPageProps) => {
                   </div>
                 </div>
 
-                {/* Title & Contextual Counter */}
-                <div className="flex items-center gap-2 border-l border-transparent pl-1">
+                {/* Title, All | Shortlist, and how the list was made */}
+                <div className="flex items-center gap-3 pl-1 min-w-0">
                   {selectedIds.size > 0 ? (
-                    <span className="text-[13px] font-medium text-zinc-900 dark:text-zinc-100">
+                    <span className="text-[13px] font-medium text-zinc-900 dark:text-zinc-100 whitespace-nowrap">
                       {selectedIds.size} selected
                     </span>
                   ) : (
-                    <>
-                      <h1 className="text-[14px] font-medium text-zinc-900 dark:text-zinc-100 tracking-tight">
-                        Influencer Leads
-                      </h1>
-                      {/* <div className="px-1.5 py-0.5 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white/50 dark:bg-zinc-900/50 flex items-center justify-center">
-                        <span className="text-[11px] font-mono font-medium text-zinc-500 dark:text-zinc-400 leading-none">
-                          {String(displayedLeads.length).padStart(2, "0")}
-                        </span>
-                      </div> */}
-                    </>
+                    <h1 className="text-[14px] font-medium text-zinc-900 dark:text-zinc-100 tracking-tight">Creators</h1>
+                  )}
+                  <div role="tablist" aria-label="Which creators" className="flex items-center p-0.5 rounded-md bg-zinc-100 dark:bg-zinc-900/60 border border-zinc-200/60 dark:border-zinc-800/60 text-[11px]">
+                    {([false, true] as const).map((only) => (
+                      <button
+                        key={String(only)}
+                        role="tab"
+                        type="button"
+                        aria-selected={view.savedOnly === only}
+                        onClick={() => set("savedOnly", only)}
+                        className={`px-2 py-0.5 rounded font-medium whitespace-nowrap transition-colors ${view.savedOnly === only ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-sm" : "text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"}`}
+                      >
+                        {only ? "Shortlist" : "All"} <span className="font-mono opacity-60">{only ? shortlistCount : final_ranked_leads.length}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {campaignId && (
+                    <span className="hidden lg:inline-flex">
+                      <SkippedNote campaignId={campaignId} api={api} ready={status === "COMPLETED" || status === "completed"} />
+                    </span>
                   )}
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
-                {/* Search */}
-                <label className="relative hidden md:flex items-center">
-                  <Search size={13} className="absolute left-2.5 text-zinc-400 pointer-events-none" />
+                {/* Search: an icon that opens into a field (or press /) */}
+                <label className="relative hidden md:flex items-center" title="Search (/)">
+                  <Search size={14} className="absolute left-2 text-zinc-500 pointer-events-none" />
                   <input
                     ref={searchRef}
                     value={view.query}
                     onChange={(e) => set("query", e.target.value)}
                     placeholder="Search creators"
                     aria-label="Search creators"
-                    className="w-44 focus:w-56 transition-[width] pl-7 pr-7 py-1.5 text-xs rounded-md border border-zinc-200 dark:border-zinc-800 bg-transparent placeholder:text-zinc-400 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-600 text-zinc-900 dark:text-zinc-100"
+                    className={`${view.query ? "w-52 pl-8 pr-6" : "w-[30px] pl-[28px] pr-0 focus:w-52 focus:pl-8 focus:pr-6 cursor-pointer focus:cursor-text placeholder:text-transparent focus:placeholder:text-zinc-400"} h-[30px] transition-[width] duration-200 text-xs rounded-md border border-zinc-200 dark:border-zinc-800 bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800 focus:bg-transparent focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-600 text-zinc-900 dark:text-zinc-100`}
                   />
-                  {view.query ? (
+                  {view.query && (
                     <button type="button" aria-label="Clear search" onClick={() => set("query", "")} className="absolute right-2 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200">
                       <X size={12} />
                     </button>
-                  ) : (
-                    <kbd className="absolute right-2 text-[10px] font-mono text-zinc-400 pointer-events-none">/</kbd>
                   )}
                 </label>
-
-                {/* Sort */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md border border-zinc-200 dark:border-zinc-800 transition-colors">
-                      <ArrowUpDown size={14} />
-                      Sort
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56 bg-white dark:bg-[#0c0d0e] border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400">
-                    <DropdownMenuLabel>Sort by</DropdownMenuLabel>
-                    <DropdownMenuSeparator className="bg-zinc-200 dark:bg-zinc-800" />
-                    <DropdownMenuRadioGroup value={view.sort} onValueChange={(v) => set("sort", v as LeadView["sort"])}>
-                      {SORTS.map((o) => (
-                        <DropdownMenuRadioItem key={o.key} className="focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-900 dark:focus:text-zinc-100 cursor-pointer" value={o.key}>
-                          {o.label}
-                        </DropdownMenuRadioItem>
-                      ))}
-                    </DropdownMenuRadioGroup>
-                  </DropdownMenuContent>
-                </DropdownMenu>
 
                 {/* Filter */}
                 <DropdownMenu>
@@ -433,9 +437,6 @@ const InfluencerPage = ({ campaignId }: InfluencerPageProps) => {
                     </DropdownMenuCheckboxItem>
                     <DropdownMenuCheckboxItem className="focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-900 dark:focus:text-zinc-100 cursor-pointer" checked={view.hideSuspicious} onCheckedChange={(c) => set("hideSuspicious", c === true)} onSelect={(e) => e.preventDefault()}>
                       Hide unusual engagement
-                    </DropdownMenuCheckboxItem>
-                    <DropdownMenuCheckboxItem className="focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-900 dark:focus:text-zinc-100 cursor-pointer" checked={view.savedOnly} onCheckedChange={(c) => set("savedOnly", c === true)} onSelect={(e) => e.preventDefault()}>
-                      Saved only
                     </DropdownMenuCheckboxItem>
                     <DropdownMenuSeparator className="bg-zinc-200 dark:bg-zinc-800" />
                     <DropdownMenuLabel>Confidence</DropdownMenuLabel>
@@ -462,7 +463,7 @@ const InfluencerPage = ({ campaignId }: InfluencerPageProps) => {
                     {filterCount > 0 && (
                       <>
                         <DropdownMenuSeparator className="bg-zinc-200 dark:bg-zinc-800" />
-                        <DropdownMenuItem className="focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-900 dark:focus:text-zinc-100 cursor-pointer" onSelect={() => setView((v) => ({ ...DEFAULT_VIEW, sort: v.sort, query: v.query }))}>
+                        <DropdownMenuItem className="focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-900 dark:focus:text-zinc-100 cursor-pointer" onSelect={() => setView((v) => ({ ...DEFAULT_VIEW, sort: v.sort, query: v.query, savedOnly: v.savedOnly }))}>
                           Reset filters
                         </DropdownMenuItem>
                       </>
@@ -470,22 +471,24 @@ const InfluencerPage = ({ campaignId }: InfluencerPageProps) => {
                   </DropdownMenuContent>
                 </DropdownMenu>
 
-                {/* Keyboard shortcuts */}
-                <DropdownMenu open={helpOpen} onOpenChange={setHelpOpen}>
+                {/* Sort */}
+                <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)" className="hidden md:flex items-center p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md border border-zinc-200 dark:border-zinc-800 transition-colors">
-                      <Keyboard size={14} />
+                    <button className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md border border-zinc-200 dark:border-zinc-800 transition-colors">
+                      <ArrowUpDown size={14} />
+                      Sort
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56 bg-white dark:bg-[#0c0d0e] border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400">
-                    <DropdownMenuLabel>Keyboard shortcuts</DropdownMenuLabel>
+                    <DropdownMenuLabel>Sort by</DropdownMenuLabel>
                     <DropdownMenuSeparator className="bg-zinc-200 dark:bg-zinc-800" />
-                    {SHORTCUTS.map(([k, what]) => (
-                      <div key={k} className="flex items-center justify-between px-2 py-1 text-xs">
-                        <span>{what}</span>
-                        <kbd className="font-mono text-[10px] px-1.5 py-0.5 rounded border border-zinc-200 dark:border-zinc-700 text-zinc-500">{k}</kbd>
-                      </div>
-                    ))}
+                    <DropdownMenuRadioGroup value={view.sort} onValueChange={(v) => set("sort", v as LeadView["sort"])}>
+                      {SORTS.map((o) => (
+                        <DropdownMenuRadioItem key={o.key} className="focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-900 dark:focus:text-zinc-100 cursor-pointer" value={o.key}>
+                          {o.label}
+                        </DropdownMenuRadioItem>
+                      ))}
+                    </DropdownMenuRadioGroup>
                   </DropdownMenuContent>
                 </DropdownMenu>
 
@@ -499,31 +502,63 @@ const InfluencerPage = ({ campaignId }: InfluencerPageProps) => {
                   />
                 )}
 
-                {/* Outreach Action Trigger */}
+                {/* Start outreach: the selected creators, else everyone in the current view */}
                 {campaignId && (
                   <OutreachDialog
                     campaignId={campaignId}
-                    influencers={
-                      selectedIds.size > 0
-                        ? displayedLeads.filter((l) => selectedIds.has(l.id))
-                        : displayedLeads
+                    influencers={actionTargets}
+                    trigger={
+                      <button
+                        type="button"
+                        disabled={actionTargets.length === 0}
+                        className="flex items-center gap-2 h-[30px] px-3 text-xs font-medium rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 hover:opacity-90 disabled:opacity-40 transition-opacity whitespace-nowrap"
+                      >
+                        <Send size={13} />
+                        Start outreach
+                        <span className="font-mono opacity-70">{actionTargets.length}</span>
+                      </button>
                     }
                   />
                 )}
 
-                {/* Export Advanced Module */}
-                <ExportDialog
-                  influencers={
-                    selectedIds.size > 0
-                      ? displayedLeads.filter((l) => selectedIds.has(l.id))
-                      : displayedLeads
-                  }
-                />
+                {/* ⋯ : export and keyboard shortcuts */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button aria-label="More actions" className="flex items-center justify-center h-[30px] w-[30px] rounded-md border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+                      <MoreHorizontal size={14} />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-52 bg-white dark:bg-[#0c0d0e] border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400">
+                    <DropdownMenuItem className="focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-900 dark:focus:text-zinc-100 cursor-pointer gap-2" onSelect={() => setExportOpen(true)}>
+                      <Download size={14} /> Export {actionTargets.length} as CSV
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-900 dark:focus:text-zinc-100 cursor-pointer gap-2" onSelect={() => setHelpOpen(true)}>
+                      <Keyboard size={14} /> Keyboard shortcuts <span className="ml-auto font-mono text-[10px] text-zinc-400">?</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <ExportDialog influencers={actionTargets} open={exportOpen} onOpenChange={setExportOpen} trigger={null} />
               </div>
             </motion.div>
 
+            <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
+              <DialogContent className="sm:max-w-xs bg-white dark:bg-[#0c0d0e]">
+                <DialogHeader>
+                  <DialogTitle className="text-sm">Keyboard shortcuts</DialogTitle>
+                </DialogHeader>
+                <ul className="space-y-1.5">
+                  {SHORTCUTS.map(([k, what]) => (
+                    <li key={k} className="flex items-center justify-between text-xs">
+                      <span>{what}</span>
+                      <kbd className="font-mono text-[10px] px-1.5 py-0.5 rounded border border-zinc-200 dark:border-zinc-700 text-zinc-500">{k}</kbd>
+                    </li>
+                  ))}
+                </ul>
+              </DialogContent>
+            </Dialog>
+
             {/* --- RUN NOTE + PLATFORM CHIPS --- */}
-            {(campaignId || platforms.length > 1) && (
+            {platforms.length > 1 && (
               <div className="flex items-center gap-2 -mt-3 mb-1">
                 <div className="w-10 flex-shrink-0" />
                 <div className="flex-1 min-w-0 flex flex-wrap items-center justify-between gap-2 pl-1">
@@ -545,11 +580,6 @@ const InfluencerPage = ({ campaignId }: InfluencerPageProps) => {
                           </button>
                         );
                       })}
-                    </div>
-                  )}
-                  {campaignId && (
-                    <div className="ml-auto">
-                      <SkippedNote campaignId={campaignId} api={api} ready={status === "COMPLETED" || status === "completed"} />
                     </div>
                   )}
                 </div>
@@ -575,15 +605,29 @@ const InfluencerPage = ({ campaignId }: InfluencerPageProps) => {
               {displayedLeads.length === 0 ? (
                 <div className="flex flex-col items-center justify-center p-12 text-center bg-zinc-100/50 dark:bg-zinc-900/50 rounded-xl border border-dashed border-zinc-200 dark:border-zinc-800">
                   <p className="text-zinc-500">
-                    {view.query ? `No creators match “${view.query}” with these filters.` : "No creators match these filters."}
+                    {view.savedOnly && shortlistCount === 0
+                      ? "Your shortlist is empty. Click the bookmark on a creator to add them."
+                      : view.query
+                        ? `No creators match “${view.query}” with these filters.`
+                        : "No creators match these filters."}
                   </p>
+                  {view.savedOnly && shortlistCount === 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => set("savedOnly", false)}
+                      className="mt-3 px-3 py-1.5 text-xs font-medium rounded-md border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                    >
+                      Show all creators
+                    </button>
+                  ) : (
                   <button
                     type="button"
-                    onClick={() => setView((v) => ({ ...DEFAULT_VIEW, sort: v.sort }))}
+                    onClick={() => setView((v) => ({ ...DEFAULT_VIEW, sort: v.sort, savedOnly: v.savedOnly }))}
                     className="mt-3 px-3 py-1.5 text-xs font-medium rounded-md border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
                   >
                     Clear search and filters
                   </button>
+                  )}
                 </div>
               ) : (
                 displayedLeads.map((influencer, index) => {
@@ -626,15 +670,22 @@ const InfluencerPage = ({ campaignId }: InfluencerPageProps) => {
 
                       {/* Sheet Trigger Column */}
                       <div className="flex-1 min-w-0">
-                        <Sheet open={openId === influencer.id} onOpenChange={(o) => setOpenId(o ? influencer.id : null)}>
+                        <Sheet
+                          open={openId === influencer.id}
+                          onOpenChange={(o) => {
+                            setOpenId(o ? influencer.id : null);
+                            if (!o && !keyboardNav.current) setCursor(null);
+                          }}
+                        >
                             <div
                               role="button"
                               tabIndex={-1}
                               onClick={() => {
+                                keyboardNav.current = false;
                                 setCursor(index);
                                 setOpenId(influencer.id);
                               }}
-                              className={`h-full rounded-lg border overflow-hidden cursor-pointer transition-colors ${isCursor ? "ring-1 ring-blue-500/60 " : ""}${isSelected ? "border-zinc-300 dark:border-zinc-600" : "border-zinc-200/50 dark:border-zinc-800/50 hover:border-zinc-300/50 dark:hover:border-zinc-700/50"}`}
+                              className={`h-full rounded-lg border overflow-hidden cursor-pointer transition-colors ${isCursor ? "border-zinc-400 dark:border-zinc-500" : isSelected ? "border-zinc-300 dark:border-zinc-600" : "border-zinc-200/50 dark:border-zinc-800/50 hover:border-zinc-300/50 dark:hover:border-zinc-700/50"}`}
                             >
                               <InfluencerRow
                                 influencer={influencer}

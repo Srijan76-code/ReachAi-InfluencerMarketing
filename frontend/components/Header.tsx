@@ -10,6 +10,7 @@ import { Show, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
 import BreadCumb from "./BreadCumb";
 import { HoverButton } from "./buttons/HoverButton";
 import { usePathname, useRouter } from "next/navigation";
+import { useCreateCampaign } from "@/lib/useCreateCampaign";
 
 const NAV_LINKS = [
   { name: "Features", href: "#features" },
@@ -23,6 +24,7 @@ export default function Header() {
   const pathname = usePathname();
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { create: createCampaign, creating } = useCreateCampaign();
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 20);
@@ -113,6 +115,15 @@ export default function Header() {
                   <p>Campaigns</p>
                 </div>
               </HoverButton>
+              <button
+                type="button"
+                onClick={createCampaign}
+                disabled={creating}
+                className="flex items-center gap-1.5 h-8 px-3 text-xs font-medium rounded-lg bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 hover:opacity-90 disabled:opacity-60 transition-opacity shadow-sm"
+              >
+                <PlusCircle className="w-3 h-3" />
+                {creating ? "Creating…" : "New campaign"}
+              </button>
               <UserButton />
             </Show>
           </div>
@@ -161,6 +172,25 @@ export default function Header() {
                 </Link>
               ))} */}
                 <Show when="signed-in">
+                  <Link
+                    href="/campaign"
+                    className="flex items-center gap-2 text-sm font-medium text-zinc-600 dark:text-zinc-400"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <HomeIcon size={16} />
+                    Campaigns
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      createCampaign();
+                    }}
+                    className="flex items-center gap-2 text-sm font-medium text-zinc-600 dark:text-zinc-400"
+                  >
+                    <PlusCircle size={16} />
+                    New campaign
+                  </button>
                   <Link
                     href="/docs"
                     className="flex items-center gap-2 text-sm font-medium text-zinc-600 dark:text-zinc-400"

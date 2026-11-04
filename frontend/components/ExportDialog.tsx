@@ -12,8 +12,20 @@ import {
 import { Influencer } from "@/data/influencerList";
 import { processExport, ExportConfig } from "@/lib/exportService";
 
-export function ExportDialog({ influencers }: { influencers: Influencer[] }) {
-  const [open, setOpen] = useState(false);
+/** `open`/`onOpenChange`: control it from outside (the results page opens it from its ⋯ menu);
+ *  `trigger={null}` hides the built-in button. */
+export function ExportDialog({ influencers, open: openProp, onOpenChange, trigger }: {
+  influencers: Influencer[];
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  trigger?: React.ReactNode | null;
+}) {
+  const [openState, setOpenState] = useState(false);
+  const open = openProp ?? openState;
+  const setOpen = (o: boolean) => {
+    setOpenState(o);
+    onOpenChange?.(o);
+  };
   const [config, setConfig] = useState<ExportConfig>({
     type: "outreach",
     format: "csv",
@@ -82,12 +94,16 @@ export function ExportDialog({ influencers }: { influencers: Influencer[] }) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <button className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md border border-zinc-200 dark:border-zinc-800 transition-colors focus:outline-none">
-          <Download size={14} />
-          Export Leads
-        </button>
-      </DialogTrigger>
+      {trigger !== null && (
+        <DialogTrigger asChild>
+          {trigger ?? (
+            <button className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md border border-zinc-200 dark:border-zinc-800 transition-colors focus:outline-none">
+              <Download size={14} />
+              Export
+            </button>
+          )}
+        </DialogTrigger>
+      )}
       
       <DialogContent className="sm:max-w-[480px] p-0 overflow-hidden bg-white dark:bg-[#0a0a0a] border-zinc-200 dark:border-white/10 shadow-2xl rounded-xl font-sans">
         

@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Info } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { SkippedSummary } from "@/data/influencerList";
 
-/** "Looked at 312 creators · 288 left out: inactive 120, too few views 80 …" from /skipped.
- *  Hidden when the run kept no records (older campaigns) or the call fails: it's extra context, never a blocker. */
+/** A quiet chip: "347 checked · 31 kept ⓘ". Opens a popover with why the rest were left out.
+ *  Hidden when the run kept no records (older campaigns) or the call fails: context, never a blocker. */
 export function SkippedNote({ campaignId, api, ready }: {
   campaignId: string;
   api: (url: string) => Promise<{ data: SkippedSummary }>;
@@ -25,43 +26,38 @@ export function SkippedNote({ campaignId, api, ready }: {
   }, [campaignId, ready]);
 
   if (!s || !s.looked_at) return null;
-  const top = s.reasons.slice(0, 3);
-  const more = s.reasons.length - top.length;
+  const kept = Math.max(0, s.looked_at - s.skipped);
+  const max = Math.max(1, ...s.reasons.map((r) => r.count));
   return (
-    <p className="text-[11px] text-zinc-500 dark:text-zinc-500 leading-relaxed">
-      Looked at <span className="font-medium text-zinc-700 dark:text-zinc-300">{s.looked_at.toLocaleString()}</span> creators
-      {s.skipped > 0 && (
-        <>
-          {" · "}
-          <span className="font-medium text-zinc-700 dark:text-zinc-300">{s.skipped.toLocaleString()}</span> left out
-          {top.length > 0 && ": "}
-          {top.map((r, i) => (
-            <span key={r.reason}>
-              {i > 0 && ", "}
-              {r.reason} {r.count}
-            </span>
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="flex items-center gap-1.5 px-2 py-0.5 rounded-md border border-zinc-200/80 dark:border-zinc-800 text-[11px] text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition-colors whitespace-nowrap"
+        >
+          <span><span className="font-mono text-zinc-700 dark:text-zinc-300">{s.looked_at.toLocaleString()}</span> checked</span>
+          <span className="text-zinc-300 dark:text-zinc-700">·</span>
+          <span><span className="font-mono text-zinc-700 dark:text-zinc-300">{kept.toLocaleString()}</span> kept</span>
+          <Info size={11} className="opacity-60" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-72 p-3 bg-white dark:bg-[#0c0d0e] border-zinc-200 dark:border-zinc-800">
+        <p className="text-xs font-medium text-zinc-900 dark:text-zinc-100">How this list was made</p>
+        <p className="mt-0.5 text-[11px] text-zinc-500">
+          We checked {s.looked_at.toLocaleString()} creators and left out {s.skipped.toLocaleString()}:
+        </p>
+        <ul className="mt-2.5 space-y-1.5">
+          {s.reasons.map((r) => (
+            <li key={r.reason} className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-0.5 text-[11px]">
+              <span className="text-zinc-700 dark:text-zinc-300 first-letter:uppercase">{r.reason}</span>
+              <span className="font-mono text-zinc-500">{r.count}</span>
+              <span className="col-span-2 h-1 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+                <span className="block h-full rounded-full bg-zinc-400 dark:bg-zinc-500" style={{ width: `${(r.count / max) * 100}%` }} />
+              </span>
+            </li>
           ))}
-          {more > 0 && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button type="button" className="ml-1 underline decoration-dotted underline-offset-2 hover:text-zinc-700 dark:hover:text-zinc-300">
-                  +{more} more
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="bg-zinc-100 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700 text-xs text-zinc-800 dark:text-zinc-200">
-                <ul className="space-y-0.5">
-                  {s.reasons.map((r) => (
-                    <li key={r.reason} className="flex justify-between gap-4">
-                      <span>{r.reason}</span>
-                      <span className="font-mono">{r.count}</span>
-                    </li>
-                  ))}
-                </ul>
-              </TooltipContent>
-            </Tooltip>
-          )}
-        </>
-      )}
-    </p>
+        </ul>
+      </PopoverContent>
+    </Popover>
   );
 }
