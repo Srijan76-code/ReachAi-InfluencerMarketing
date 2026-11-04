@@ -187,6 +187,17 @@ async def strategy(state: DiscoveryState, runtime: Runtime[Deps]) -> dict:
 
 async def platform_select(state: DiscoveryState, runtime: Runtime[Deps]) -> dict:
     brief = _brief(state)
+    built = set(runtime.context.adapters)
+    if brief.platforms:  # the user chose: search exactly those, no Jev check needed
+        chosen = {p: {"selected": p in brief.platforms, "weight": 1.0 if p in brief.platforms else 0.0,
+                      "note": "chosen by you" if p in brief.platforms else None} for p in PLATFORMS}
+        warnings = []
+        for p, info in chosen.items():
+            info["built"] = p in built
+            info["mode"] = "full" if info["selected"] and info["built"] else None
+            if info["selected"] and not info["built"]:
+                warnings.append(f"{p} isn't available yet, so it was skipped")
+        return {"platforms": chosen, "warnings": warnings}
     preset = K.PRESET_PLATFORMS[brief.founder_type]
     answers = None
     try:
@@ -195,7 +206,6 @@ async def platform_select(state: DiscoveryState, runtime: Runtime[Deps]) -> dict
     except Exception as exc:  # no Jev: fall back to the preset
         logger.warning("platform check failed, using preset: %s", exc)
     chosen = select_platforms(preset, answers, list(PLATFORMS))
-    built = set(runtime.context.adapters)
     warnings = []
     for p, info in chosen.items():
         info["built"] = p in built

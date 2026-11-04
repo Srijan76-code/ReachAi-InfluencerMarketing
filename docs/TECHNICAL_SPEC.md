@@ -330,6 +330,7 @@ All weights and thresholds are **starting values**, to be tuned on the labelled 
 ### 4.9 Platform selection and the cheapest-first discovery ladder
 
 **Platform selection** (runs once per campaign):
+0. **User choice wins (built Nov 4):** if the brief has `campaign.platforms`, exactly those are searched (full mode), with no Jev check and no probes; unbuilt ones produce a warning. An empty list means steps 1-3 below.
 1. **Preset** by founder type, set in the brief: `b2b` → {youtube, x, linkedin}; `consumer` → {youtube, instagram}.
 2. **AI check:** one Jev request with a Noul per platform: "Would buyers of `brief.product` (described in `brief.persona`) follow creators on {platform} for this topic?" A platform is **added** if its Noul is above 0.7, and flagged "low fit" if it's below 0.3. Cost < $0.001.
 3. **User toggle** on the brief form, which shows the preset + AI suggestion and the credit estimate per platform.

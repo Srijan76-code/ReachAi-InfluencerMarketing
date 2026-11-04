@@ -44,6 +44,7 @@ class Brief:
     target_countries: list[str] = field(default_factory=list)
     exclude_kids_content: bool = True
     ignored_countries: list[str] = field(default_factory=list)  # codes the form sent that aren't real
+    platforms: list[str] = field(default_factory=list)  # chosen by the user; empty = ReachAI chooses
 
     @property
     def founder_type(self) -> str:
@@ -93,6 +94,15 @@ def _clean_countries(codes: Any) -> tuple[list[str], list[str]]:
     return list(dict.fromkeys(good)), bad
 
 
+def _clean_platforms(values: Any) -> list[str]:
+    from app.platforms.base import PLATFORMS
+
+    if not isinstance(values, (list, tuple)):
+        return []  # the old single `platform` field is ignored: old forms always sent "youtube"
+    names = [str(v).strip().lower() for v in values]
+    return list(dict.fromkeys(n for n in names if n in PLATFORMS))
+
+
 def parse_brief(details: dict) -> Brief:
     details = details or {}
     brand, audience = details.get("brand") or {}, details.get("audience") or {}
@@ -120,4 +130,5 @@ def parse_brief(details: dict) -> Brief:
         target_countries=countries,
         exclude_kids_content=bool(cons.get("exclude_kids_content", True)),
         ignored_countries=ignored,
+        platforms=_clean_platforms(campaign.get("platforms")),
     )
