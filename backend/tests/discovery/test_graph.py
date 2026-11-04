@@ -277,7 +277,7 @@ class FakeTopUpAdapter(FakeProbeAdapter):
         from app.platforms.base import CandidateRef
 
         self.calls.append((limits.order, limits.query_offset))
-        ids = ["t3", "t4", "t5", "t0"] if limits.order == "viewCount" else ["t0", "t1", "t2"]
+        ids = ["t3", "t4", "t5", "t0"] if limits.order else ["t0", "t1", "t2"]
         return [CandidateRef("x", i, "search") for i in ids]
 
 
@@ -303,7 +303,7 @@ async def test_too_few_creators_triggers_one_top_up_round(sf, monkeypatch, cost_
     _, _, state, events = await run(sf, deps, stream=True)
     from app.discovery import limits as L
 
-    assert calls == [(None, 0), ("viewCount", L.LIMITS_BY_MODE["full"].max_queries)]  # exactly one extra round
+    assert calls == [(None, 0), (L.TOPUP_LIMITS.order, L.LIMITS_BY_MODE["full"].max_queries)]  # exactly one extra round
     ids = {l["creator_id"] for l in state["final_leads"]}
     assert len(ids) == 6  # both rounds' creators compete, the repeat isn't fetched twice
     run_stats = state["branch_runs"][0]

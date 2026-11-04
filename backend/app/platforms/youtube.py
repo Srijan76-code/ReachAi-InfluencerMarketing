@@ -27,7 +27,7 @@ from app.platforms.youtube_api import YouTubeAPI, YouTubeAPIError
 logger = logging.getLogger(__name__)
 
 # --- Settings ---------------------------------------------------------------------------------
-TREND_SHARE = 0.5  # share of the search budget spent on recent-video (trend) search
+TREND_SHARE = 0.25  # share of the search budget spent on recent-video (trend) search; niche trend searches return few results
 SEARCH_RESULTS = 50  # max per search call (API limit)
 POSTS_PER_CREATOR = 15
 BATCH = 50  # max ids per channels.list / videos.list call
@@ -126,7 +126,7 @@ class YouTubeAdapter:
             # Top-up round: all-time video search ordered by `order`. Video search returns full pages
             # where channel search on sentence-like queries often returns only a few channels.
             return [("video", q) for q in queries[:budget]]
-        n_trend = math.floor(budget * TREND_SHARE) if limits.published_within_days else 0
+        n_trend = max(1, math.floor(budget * TREND_SHARE)) if limits.published_within_days and budget >= 2 else 0  # at least one
         n_channel = budget - n_trend
         return [("channel", q) for q in queries[:n_channel]] + [("trend", q) for q in queries[:n_trend]]
 

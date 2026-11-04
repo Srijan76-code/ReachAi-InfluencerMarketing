@@ -87,7 +87,9 @@ def test_search_budget_split_between_channel_and_trend():
     a = adapter()
     s = Strategy(topics=[], pain_points=[], queries={"youtube": ["a", "b", "c", "d", "e"]})
     plan = a._plan_searches(s, Limits(max_queries=8))
-    assert Counter(k for k, _ in plan) == {"channel": 4, "trend": 4}
+    assert Counter(k for k, _ in plan) == {"channel": 5, "trend": 2}  # a quarter on trends; only 5 queries exist
+    assert Counter(k for k, _ in a._plan_searches(s, Limits(max_queries=2))) == {"channel": 1, "trend": 1}  # at least one trend
+    assert [k for k, _ in a._plan_searches(s, Limits(max_queries=1))] == ["channel"]
     no_trend = a._plan_searches(s, Limits(max_queries=4, published_within_days=None))
     assert [k for k, _ in no_trend] == ["channel"] * 4
     assert a._plan_searches(s, Limits(max_queries=0)) == []

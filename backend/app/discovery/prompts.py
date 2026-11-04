@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 
 from app.discovery.brief import Brief
 
-STRATEGY_PROMPT_VERSION = "strategy-v2"
+STRATEGY_PROMPT_VERSION = "strategy-v3"
 REASON_PROMPT_VERSION = "reason-v2"
 
 
@@ -19,7 +19,7 @@ class StrategyOut(BaseModel):
     pain_points: list[str] = Field(description="2-4 concrete problems the audience is trying to solve")
     formats: list[str] = Field(description="2-4 video formats that suit the product, e.g. tutorial, review, case study")
     youtube_queries: list[str] = Field(
-        description="8-10 distinct YouTube search phrases a member of the audience would type; mix topics, pain points and formats"
+        description="8-10 distinct short YouTube searches (2-5 words) for the niches this audience watches, e.g. 'api monitoring tutorial', 'devops tools'; broad enough that whole channels cover them"
     )
     trend_topics: list[str] = Field(description="2-4 subjects people in this niche are talking about right now")
     competitors: list[str] = Field(default_factory=list, description="Up to 5 well-known competing products or brands")
@@ -43,8 +43,10 @@ Goal: {b.goal} | Preferred creator type: {b.creator_type}
 
 Guidance:
 - High-priced products: favour authority, tutorials and career outcomes. Low-priced: reach and reviews.
-- Search phrases must be different from each other and sound like real searches, not ad copy.
-- If a phrase mentions a year, use {today.year}.
+- Searches must be short (2-5 words), different from each other, and sound like what people type, not ad copy.
+  Long, very specific sentences find almost no channels.
+- Name the niche, not the product: no brand names, no years, no "in 5 minutes"-style details.
+- Start with the broad niche terms (e.g. "devops", "freelance business"), then add narrower ones.
 - Trend topics are only a starting hint; real trends come from recent videos.
 - Do not invent statistics."""
 
