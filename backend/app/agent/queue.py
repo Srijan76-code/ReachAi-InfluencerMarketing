@@ -16,7 +16,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.agent import constants as A
 from app.agent.proposals import Ev, propose
 from app.deals.changes import apply_change
-from app.deals.reply import allowed
+from app.negotiation.context import Offer
+from app.negotiation.write import numbers_ok
 from app.models.deal import AgentProposal, CreatorDeal, DealEvent
 
 
@@ -52,7 +53,7 @@ async def refresh(db: AsyncSession, deals: list[CreatorDeal], *, names: dict, go
             elif have.status == "stale":
                 have.status, have.title, have.reason, have.payload = "pending", p.title, p.reason, p.payload
     for k, p in stored.items():
-        if p.status == "pending" and k not in wanted:
+        if p.status == "pending" and k not in wanted and not p.key.startswith("nego:"):  # the agent manages its own
             p.status = "stale"
     await db.commit()
     return list((await db.execute(
@@ -64,8 +65,6 @@ async def refresh(db: AsyncSession, deals: list[CreatorDeal], *, names: dict, go
 def _change_for(p: AgentProposal, d: CreatorDeal) -> dict:
     pl = p.payload or {}
     early = d.stage == "contacted"
-    if p.kind == "record_quote":
-        return {"quoted_rate": float(pl["quoted_rate"]), **({"stage": "negotiating"} if early else {})}
     if p.kind == "send_counter":
         return {"stage": "negotiating"} if early else {}
     if p.kind == "agree":
@@ -94,12 +93,14 @@ async def approve(db: AsyncSession, p: AgentProposal, d: CreatorDeal, message: O
     if p.kind in A.MESSAGE_KINDS and pl.get("message"):
         final = (message if message and message.strip() else pl["message"]).strip()
         edited = final != pl["message"].strip()
-        amounts = pl.get("amounts")
-        # an edited message keeps its amounts only if it still says exactly our numbers (used if they accept)
-        keep = amounts if amounts and (not edited or allowed(final, amounts)) else None
+        amounts, terms = pl.get("amounts"), pl.get("terms")
+        # an edited message keeps its terms only if it still says exactly our numbers (used if they accept)
+        offer = Offer(terms.get("fee"), float(terms.get("commission_pct") or 0)) if terms else None
+        still = not edited or (offer is not None and numbers_ok(final, offer))
+        keep, terms = (amounts, terms) if still else (None, None)
         via = await send(final) if send else None
         db.add(DealEvent(deal_id=d.deal_id, type="message_sent",
-                         payload={"kind": p.kind, "text": final, "amounts": keep, "edited": edited, "final": bool(pl.get("final")),
+                         payload={"kind": p.kind, "text": final, "amounts": keep, "terms": terms, "edited": edited, "final": bool(pl.get("final")),
                                   "proposal_id": p.proposal_id, "via": "gmail" if via else "copied", **(via or {})}))
         result = {"message": final, "edited": edited, "sent": bool(via)}
     apply_change(db, d, change)
@@ -119,7 +120,7 @@ def out(p: AgentProposal, name: str, avatar: Optional[str], can_send: bool = Fal
     pl = p.payload or {}
     return {"id": p.proposal_id, "deal_id": p.deal_id, "kind": p.kind, "title": p.title, "reason": p.reason,
             "message": pl.get("message"), "source": pl.get("source", "template"),
-            "can_reword": p.kind in ("send_counter", "agree") and bool(pl.get("message") and pl.get("angle")),
+            "can_reword": p.kind in ("send_counter", "agree", "mark_lost") and bool(pl.get("message")) and p.key.startswith("nego:"),
             "is_message": p.kind in A.MESSAGE_KINDS and bool(pl.get("message")),
             "can_send": can_send and p.kind in A.MESSAGE_KINDS and bool(pl.get("message")),
             "name": name, "avatar_url": avatar, "created_at": p.created_at.isoformat() if p.created_at else None}

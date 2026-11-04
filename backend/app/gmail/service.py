@@ -79,11 +79,10 @@ async def send_for_deal(db: AsyncSession, account: ConnectedAccount, d: CreatorD
 
 
 async def sync_deal(db: AsyncSession, account: ConnectedAccount, d: CreatorDeal, token: str, *, user_id: str) -> int:
-    """Pulls new messages from the creator in the deal's thread → creator_reply events. Returns how many."""
-    from app.billing.costs import CostContext
-    from app.agent.proposals import money_in
-    from app.deals.reply import read_reply
-    from app.deals.thread import thread_context
+    """Pulls the creator's new messages in the deal's thread into the deal, then runs the negotiation agent on
+    the latest one (it suggests the next step). Returns how many new messages."""
+    from app.models.campaign import Campaign
+    from app.negotiation.run import negotiate
 
     if not d.gmail_thread_id:
         return 0
@@ -91,7 +90,7 @@ async def sync_deal(db: AsyncSession, account: ConnectedAccount, d: CreatorDeal,
     events = (await db.execute(select(DealEvent).where(DealEvent.deal_id == d.deal_id))).scalars().all()
     seen = {(e.payload or {}).get("gmail_id") for e in events if e.type in ("creator_reply", "message_sent")}
     me = account.email.lower()
-    new = 0
+    latest = None
     for m in t.get("messages") or []:
         mid = mail.header(m, "Message-ID")
         if mid:
@@ -101,13 +100,17 @@ async def sync_deal(db: AsyncSession, account: ConnectedAccount, d: CreatorDeal,
         text = mail.reply_text(m)
         if not text:
             continue
-        signals = await read_reply(text, CostContext(user_id=user_id, campaign_id=d.campaign_id),
-                                   thread_context(events, d.quoted_rate))
-        db.add(DealEvent(deal_id=d.deal_id, type="creator_reply",
-                         payload={"text": text, "signals": signals, "amounts": money_in(text), "gmail_id": m.get("id"), "source": "gmail"}))
-        new += 1
+        latest = DealEvent(deal_id=d.deal_id, type="creator_reply", payload={"text": text, "gmail_id": m.get("id"), "source": "gmail"})
+        db.add(latest)
     d.gmail_synced_at = _now()
-    return new
+    if latest is None:
+        return 0
+    await db.flush()
+    camp = (await db.execute(select(Campaign.campaign_leads, Campaign.campaign_details)
+                             .where(Campaign.campaign_id == d.campaign_id))).one()
+    lead = next((l for l in (camp.campaign_leads or []) if isinstance(l, dict) and l.get("id") == d.creator_id), {})
+    await negotiate(db, d, latest, lead=lead, details=camp.campaign_details or {}, user_id=user_id)
+    return 1
 
 
 async def sync_deals(db: AsyncSession, account: ConnectedAccount, deals: list[CreatorDeal], *, user_id: str,

@@ -76,7 +76,8 @@ def _out(d: CreatorDeal, lead: Optional[dict], today: date) -> dict:
         "deliverable": d.deliverable, "post_by": d.post_by.isoformat() if d.post_by else None,
         "deal_type": d.deal_type, "commission_pct": d.commission_pct, "usage_rights": d.usage_rights,
         "exclusivity_days": d.exclusivity_days or 0, "disclosure": d.disclosure, "currency": d.currency,
-        "quoted_rate": d.quoted_rate, "agreed_rate": d.agreed_rate, "typical_views": d.typical_views,
+        "quoted_rate": d.quoted_rate, "quoted_commission_pct": d.quoted_commission_pct,
+        "agreed_rate": d.agreed_rate, "typical_views": d.typical_views,
         "advice": _advice(d).to_dict(),
         "post_url": d.post_url, "live_at": d.live_at.isoformat() if d.live_at else None,
         "paid_amount": d.paid_amount, "paid_at": d.paid_at.isoformat() if d.paid_at else None,
@@ -253,70 +254,32 @@ async def deal_events(deal_id: str, user: User = Depends(get_db_user), db: Async
     return [{"type": e.type, "payload": e.payload, "at": e.created_at.isoformat() if e.created_at else None} for e in rows]
 
 
-# --- negotiation message --------------------------------------------------------------------------
-
-class CounterIn(BaseModel):
-    creator_reply: Optional[str] = None  # pasted by the founder; untrusted, read by Jev only
-    rewrite: bool = False  # ask the LLM to reword the template
-
-
-@router.post("/api/deals/{deal_id}/counter")
-async def counter_message(deal_id: str, body: CounterIn, user: User = Depends(get_db_user), db: AsyncSession = Depends(get_db)):
-    """The reply to send the creator: numbers and template from code; Jev reads their pasted reply to pick the
-    angle; the LLM rewords it on request (checked to keep exactly our numbers)."""
-    from app.deals.reply import read_reply, rewrite
-
-    d, row = await _deal(db, deal_id, user)
-    lead = _leads_by_id(row.campaign_leads).get(d.creator_id) or {}
-    goal = _goal(row.campaign_details)
-    advice = N.advise(fair_low=d.fair_low, fair_high=d.fair_high, typical_views=d.typical_views, quote=d.quoted_rate,
-                      deliverable=d.deliverable, usage_rights=d.usage_rights, exclusivity_days=d.exclusivity_days or 0)
-    if not advice.fair_high:
-        raise HTTPException(422, "There's no fair price for this creator, so there's nothing to compare the quote with.")
-    ctx = CostContext(user_id=user.user_id, campaign_id=d.campaign_id)
-    signals = await read_reply(body.creator_reply, ctx) if (body.creator_reply or "").strip() else {}
-    angle = N.angle_for(advice, goal=goal, signals=signals)
-    amounts = N.amounts_for(advice, angle, d.quoted_rate)
-    name = lead.get("title") or d.creator_name or ""
-    post_by = d.post_by.strftime("%B %-d") if d.post_by else None
-    text = N.template(name=name, advice=advice, angle=angle, amounts=amounts, deliverable=d.deliverable,
-                      usage_rights=d.usage_rights, post_by=post_by, typical_views=d.typical_views)
-    source = "template"
-    if body.rewrite:
-        text, source = await rewrite(name=name, angle=angle, amounts=amounts, deliverable=d.deliverable,
-                                     usage_rights=d.usage_rights, exclusivity_days=d.exclusivity_days or 0,
-                                     post_by=post_by, typical_views=d.typical_views, goal=goal, fallback=text, context=ctx)
-    return {"advice": advice.to_dict(), "angle": angle, "signals": signals, "amounts": amounts, "message": text, "source": source}
-
-
 # --- the "Needs you" queue (spec §7.8, roadmap F6.8) ---------------------------------------------
 
 class ReplyIn(BaseModel):
-    text: str  # the creator's reply, pasted by the founder: untrusted, read by Jev only, never sent to an LLM
+    text: str  # the creator's reply or their ask in the founder's words: untrusted (screened by Jev, numbers checked)
 
 
 @router.post("/api/deals/{deal_id}/reply")
 async def paste_reply(deal_id: str, body: ReplyIn, user: User = Depends(get_db_user), db: AsyncSession = Depends(get_db)):
-    """Jev reads the creator's reply (one request); the next step is then suggested in code."""
+    """The creator's reply (pasted) or what they asked for (typed, e.g. "$7 + 20% commission"). The negotiation
+    agent reads it and suggests the next step (app/negotiation/)."""
     from app.agent import constants as A
-    from app.agent.proposals import money_in
-    from app.deals.reply import read_reply
+    from app.negotiation.run import negotiate
 
     text = (body.text or "").strip()[: A.MAX_REPLY_EVENT_CHARS]
     if not text:
-        raise HTTPException(422, "Paste their reply first.")
+        raise HTTPException(422, "Paste their reply or type what they asked for.")
     d, row = await _deal(db, deal_id, user)
-    signals = await read_reply(text, CostContext(user_id=user.user_id, campaign_id=d.campaign_id), await _thread(db, d))
-    db.add(DealEvent(deal_id=d.deal_id, type="creator_reply", payload={"text": text, "signals": signals, "amounts": money_in(text)}))
+    reply = DealEvent(deal_id=d.deal_id, type="creator_reply", payload={"text": text, "source": "pasted"})
+    db.add(reply)
+    await db.flush()
+    result = await negotiate(db, d, reply, lead=_leads_by_id(row.campaign_leads).get(d.creator_id) or {},
+                             details=row.campaign_details or {}, user_id=user.user_id)
     await db.commit()
-    return {"signals": signals, "proposals": await _campaign_proposals(db, d.campaign_id, row, user)}
-
-
-async def _thread(db: AsyncSession, d: CreatorDeal) -> Optional[dict]:
-    from app.deals.thread import thread_context
-
-    rows = (await db.execute(select(DealEvent).where(DealEvent.deal_id == d.deal_id))).scalars().all()
-    return thread_context(rows, d.quoted_rate)
+    await db.refresh(d)
+    return {"agent": result, "deal": _out(d, _leads_by_id(row.campaign_leads).get(d.creator_id), date.today()),
+            "proposals": await _campaign_proposals(db, d.campaign_id, row, user)}
 
 
 async def _proposal(db: AsyncSession, proposal_id: str, user: User):
@@ -343,7 +306,7 @@ class ApproveIn(BaseModel):
 @router.post("/api/proposals/{proposal_id}/approve")
 async def approve_proposal(proposal_id: str, body: ApproveIn, user: User = Depends(get_db_user), db: AsyncSession = Depends(get_db)):
     from app.agent import queue as Q
-    from app.deals.reply import MAX_MESSAGE_CHARS
+    MAX_MESSAGE_CHARS = 2700
 
     row = await _proposal(db, proposal_id, user)
     p, d = row[0], row[1]
@@ -376,25 +339,17 @@ async def skip_proposal(proposal_id: str, user: User = Depends(get_db_user), db:
 
 @router.post("/api/proposals/{proposal_id}/reword")
 async def reword_proposal(proposal_id: str, user: User = Depends(get_db_user), db: AsyncSession = Depends(get_db)):
-    """The LLM rewords the suggested message from our facts only; code checks it keeps exactly our numbers."""
-    from app.deals.reply import rewrite
+    """Another wording from the agent's writer: same terms, same checks."""
+    from app.negotiation.run import reword
 
     row = await _proposal(db, proposal_id, user)
     p, d = row[0], row[1]
-    pl = dict(p.payload or {})
-    if not (pl.get("message") and pl.get("angle") and pl.get("amounts")):
+    if not (p.payload or {}).get("message") or not p.key.startswith("nego:"):
         raise HTTPException(422, "This suggestion has no message to reword.")
-    lead = _leads_by_id(row.campaign_leads).get(d.creator_id) or {}
-    text, source = await rewrite(
-        name=lead.get("title") or d.creator_name or "", angle=pl["angle"], amounts=pl["amounts"], deliverable=d.deliverable,
-        usage_rights=d.usage_rights, exclusivity_days=d.exclusivity_days or 0,
-        post_by=d.post_by.strftime("%B %-d") if d.post_by else None, typical_views=d.typical_views,
-        goal=_goal(row.campaign_details), fallback=pl["message"], context=CostContext(user_id=user.user_id, campaign_id=d.campaign_id))
-    if source == "ai":
-        pl["message"], pl["source"] = text, "ai"
-        p.payload = pl
-        await db.commit()
-    return {"message": pl["message"], "source": source}
+    text, source = await reword(db, p, d, lead=_leads_by_id(row.campaign_leads).get(d.creator_id) or {},
+                                details=row.campaign_details or {}, user_id=user.user_id)
+    await db.commit()
+    return {"message": text, "source": source}
 
 
 # --- add a creator you already know (roadmap F1.23) ------------------------------------------------

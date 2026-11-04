@@ -444,124 +444,35 @@ async def test_deals_board_flow(client):
 
 @needs_pg
 @pytest.mark.asyncio
-async def test_counter_message_endpoint(client, monkeypatch):
+async def test_typed_ask_in_words_goes_through_the_agent(client, monkeypatch):
+    """"7 + 20% commision" is $7 + 20%, never $720; the suggestion carries the agent's reasons."""
     from app.judge import client as jc
     from app.judge.client import Answer, Judgment
     from app.llm import client as llm
 
     await _set_leads(client, DEAL_LEADS)
-    d = (await client.post("/api/campaigns/c1/deals", json={"creator_ids": ["UC4"]})).json()["created"][0]
-    await client.patch(f"/api/deals/{d['id']}", json={"quoted_rate": 300})
+    d = (await client.post("/api/campaigns/c1/deals", json={"creator_ids": ["UC3"]})).json()["created"][0]
 
-    t = (await client.post(f"/api/deals/{d['id']}/counter", json={})).json()
-    assert t["source"] == "template" and t["angle"] == "budget" and "$180" in t["message"] and t["signals"] == {}
+    async def judge(state, questions, context=None, **k):
+        if "move" not in questions:
+            return Judgment({q: Answer("noul", 0.05 if q == "extra_promise" else 0.9) for q in questions}, "jev", "jev")
+        picks = {"their_fee": "f0", "their_commission": "p0", "move": "accept", "structure": "fee_plus_commission",
+                 "commission": "20", "extra": "none"}
+        return Judgment({q: Answer("choice", picks[q]) if q in picks else Answer("score", 1) if q == "concession"
+                         else Answer("noul", 0.05) for q in questions}, "jev", "jev")
 
-    async def fake_judge(state, questions, context=None, **k):
-        assert state == {"reply": {"text": "Happy to do commission instead"}}
-        return Judgment({q: Answer("noul", 0.9 if q == "wants_commission" else 0.05) for q in questions}, "jev", "jev")
+    async def write(route, messages, **k):
+        return "Hi there! $7 plus 20% commission works for us. Shall we lock in the details?"
+    monkeypatch.setattr(jc, "judge", judge)
+    monkeypatch.setattr(llm, "achat", write)
 
-    async def fake_llm(route, messages, schema=None, **k):
-        assert "Happy to do commission" not in str(messages)  # the creator's text never reaches the LLM
-        return "Hi Creator, how about $130 up front plus 10% commission on sales? Would that work?"
-    monkeypatch.setattr(jc, "judge", fake_judge)
-    monkeypatch.setattr(llm, "achat", fake_llm)
-    ai = (await client.post(f"/api/deals/{d['id']}/counter", json={"creator_reply": "Happy to do commission instead", "rewrite": True})).json()
-    assert ai["angle"] == "performance" and ai["source"] == "ai" and ai["amounts"]["base"] == 130
-
-    no_fair = (await client.post("/api/campaigns/c1/deals", json={"creator_ids": ["UC5"]})).json()["created"][0]
-    await _set_leads(client, LEADS)  # older results without a fair price
-    d6 = (await client.post("/api/campaigns/c1/deals", json={"creator_ids": ["UC6"]})).json()["created"][0]
-    assert (await client.post(f"/api/deals/{d6['id']}/counter", json={})).status_code == 422
-    assert no_fair["advice"]["fair_high"] == 210
-
-
-@needs_pg
-@pytest.mark.asyncio
-async def test_needs_you_queue_from_reply_to_agreed(client, monkeypatch):
-    """Paste a reply → Jev reads it → code suggests → the founder approves; every step is on the timeline."""
-    from app.judge import client as jc
-    from app.judge.client import Answer, Judgment
-    from app.llm import client as llm
-
-    await _set_leads(client, DEAL_LEADS)
-    d = (await client.post("/api/campaigns/c1/deals", json={"creator_ids": ["UC1"]})).json()["created"][0]
-    assert (await client.get("/api/campaigns/c1/deals")).json()["proposals"] == []  # just contacted: nothing yet
-
-    said = {}
-
-    async def fake_judge(state, questions, context=None, **k):
-        return Judgment({q: Answer("noul", said.get(q, 0.05)) for q in questions}, "jev", "jev")
-    monkeypatch.setattr(jc, "judge", fake_judge)
-
-    said.update(gives_price=0.9)
-    assert (await client.post(f"/api/deals/{d['id']}/reply", json={"text": "  "})).status_code == 422
-    r = (await client.post(f"/api/deals/{d['id']}/reply", json={"text": "Hey! My rate is $300 for a segment."})).json()
+    r = (await client.post(f"/api/deals/{d['id']}/reply", json={"text": "7 + 20% commision"})).json()
+    assert r["deal"]["quoted_rate"] == 7 and r["deal"]["quoted_commission_pct"] == 20 and r["deal"]["stage"] == "negotiating"
     [p] = r["proposals"]
-    assert p["kind"] == "record_quote" and p["name"] == "Creator 1" and not p["is_message"]
-
+    assert p["kind"] == "agree" and p["title"] == "Agree to $7 + 20% commission" and "They asked $7 + 20% commission." in p["reason"]
     a = (await client.post(f"/api/proposals/{p['id']}/approve", json={})).json()
-    assert a["deal"]["quoted_rate"] == 300 and a["deal"]["stage"] == "negotiating"
-    [c] = a["proposals"]
-    assert c["kind"] == "send_counter" and "$180" in c["message"] and c["is_message"] and c["can_reword"]
-    assert (await client.post(f"/api/proposals/{p['id']}/approve", json={})).status_code == 409  # handled already
-
-    # AI rewording keeps our numbers or is refused
-    async def bad_llm(route, messages, schema=None, **k):
-        assert "My rate is" not in str(messages)  # the creator's text never reaches the LLM
-        return "Hi Creator, how about $250?"
-    monkeypatch.setattr(llm, "achat", bad_llm)
-    rw = (await client.post(f"/api/proposals/{c['id']}/reword")).json()
-    assert rw["source"] == "template" and "$180" in rw["message"]
-
-    edited = c["message"].replace("Would that work for you?", "Would that work? We loved your last video.")
-    a = (await client.post(f"/api/proposals/{c['id']}/approve", json={"message": edited})).json()
-    assert a["proposals"] == []  # waiting for their answer
-
-    said.clear()
-    said.update(agrees=0.95)
-    r = (await client.post(f"/api/deals/{d['id']}/reply", json={"text": "Sounds good, $180 works."})).json()
-    [ag] = r["proposals"]
-    assert ag["kind"] == "agree" and ag["title"] == "Agree at $180"
-    a = (await client.post(f"/api/proposals/{ag['id']}/approve", json={})).json()
-    assert a["deal"]["stage"] == "agreed" and a["deal"]["agreed_rate"] == 180
-
-    events = (await client.get(f"/api/deals/{d['id']}/events")).json()
-    sent = [e for e in events if e["type"] == "message_sent"]
-    assert len(sent) == 1 and sent[0]["payload"]["edited"] is True and sent[0]["payload"]["amounts"] == {"counter": 180}
-    assert [e["payload"]["decision"] for e in events if e["type"] == "proposal"] == ["approved"] * 3
-
-    # skipped suggestions don't come back; another user can't touch them
-    await client.patch(f"/api/deals/{d['id']}", json={"post_url": "https://youtube.com/watch?v=x"})
-    [live] = (await client.get("/api/campaigns/c1/deals")).json()["proposals"]
-    assert live["kind"] == "mark_live"
-    assert (await client.post(f"/api/proposals/{live['id']}/skip")).json()["proposals"] == []
-    assert (await client.get("/api/campaigns/c1/deals")).json()["proposals"] == []
-    assert (await client.post("/api/proposals/nope/approve", json={})).status_code == 404
-
-
-@needs_pg
-@pytest.mark.asyncio
-async def test_quote_typos_merge_and_jev_sees_the_negotiation_so_far(client, monkeypatch):
-    from app.judge import client as jc
-    from app.judge.client import Answer, Judgment
-
-    await _set_leads(client, DEAL_LEADS)
-    d = (await client.post("/api/campaigns/c1/deals", json={"creator_ids": ["UC2"]})).json()["created"][0]
-    for v in (90, 80, None, 300):  # typing, fixing a typo, clearing, final value
-        await client.patch(f"/api/deals/{d['id']}", json={"quoted_rate": v})
-    quotes = [e for e in (await client.get(f"/api/deals/{d['id']}/events")).json() if e["type"] == "quoted_rate"]
-    assert len(quotes) == 1 and quotes[0]["payload"] == {"from": None, "to": 300}
-
-    [c] = (await client.get("/api/campaigns/c1/deals")).json()["proposals"]
-    await client.post(f"/api/proposals/{c['id']}/approve", json={})  # sends the $180 counter
-    seen = {}
-
-    async def fake_judge(state, questions, context=None, **k):
-        seen.update(state)
-        return Judgment({q: Answer("noul", 0.05) for q in questions}, "jev", "jev")
-    monkeypatch.setattr(jc, "judge", fake_judge)
-    await client.post(f"/api/deals/{d['id']}/reply", json={"text": "Can you do a bit more?"})
-    assert seen["thread"] == {"round": 2, "our_last_offer": "$180", "their_last_ask": "$300"}
+    assert a["deal"]["stage"] == "agreed" and a["deal"]["agreed_rate"] == 7 and a["deal"]["commission_pct"] == 20
+    assert a["deal"]["deal_type"] == "base_plus_commission"
 
 
 @needs_pg
@@ -611,8 +522,18 @@ async def test_gmail_connect_send_and_replies_flow(client, monkeypatch):
                                                                       {"name": "Message-ID", "value": "<r1@x.io>"}]}}]}
 
     async def judge(state, questions, context=None, **k):
+        if "move" not in questions:  # the draft check
+            return Judgment({q: Answer("noul", 0.05 if q == "extra_promise" else 0.9) for q in questions}, "jev", "jev")
         assert "earlier" not in state["reply"]["text"]  # quoted history stripped
-        return Judgment({q: Answer("noul", 0.9 if q == "gives_price" else 0.05) for q in questions}, "jev", "jev")
+        picks = {"their_fee": "f0", "their_commission": "none", "move": "counter", "structure": "flat", "commission": "0",
+                 "extra": "none"}
+        return Judgment({q: Answer("choice", picks[q]) if q in picks else Answer("score", 1) if q == "concession"
+                         else Answer("noul", 0.05) for q in questions}, "jev", "jev")
+
+    async def write(route, messages, **k):
+        return "Hi there, thanks for your rate. Could we do $165 for a sponsored segment? Would that work?"
+    from app.llm import client as llm
+    monkeypatch.setattr(llm, "achat", write)
 
     for name, fn in (("exchange_code", exchange), ("send", send), ("message", message), ("thread", thread)):
         monkeypatch.setattr(GC, name, fn)
@@ -643,15 +564,15 @@ async def test_gmail_connect_send_and_replies_flow(client, monkeypatch):
     # their reply comes in; Jev reads it once; the next step is to write down the quote
     assert (await client.post("/api/campaigns/c1/gmail/sync", params={"force": True})).json()["new"] == 1
     assert (await client.post("/api/campaigns/c1/gmail/sync", params={"force": True})).json()["new"] == 0
-    [p] = (await client.get("/api/campaigns/c1/deals")).json()["proposals"]
-    assert p["kind"] == "record_quote" and p["can_send"] is False
-    [c] = (await client.post(f"/api/proposals/{p['id']}/approve", json={})).json()["proposals"]
-    assert c["kind"] == "send_counter" and c["can_send"] is True
+    board = (await client.get("/api/campaigns/c1/deals")).json()
+    [c] = board["proposals"]
+    assert board["deals"][0]["quoted_rate"] == 300 and board["deals"][0]["stage"] == "negotiating"
+    assert c["kind"] == "send_counter" and c["can_send"] is True and c["title"] == "Offer: $165"
 
     a = (await client.post(f"/api/proposals/{c['id']}/approve", json={})).json()
     assert a["sent"] is True and len(sent) == 2
     body, tid = sent[1]
-    assert tid == "t1" and "Subject: Re: Collab?" in body and "In-Reply-To: <r1@x.io>" in body and "$180" in body
+    assert tid == "t1" and "Subject: Re: Collab?" in body and "In-Reply-To: <r1@x.io>" in body and "$165" in body
 
     # copy instead of sending, and disconnecting
     assert (await client.delete("/api/gmail")).json()["connected"] is False

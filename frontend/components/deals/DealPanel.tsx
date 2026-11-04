@@ -7,7 +7,7 @@ import { CreatorAvatar } from "@/components/CreatorAvatar";
 import { Field, Input, NumberInput, TextArea } from "@/components/ui/field";
 import { Select } from "@/components/ui/select";
 import { SectionHeader } from "@/components/ui/stat";
-import { btn, btnPrimary, control, textarea } from "@/lib/ui";
+import { btn, btnPrimary, textarea } from "@/lib/ui";
 import { ProposalCard } from "@/components/deals/NeedsYou";
 import {
   type Deal,
@@ -25,12 +25,6 @@ import { updatedLabel } from "@/types/campaign";
 
 type Api = (url: string, options?: Record<string, unknown>) => Promise<{ data: unknown }>;
 
-const VERDICT: Record<string, { label: string; tone: string }> = {
-  great: { label: "a good price", tone: "text-emerald-600 dark:text-emerald-400" },
-  accept: { label: "fair", tone: "text-emerald-600 dark:text-emerald-400" },
-  counter: { label: "above fair", tone: "text-amber-600 dark:text-amber-400" },
-  walk_away: { label: "far too high", tone: "text-rose-500" },
-};
 
 const label = <T extends string>(list: readonly (readonly [T, string])[], v: string) => list.find(([k]) => k === v)?.[1] ?? v;
 const opts = <T extends string>(list: readonly (readonly [T, string])[]) => list.map(([value, l]) => ({ value, label: l }));
@@ -66,59 +60,24 @@ function eventText(e: DealEvent): string {
   }
 }
 
-/** The negotiation so far: their asks and our offers, oldest first (numbers from the timeline). */
+const words = (fee: number | null | undefined, pct: number | null | undefined) =>
+  fee == null && pct ? `${pct}% commission only` : `${money(fee ?? 0)}${pct ? ` + ${pct}% commission` : ""}`;
+
+/** The negotiation so far, oldest first: what they asked for (as the agent read it) and what we offered. */
 function negotiation(events: DealEvent[]): { who: "them" | "you"; text: string }[] {
   const out: { who: "them" | "you"; text: string }[] = [];
   for (const e of [...events].reverse()) {
     const p = (e.payload || {}) as Record<string, unknown>;
-    if (e.type === "quoted_rate" && p.to != null) out.push({ who: "them", text: `Asked ${money(p.to as number)}` });
-    if (e.type === "message_sent" && p.amounts) {
-      const a = p.amounts as Record<string, number>;
-      const offer = a.base ? `${money(a.base)} + ${a.commission_pct}% commission` : money(a.price ?? a.counter);
-      out.push({ who: "you", text: `${a.price ? "Accepted" : "Offered"} ${offer}${p.final ? " (final)" : ""}` });
+    const ask = p.their_ask as { fee?: number | null; commission_pct?: number } | undefined;
+    if (e.type === "creator_reply" && ask) out.push({ who: "them", text: `Asked ${words(ask.fee, ask.commission_pct)}` });
+    if (e.type === "message_sent" && (p.terms || p.amounts)) {
+      const t = (p.terms ?? {}) as { fee?: number | null; commission_pct?: number };
+      const a = (p.amounts ?? {}) as Record<string, number>;
+      const offer = p.terms ? words(t.fee, t.commission_pct) : a.base ? words(a.base, a.commission_pct) : money(a.price ?? a.counter);
+      out.push({ who: "you", text: `${p.kind === "agree" ? "Agreed to" : "Offered"} ${offer}${p.final ? " (final)" : ""}` });
     }
   }
   return out;
-}
-
-/** Their quote: saved with a button (or Enter), so you always see when it's being checked. */
-function QuoteField({ value, onSave }: { value: number | null; onSave: (v: number | null) => Promise<void> }) {
-  const [v, setV] = useState(value == null ? "" : String(value));
-  const [prev, setPrev] = useState(value);
-  const [saving, setSaving] = useState(false);
-  if (value !== prev) {
-    setPrev(value);
-    setV(value == null ? "" : String(value));
-  }
-  const parsed = v.trim() === "" ? null : Number(v.replace(/[^\d.]/g, ""));
-  const dirty = parsed !== value && (parsed === null || Number.isFinite(parsed));
-  const save = async () => {
-    if (!dirty) return;
-    setSaving(true);
-    await onSave(parsed);
-    setSaving(false);
-  };
-  return (
-    <div className="flex gap-2">
-      <div className="relative flex-1">
-        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-zinc-400 pointer-events-none">$</span>
-        <input
-          inputMode="decimal"
-          value={v}
-          onChange={(e) => setV(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && save()}
-          placeholder="Their price"
-          aria-label="Their quote"
-          className={`${control} pl-6`}
-        />
-      </div>
-      {(dirty || saving) && (
-        <button type="button" onClick={save} disabled={saving} className={btnPrimary}>
-          {saving ? <Loader2 size={13} className="animate-spin" /> : null} {saving ? "Checking" : "Save"}
-        </button>
-      )}
-    </div>
-  );
 }
 
 export function DealPanel({ deal, api, onChange, onRemove, proposals, onProposals, gmailReady = false }: {
@@ -158,35 +117,25 @@ export function DealPanel({ deal, api, onChange, onRemove, proposals, onProposal
   const readReply = async () => {
     setReading(true);
     setError(null);
+    setRead(null);
     try {
       const r = (await api(`/api/deals/${deal.id}/reply`, { method: "POST", data: { text: reply } })).data as {
-        signals: Record<string, number | boolean>;
+        agent: { action: string; reasons: string[] };
+        deal: Deal;
         proposals: Proposal[];
       };
-      const s = r.signals || {};
-      const F = 0.6;
-      const found = s.ignored
-        ? ["it looked like it was written to instruct an AI, so we ignored it"]
-        : [
-            (s.declined as number) >= F ? "they're turning it down" : null,
-            (s.agrees as number) >= F ? "they accept your offer" : null,
-            (s.gives_price as number) >= F ? "they give a price" : null,
-            (s.firm_price as number) >= F ? "their price is firm" : null,
-            (s.wants_commission as number) >= F ? "open to commission" : null,
-            (s.open_to_negotiate as number) >= F ? "open to negotiating" : null,
-          ].filter((x): x is string => !!x);
-      setRead(found.length ? `We read: ${found.join(", ")}.` : "Nothing in it changes the next step.");
+      if (!["counter", "agree", "lost"].includes(r.agent?.action)) setRead((r.agent?.reasons ?? []).join(" ") || "Nothing in it changes the next step.");
       setReply("");
+      onChange(r.deal);
       onProposals(r);
     } catch (e) {
-      setError(errorText(e, "Couldn't read their reply. Try again."));
+      setError(errorText(e, "Couldn't read that. Try again."));
     } finally {
       setReading(false);
     }
   };
 
   const a = deal.advice;
-  const verdict = a.verdict ? VERDICT[a.verdict] : null;
   const talking = deal.stage === "contacted" || deal.stage === "negotiating";
   const posting = deal.stage === "agreed" || deal.stage === "content";
   const afterPost = deal.stage === "live" || deal.stage === "paid";
@@ -254,39 +203,35 @@ export function DealPanel({ deal, api, onChange, onRemove, proposals, onProposal
               <textarea
                 value={reply}
                 onChange={(e) => setReply(e.target.value.slice(0, 3000))}
+                onKeyDown={(e) => (e.metaKey || e.ctrlKey) && e.key === "Enter" && reply.trim() && !reading && readReply()}
                 rows={3}
-                aria-label="Their reply"
-                placeholder={deal.emailing && gmailReady ? "Replied somewhere else (DM, WhatsApp)? Paste it here" : "Did they reply? Paste it here"}
+                aria-label="What they said"
+                placeholder={deal.emailing && gmailReady
+                  ? "Replied somewhere else (DM, WhatsApp)? Paste it, or type what they asked for, like $7 + 20% commission"
+                  : "Paste their reply, or type what they asked for, like $7 + 20% commission"}
                 className={textarea}
               />
               <div className="flex items-center gap-3 min-w-0">
-                <button type="button" onClick={readReply} disabled={reading || !reply.trim()} className={btn}>
-                  {reading && <Loader2 size={13} className="animate-spin" />} {reading ? "Reading" : "Read reply"}
+                <button type="button" onClick={readReply} disabled={reading || !reply.trim()} className={btnPrimary}>
+                  {reading && <Loader2 size={13} className="animate-spin" />} {reading ? "Reading and deciding" : "Suggest a reply"}
                 </button>
-                {read && <span className="text-[11px] text-zinc-500 truncate" title={read}>{read}</span>}
+                {reading && <span className="text-[11px] text-zinc-500">Takes a few seconds</span>}
               </div>
+              {read && <p className="text-[11px] text-zinc-500 leading-relaxed">{read}</p>}
             </div>
           )}
         </section>
 
-        {/* price: only while you're talking price */}
-        {talking && (
+        {/* where the price stands, while you're talking price */}
+        {talking && (history.length > 0 || a.fair_high != null) && (
           <section className="space-y-3">
             <SectionHeader>Price</SectionHeader>
-            <Field label="Their quote">
-              <QuoteField value={deal.quoted_rate} onSave={(v) => save({ quoted_rate: v })} />
-            </Field>
             {a.fair_high != null && (
               <p className="text-xs text-zinc-500 leading-relaxed">
-                {deal.quoted_rate == null ? (
-                  <>Fair for this deal: <span className="font-mono text-zinc-900 dark:text-zinc-100">{money(a.fair_low)}–{money(a.fair_high)}</span>. Enter their price when they tell you.</>
-                ) : (
-                  <>
-                    <span className="font-mono text-zinc-900 dark:text-zinc-100">{money(deal.quoted_rate)}</span> is{" "}
-                    <span className={`font-medium ${verdict?.tone ?? ""}`}>{verdict?.label ?? "—"}</span>
-                    {" "}(fair <span className="font-mono">{money(a.fair_low)}–{money(a.fair_high)}</span>).
-                  </>
-                )}
+                Fair for this deal: <span className="font-mono text-zinc-900 dark:text-zinc-100">{money(a.fair_low)}–{money(a.fair_high)}</span>
+                {deal.quoted_rate != null && (
+                  <>. They asked <span className="font-mono text-zinc-900 dark:text-zinc-100">{words(deal.quoted_rate, deal.quoted_commission_pct)}</span></>
+                )}.
               </p>
             )}
             {history.length > 0 && (

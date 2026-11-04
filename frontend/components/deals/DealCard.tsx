@@ -21,7 +21,11 @@ export function PriceVsFair({ deal }: { deal: Deal }) {
   return (
     <div className="flex flex-col gap-0.5 min-w-0">
       {price != null ? (
-        <span className={`font-mono text-[12px] font-semibold ${tone}`}>{money(price)}</span>
+        <span className={`font-mono text-[12px] font-semibold ${tone}`}>
+          {money(price)}
+          {deal.agreed_rate == null && deal.quoted_commission_pct ? ` + ${deal.quoted_commission_pct}%`
+            : deal.agreed_rate != null && deal.commission_pct && deal.deal_type !== "flat" ? ` + ${deal.commission_pct}%` : ""}
+        </span>
       ) : (
         <span className="text-[11px] text-zinc-500">No price yet</span>
       )}
