@@ -78,9 +78,17 @@ async def refresh_youtube_data(ctx: inngest.Context):
     from app.platforms.youtube_api import HttpYouTubeAPI
     from app.billing.costs import CostContext
 
+    from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+
+    from app.core.config import LANGGRAPH_CHECKPOINTER_URL
+    from app.creators.refresh import purge_old_checkpoints
+
     api = HttpYouTubeAPI(context=CostContext(run_id=f"refresh-{ctx.run_id}"))
     try:
         report = await run_refresh(adapter_factory=lambda: YouTubeAdapter(api))
     finally:
         await api.aclose()
+    async with AsyncPostgresSaver.from_conn_string(LANGGRAPH_CHECKPOINTER_URL) as saver:
+        await saver.setup()
+        report.checkpoint_threads_deleted = await purge_old_checkpoints(saver)
     return report.to_dict()

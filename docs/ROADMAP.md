@@ -137,7 +137,7 @@ Known gaps in what's built:
 | K16 | YouTube sends `rateLimitExceeded` (not `quotaExceeded`) once the daily search allowance is used up; the adapter kept trying every search and the run finished with 0 leads and one warning per search. Fixed: treated as out of quota, one clear warning. YouTube's day resets at midnight Pacific time (`discovery-recall`) | done |
 | K17 | Creators with no country on YouTube, when the brief sets target countries: kept, score × 0.8 (`COUNTRY_UNKNOWN_FACTOR`), flagged `country_unknown` (decided Nov 4, `discovery-recall`). The results screen should show the flag as a badge (F1.12) | done |
 | K18 | Deletion requests (GDPR/DPDP): a creator or user asks for their data to be deleted; the refresh job should process a queue of requests (`repo.delete_creator` exists). Not built | next |
-| K19 | Old-engine LangGraph checkpoints (`checkpoints*` tables) hold full channel data and are never cleaned; delete threads older than 30 days (or drop them when the old engine is removed in F1.13) | next |
+| K19 | LangGraph checkpoint threads untouched for 30 days (old pipeline, discovery and outreach) are deleted by the nightly refresh job via the saver's `adelete_thread`; they only matter for resuming a run in progress (`checkpoint-cleanup`) | done |
 | K20 | Re-record the YouTube test fixture (`python -m scripts.record_youtube_fixtures`, ~210 quota units) so it holds the channels fused ranking picks; tests currently use all 100 recorded search results as candidates | later |
 | K3 | Route models for `strategy`, `pitch`, `reply` are placeholders (current Gemini first); pick them with the LangSmith evals | next |
 

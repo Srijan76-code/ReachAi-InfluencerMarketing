@@ -196,3 +196,43 @@ async def test_old_engine_results_are_refreshed_and_their_creators_stored(sf, wo
     assert old["subscribers"] == 77_000 and "data_expired" not in old
     assert "UCold" in stored  # now in the creator database, so tomorrow it's a normal refresh
     assert report.leads_updated == 2 and report.leads_expired == 1  # only the saved lead of the vanished channel
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(not __import__("os").getenv("PG_TEST_URL"), reason="needs PG_TEST_URL (real Postgres)")
+async def test_old_checkpoint_threads_are_purged_recent_ones_kept():
+    import os
+    from typing import TypedDict
+
+    from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+    from langgraph.graph import END, START, StateGraph
+
+    from app.creators.refresh import purge_old_checkpoints
+
+    class S(TypedDict, total=False):
+        x: int
+
+    g = StateGraph(S)
+    g.add_node("step", lambda s: {"x": 1})
+    g.add_edge(START, "step")
+    g.add_edge("step", END)
+    url = os.environ["PG_TEST_URL"].replace("+asyncpg", "")
+    async with AsyncPostgresSaver.from_conn_string(url) as saver:
+        await saver.setup()
+        app = g.compile(checkpointer=saver)
+        for t in ("old-thread", "new-thread"):
+            await saver.adelete_thread(t)
+            await app.ainvoke({"x": 0}, {"configurable": {"thread_id": t}})
+        old_ts = (NOW - timedelta(days=40)).isoformat()
+        async with saver.conn.cursor() as cur:
+            await cur.execute("UPDATE checkpoints SET checkpoint = jsonb_set(checkpoint, '{ts}', to_jsonb(%s::text)) "
+                              "WHERE thread_id = 'old-thread'", (old_ts,))
+        deleted = await purge_old_checkpoints(saver, now=NOW)
+        assert deleted >= 1
+        assert await saver.aget_tuple({"configurable": {"thread_id": "old-thread"}}) is None
+        assert await saver.aget_tuple({"configurable": {"thread_id": "new-thread"}}) is not None
+        async with saver.conn.cursor() as cur:
+            await cur.execute("SELECT count(*) AS n FROM checkpoint_writes WHERE thread_id = 'old-thread'")
+            row = await cur.fetchone()
+            assert (row["n"] if isinstance(row, dict) else row[0]) == 0
+        await saver.adelete_thread("new-thread")
