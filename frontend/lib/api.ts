@@ -42,17 +42,30 @@ export const useApi = () => {
       }
     }
 
-    return axios({
-      baseURL:
-        process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000",
-      url,
-      data: requestData,
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...customHeaders,
-      },
-      ...rest,
-    });
+    const send = (bearer: string | null) =>
+      axios({
+        baseURL:
+          process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000",
+        url,
+        data: requestData,
+        headers: {
+          ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}),
+          ...customHeaders,
+        },
+        ...rest,
+      });
+
+    try {
+      return await send(token);
+    } catch (error) {
+      // a session token can expire on the way (they last about a minute): get a fresh one and try once more
+      const res = (error as { response?: { status?: number; data?: { detail?: unknown } } })?.response;
+      if (res?.status === 401 && res.data?.detail === "Token has expired") {
+        const fresh = await getToken({ skipCache: true }).catch(() => null);
+        if (fresh) return send(fresh);
+      }
+      throw error;
+    }
   };
 
   return apiCall;

@@ -24,6 +24,7 @@ CLERK_JWKS_URL = os.getenv(
 )
 
 jwks_client = PyJWKClient(CLERK_JWKS_URL)
+JWT_LEEWAY_SECONDS = 60
 
 
 async def get_current_user(request: Request):
@@ -46,6 +47,9 @@ async def get_current_user(request: Request):
             signing_key.key,
             algorithms=["RS256"],
             options={"verify_aud": False},
+            # Clerk session tokens live ~60 s; a slow start (cold backend) or a small clock difference
+            # shouldn't fail a request the browser sent with a token that was valid at the time.
+            leeway=JWT_LEEWAY_SECONDS,
         )
 
         return decoded
