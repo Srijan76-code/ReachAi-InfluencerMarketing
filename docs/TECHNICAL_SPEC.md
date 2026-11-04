@@ -227,9 +227,15 @@ creator_judgments(judgment_id PK, creator_id FK, campaign_id FK, jev_model, ques
 - **Always** fetch fresh recent posts on a run. This is what makes trend detection work.
 
 **⚠ Compliance:**
-- YouTube API Services policies require stored API data to be refreshed or deleted after about 30 days. Confirm the exact current text before building.
+- YouTube API Services policies require stored API data to be refreshed or deleted after 30 calendar days (checked Nov 4).
 - Implementation: `data_expires_at = fetched_at + 30d` for YouTube rows, plus a nightly Inngest cron that refreshes or deletes expired rows.
-- The same job enforces deletion requests (GDPR/DPDP).
+- The same job enforces deletion requests (GDPR/DPDP). *(Not built yet: roadmap K18.)*
+
+**As built (Nov 4, `app/creators/refresh.py`, Inngest cron `refresh_youtube_data` daily 09:17 UTC):** policy checked Nov 4: stored YouTube API data must be refreshed or deleted after 30 calendar days.
+- Refresh = creators due within 2 days that are *useful* (scored in a run, or in a campaign's results or saved leads), plus creators in results over 30 days old that aren't stored (the old engine never stored them). Capped at 1,400 creators a night (~1,460 quota units).
+- Delete = due creators that weren't refreshed, once expired; and channels YouTube no longer returns (only when the fetch had no errors, so a quota or network failure never deletes useful creators).
+- Snapshots older than 30 days are deleted; `run_candidates.metrics` older than 30 days is cleared.
+- Results (`campaigns.campaign_leads`, `saved_leads.lead_data`) older than 30 days (`data_as_of`, else the campaign/saved date): YouTube fields are rebuilt from the refreshed data; if the creator couldn't be refreshed, only name, link and our scores/reason stay and the lead is marked `data_expired` (the UI hides its numbers).
 
 ### 4.5 Metrics: statistics and ML instead of hand formulas (`app/metrics/`)
 Computed per creator from `recent_posts` (long-form and short-form kept separately):

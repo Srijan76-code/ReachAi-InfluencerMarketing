@@ -66,6 +66,8 @@ export interface Influencer {
   fair_high?: number | null;
   risk?: number | null;
   niche?: string | null;
+  data_as_of?: string | null; // when the YouTube numbers were fetched
+  data_expired?: boolean; // over 30 days old and couldn't be refreshed: numbers removed
 }
 
 

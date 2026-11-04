@@ -1,4 +1,4 @@
-import { CreatorBadges } from "@/components/CreatorBadges";
+import { CreatorBadges, badgeFlags } from "@/components/CreatorBadges";
 import { 
   SheetContent, 
   SheetTitle,
@@ -76,7 +76,12 @@ export const InfluencerDetailSheet = ({
                     {deal_status}
                   </span>
                 </div>
-                <CreatorBadges flags={influencer.flags} size="md" />
+                <CreatorBadges flags={badgeFlags(influencer)} size="md" />
+                {influencer.data_expired && (
+                  <p className="text-[12px] text-zinc-500">
+                    This creator&apos;s YouTube numbers are over 30 days old, so they were removed. Run the campaign again for fresh numbers.
+                  </p>
+                )}
                 
                 <div className="flex items-center gap-2.5 text-[12px] text-zinc-500">
                   <span className="flex items-center gap-1.5 font-medium">
