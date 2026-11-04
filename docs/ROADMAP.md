@@ -64,7 +64,7 @@ Known gaps in what's built:
 | F1.10 | Streaming results per branch (Inngest Realtime `leads` topic, backend side). The UI doesn't read the topic yet: F1.12 | done (`run-engine`) | §4.12 | `app/discovery/runtime.py` |
 | F1.11 | YouTube 30-day data refresh/delete job | next | §4.4 | `app/creators/refresh.py`, Inngest cron |
 | F1.12 | Frontend: platform toggles, badges (rising, trend, suspicious), score breakdown, credit estimate, live `leads` topic, fix K12 | next | §4.13 | `frontend/components/MultiPlatform.tsx`, `frontend/app/ListOfInfluencer/*` |
-| F1.13 | Compare old vs new pipeline on 3 briefs with live keys, run `alembic upgrade head` on production, set `DISCOVERY_ENGINE=graph`, then remove `app/my_agent/`, `app/core/model.py` and the switch | next | §13 file map | — |
+| F1.13 | Compare old vs new pipeline on 3 briefs with live keys, run `alembic upgrade head` on production, set `DISCOVERY_ENGINE=graph`, then remove `app/my_agent/`, `app/core/model.py` and the switch | in progress (`discovery-recall`) | §13 file map | — |
 | F1.14 | Recall benchmark (ladder vs full search, target ≥ 90%) | later | §4.9 | `tests/benchmarks/` |
 
 ## Phase 2: Billing · §5
@@ -130,9 +130,11 @@ Known gaps in what's built:
 | K10 | Jev key was an OpenRouter key, so TypeSafe's server rejected it. Fixed: the client detects OpenRouter keys and uses OpenRouter's Jev gateway, pinned to `typesafe/jev-1.14-20261014` (`jev-openrouter`) | done |
 | K11 | YouTube's API doesn't include a channel's "links" section, so cross-platform links are rarely found from YouTube alone (0 of 8 in the first recording). Links will mostly come from X/Instagram profiles and link pages | later |
 | K12 | Frontend bugs found while wiring the new engine: `getCountryCode` sends country names the backend can't map, and the brief form sends a hard-coded website. Fix in `results-ui` (F1.12) | next |
-| K13 | First live runs (Nov 3): most YouTube candidates fail the minimum-subscriber check (84 of 114), because channel search on sentence-like queries returns few channels. The top-up round (video search by views) doubled the leads (8 → 16). Next: shorter channel-search queries in the strategy prompt, and track pass rate per query | next |
+| K13 | Old vs new comparison (Nov 4, 3 briefs, blind-rated 1-5): fitness/India new 3.4 vs old 3.2 (both fine); invoicing/US new 2.4 vs old 2.5; API monitoring/UK-US new 1 lead vs old 6 (2.8). The new engine never breaks size/country rules; the old one ignores the max-subscriber limit (5 of 24 top results too big). New engine's weakness is recall on niche B2B: long sentence-like search phrases return 0-17 channels, and channel search favours tiny channels named after the keyword. Fix on `discovery-recall`: short 2-5 word searches, fewer trend searches, relevance order for the top-up. Re-test after the YouTube quota resets | in progress |
 | K14 | No result reached "Strong Buy" in the first live runs (top 63.9, "Consider"). Check the label thresholds as part of K6 | next |
 | K15 | Neon branches renamed (Nov 4): the live branch is now `production` (default, endpoint `ep-calm-sky`). The old root branch can't be deleted (Neon never deletes a project's root branch), so it's renamed `old-production-unused`; its data (April) is all in `production` | done |
+| K16 | YouTube sends `rateLimitExceeded` (not `quotaExceeded`) once the daily search allowance is used up; the adapter kept trying every search and the run finished with 0 leads and one warning per search. Fixed: treated as out of quota, one clear warning. YouTube's day resets at midnight Pacific time (`discovery-recall`) | done |
+| K17 | Creators with no country on YouTube are kept even when the brief sets target countries (3 of 5 new-engine results for the US brief, one clearly not US). Decide: keep, rank lower, or drop | next (user) |
 | K3 | Route models for `strategy`, `pitch`, `reply` are placeholders (current Gemini first); pick them with the LangSmith evals | next |
 
 ## Open questions waiting on the user
