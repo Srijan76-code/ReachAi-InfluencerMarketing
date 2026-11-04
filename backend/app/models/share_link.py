@@ -11,7 +11,7 @@ the campaign's leads directly, so it would add nothing.
 
 import uuid
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql import func
 
@@ -38,3 +38,38 @@ class ShareLink(Base):
     view_count = Column(Integer, nullable=False, default=0)
     last_viewed_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # one-time email code that unlocks contact details on a personal link (only one active code at a time)
+    code_hash = Column(String, nullable=True)
+    code_expires_at = Column(DateTime(timezone=True), nullable=True)
+    code_attempts = Column(Integer, nullable=False, default=0)
+    code_sent_at = Column(DateTime(timezone=True), nullable=True)
+    codes_window_start = Column(DateTime(timezone=True), nullable=True)  # for "at most N codes an hour"
+    codes_window_count = Column(Integer, nullable=False, default=0)
+
+
+class ShareSession(Base):
+    """A browser that proved it can read the invited inbox: sees contact details until it expires.
+    Only a hash of the session token is stored."""
+
+    __tablename__ = "share_sessions"
+
+    session_hash = Column(String, primary_key=True)
+    link_id = Column(String, ForeignKey("share_links.link_id", ondelete="CASCADE"), nullable=False, index=True)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class ShareFeedback(Base):
+    """A reviewer's verdict and comment on one creator, given through their share link."""
+
+    __tablename__ = "share_feedback"
+    __table_args__ = (UniqueConstraint("link_id", "creator_id", name="uq_share_feedback_link_creator"),)
+
+    feedback_id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    link_id = Column(String, ForeignKey("share_links.link_id", ondelete="CASCADE"), nullable=False)
+    campaign_id = Column(String, ForeignKey("campaigns.campaign_id", ondelete="CASCADE"), nullable=False, index=True)
+    creator_id = Column(String, nullable=False)  # the lead's id
+    verdict = Column(String, nullable=True)  # yes | no | None (comment only)
+    comment = Column(Text, nullable=True)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

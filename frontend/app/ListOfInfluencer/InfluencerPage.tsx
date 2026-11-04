@@ -37,6 +37,7 @@ import { LeadListSkeleton } from "@/components/LeadListSkeleton";
 import { SkippedNote } from "@/components/SkippedNote";
 import { ShareDialog } from "@/components/ShareDialog";
 import { CompareTray, MAX_COMPARE } from "@/components/CompareTray";
+import type { FeedbackItem } from "@/data/influencerList";
 import {
   DEFAULT_VIEW,
   SORTS,
@@ -125,6 +126,24 @@ const InfluencerPage = ({ campaignId }: InfluencerPageProps) => {
   const [helpOpen, setHelpOpen] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [feedback, setFeedback] = useState<Record<string, FeedbackItem[]>>({});
+  // what reviewers said (share links with the Reviewer role); refreshed when the page opens
+  useEffect(() => {
+    if (!campaignId) return;
+    let live = true;
+    api(`/api/campaigns/${campaignId}/feedback`)
+      .then((r) => {
+        if (!live || !Array.isArray(r.data)) return;
+        const by: Record<string, FeedbackItem[]> = {};
+        for (const f of r.data as FeedbackItem[]) (by[f.creator_id] ||= []).push(f);
+        setFeedback(by);
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- api is a new function each render
+  }, [campaignId]);
   const searchRef = useRef<HTMLInputElement>(null);
 
   const displayedLeads = useMemo(
@@ -692,10 +711,11 @@ const InfluencerPage = ({ campaignId }: InfluencerPageProps) => {
                                 rank={index + 1}
                                 isSelected={isSelected}
                                 isSaved={!!savedLeadsMap[influencer.id]}
+                                feedback={feedback[influencer.id]}
                                 onToggleSave={(lead) => campaignId && toggleSaveLead(campaignId, lead, api)}
                               />
                             </div>
-                          <InfluencerDetailSheet influencer={influencer} campaignId={campaignId} />
+                          <InfluencerDetailSheet influencer={influencer} campaignId={campaignId} feedback={feedback[influencer.id]} />
                         </Sheet>
                       </div>
                     </motion.div>

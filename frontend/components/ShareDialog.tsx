@@ -5,8 +5,9 @@ import { Check, Copy, Globe, Link2, Lock, Share2, Trash2, UserPlus } from "lucid
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { updatedLabel } from "@/types/campaign";
 
-/** Share a campaign's shortlist, view-only (roadmap F1.18). Like Drive: add people by email (each gets
- *  their own link) or turn on "anyone with the link". Contact details are never shared yet. */
+/** Share a campaign's shortlist (roadmap F1.18). Like Drive: add people by email (each gets their own
+ *  link) as a Viewer or a Reviewer (👍/👎 and comments), or turn on "anyone with the link" (view only).
+ *  Contact details only for a named person who confirms a one-time email code. */
 
 export type ShareLinkRow = {
   id: string;
@@ -74,6 +75,9 @@ export function ShareDialog({ campaignId, api, totalCount, selectedIds }: { camp
   const [scope, setScope] = useState<"all" | "selected">("all");
   const [email, setEmail] = useState("");
   const [prices, setPrices] = useState(false);
+  const [role, setRole] = useState<"viewer" | "reviewer">("viewer");
+  const [contacts, setContacts] = useState(false);
+  const [emailEnabled, setEmailEnabled] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -82,7 +86,11 @@ export function ShareDialog({ campaignId, api, totalCount, selectedIds }: { camp
     setError(null);
     setLoading(true);
     api(`/api/campaigns/${campaignId}/shares`)
-      .then((r) => setLinks(Array.isArray(r.data) ? (r.data as ShareLinkRow[]) : []))
+      .then((r) => {
+        const d = r.data as { links?: ShareLinkRow[]; email_enabled?: boolean };
+        setLinks(Array.isArray(d?.links) ? d.links : []);
+        setEmailEnabled(Boolean(d?.email_enabled));
+      })
       .catch((e) => setError(errorText(e, "Couldn't load the links.")))
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- api changes every render
@@ -110,10 +118,10 @@ export function ShareDialog({ campaignId, api, totalCount, selectedIds }: { camp
     }
   };
 
-  const change = async (l: ShareLinkRow, show_prices: boolean) => {
-    upsert({ ...l, show_prices });
+  const change = async (l: ShareLinkRow, patch: Partial<Pick<ShareLinkRow, "show_prices" | "role" | "show_contacts">>) => {
+    upsert({ ...l, ...patch });
     try {
-      upsert((await api(`/api/shares/${l.id}`, { method: "PATCH", data: { show_prices } })).data as ShareLinkRow);
+      upsert((await api(`/api/shares/${l.id}`, { method: "PATCH", data: patch })).data as ShareLinkRow);
     } catch (e) {
       upsert(l);
       setError(errorText(e, "Couldn't change the link."));
@@ -144,7 +152,10 @@ export function ShareDialog({ campaignId, api, totalCount, selectedIds }: { camp
       <DialogContent className="sm:max-w-lg bg-white dark:bg-[#0c0d0e]">
         <DialogHeader>
           <DialogTitle>Share this shortlist</DialogTitle>
-          <DialogDescription>View only. People don&apos;t need a ReachAI account. Contact details are never shown.</DialogDescription>
+          <DialogDescription>
+            People don&apos;t need a ReachAI account. Reviewers can approve or reject each creator. Contact details only
+            with your OK, after they confirm a code sent to their email.
+          </DialogDescription>
         </DialogHeader>
 
         {/* what to share */}
@@ -167,13 +178,24 @@ export function ShareDialog({ campaignId, api, totalCount, selectedIds }: { camp
           className="space-y-2"
           onSubmit={async (e) => {
             e.preventDefault();
-            if (await create("person", { email, show_prices: prices })) {
+            if (await create("person", { email, show_prices: prices, role, show_contacts: contacts })) {
               setEmail("");
               setPrices(false);
+              setContacts(false);
             }
           }}
         >
           <div className="flex gap-2">
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value as "viewer" | "reviewer")}
+              aria-label="Role"
+              title="Reviewers can approve or reject each creator and leave a comment"
+              className="px-2 py-1.5 text-xs rounded-md border border-zinc-200 dark:border-zinc-800 bg-transparent text-zinc-700 dark:text-zinc-300"
+            >
+              <option value="viewer">Viewer</option>
+              <option value="reviewer">Reviewer</option>
+            </select>
             <input
               type="email"
               required
@@ -189,9 +211,15 @@ export function ShareDialog({ campaignId, api, totalCount, selectedIds }: { camp
           </div>
           <div className="flex items-center gap-4">
             <Toggle checked={prices} onChange={setPrices} label="Show fair prices" title="Turn off when sharing with a client or a creator's manager" />
-            <Toggle checked={false} disabled label="Show contact details" title="Needs email verification: coming soon" />
+            <Toggle
+              checked={contacts}
+              disabled={!emailEnabled}
+              onChange={setContacts}
+              label="Show contact details"
+              title={emailEnabled ? "They confirm a code sent to their email first" : "Needs email set up (coming soon)"}
+            />
           </div>
-          <p className="text-[11px] text-zinc-500">Each person gets their own link. Send it to them yourself; we don&apos;t email anyone.</p>
+          <p className="text-[11px] text-zinc-500">Each person gets their own link. Send it to them yourself; we only email them a code if you share contact details.</p>
         </form>
 
         {error && <p className="text-xs text-rose-500">{error}</p>}
@@ -209,10 +237,28 @@ export function ShareDialog({ campaignId, api, totalCount, selectedIds }: { camp
                 <li key={l.id} className="py-2 flex items-center justify-between gap-2">
                   <div className="min-w-0">
                     <p className="text-xs font-medium text-zinc-900 dark:text-zinc-100 truncate">{l.email}</p>
-                    <p className="text-[10px] text-zinc-500">{scopeLabel(l)} · view only · {seen(l)}</p>
+                    <p className="text-[10px] text-zinc-500 flex items-center gap-1">
+                      <select
+                        value={l.role}
+                        onChange={(e) => change(l, { role: e.target.value })}
+                        aria-label={`Role for ${l.email}`}
+                        className="bg-transparent text-[10px] text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800 rounded px-1 py-px"
+                      >
+                        <option value="viewer">Viewer</option>
+                        <option value="reviewer">Reviewer</option>
+                      </select>
+                      {scopeLabel(l)} · {seen(l)}
+                    </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <Toggle checked={l.show_prices} onChange={(v) => change(l, v)} label="Prices" />
+                    <Toggle checked={l.show_prices} onChange={(v) => change(l, { show_prices: v })} label="Prices" />
+                    <Toggle
+                      checked={l.show_contacts}
+                      disabled={!emailEnabled && !l.show_contacts}
+                      onChange={(v) => change(l, { show_contacts: v })}
+                      label="Contacts"
+                      title={emailEnabled ? "They confirm a code sent to their email before seeing contact details" : "Needs email set up"}
+                    />
                     <CopyButton path={l.path} />
                     <button type="button" onClick={() => revoke(l)} aria-label={`Remove ${l.email}`} title="Remove access" className="p-1 text-zinc-400 hover:text-rose-500">
                       <Trash2 size={13} />
@@ -239,7 +285,7 @@ export function ShareDialog({ campaignId, api, totalCount, selectedIds }: { camp
             </div>
             {anyone ? (
               <div className="flex items-center gap-2 shrink-0">
-                <Toggle checked={anyone.show_prices} onChange={(v) => change(anyone, v)} label="Prices" />
+                <Toggle checked={anyone.show_prices} onChange={(v) => change(anyone, { show_prices: v })} label="Prices" />
                 <CopyButton path={anyone.path} />
                 <button type="button" onClick={() => revoke(anyone)} className="text-[11px] text-rose-500 hover:underline">Turn off</button>
               </div>

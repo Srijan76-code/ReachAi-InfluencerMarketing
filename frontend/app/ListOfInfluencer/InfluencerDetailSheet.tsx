@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import type React from "react";
 import { CreatorAvatar } from "@/components/CreatorAvatar";
+import { FeedbackSection } from "@/components/Feedback";
+import type { FeedbackItem } from "@/data/influencerList";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 
 const PLATFORM_NAMES: Record<string, string> = { youtube: "YouTube", instagram: "Instagram", x: "X", linkedin: "LinkedIn" };
@@ -57,10 +60,16 @@ export const InfluencerDetailSheet = ({
   influencer,
   campaignId,
   readOnly = false,
+  showContacts = false,
+  feedback,
+  reviewSlot,
 }: {
   influencer: Influencer;
   campaignId?: string;
-  readOnly?: boolean; // shared view: no contacts, no outreach
+  readOnly?: boolean; // shared view: no outreach, no contacts unless showContacts
+  showContacts?: boolean; // shared view after the viewer confirmed their email code
+  feedback?: FeedbackItem[]; // owner's view: what reviewers said
+  reviewSlot?: React.ReactNode; // shared view for reviewers: their 👍/👎 and comment
 }) => {
   const { metrics, socials, title, deal_status, score_breakdown } = influencer;
   // the creator's channel: stored URL (new engine) or built from the channel id (older results)
@@ -177,14 +186,14 @@ export const InfluencerDetailSheet = ({
             </div>
           </div>
 
-          {!readOnly && (
+          {(!readOnly || showContacts) && (
           <div className="flex items-center justify-between pt-1">
             <div className="flex items-center gap-2">
               <SocialLink href={socials.instagram} label="Instagram" className="w-8 h-8 rounded border border-zinc-200/60 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-900/50 flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors text-zinc-600 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"><Instagram size={14} /></SocialLink>
               <SocialLink href={socials.twitter} label="X" className="w-8 h-8 rounded border border-zinc-200/60 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-900/50 flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors text-zinc-600 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"><Twitter size={14} /></SocialLink>
               <SocialLink href={socials.email ? `mailto:${socials.email}` : null} label="Email" external={false} className="w-8 h-8 rounded border border-zinc-200/60 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-900/50 flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors text-zinc-600 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"><Mail size={14} /></SocialLink>
             </div>
-            {campaignId ? (
+            {readOnly ? null : campaignId ? (
               <OutreachDialog
                 campaignId={campaignId}
                 influencers={[influencer]}
@@ -249,6 +258,9 @@ export const InfluencerDetailSheet = ({
               {influencer.llm_reasoning}
             </p>
           </section>
+
+          {reviewSlot}
+          <FeedbackSection items={feedback} />
 
           {/* POSTS: the evidence right after the fit analysis */}
           <hr className="border-zinc-200/80 dark:border-zinc-800/60" />
