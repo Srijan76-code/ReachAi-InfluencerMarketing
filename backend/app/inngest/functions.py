@@ -7,6 +7,7 @@ from sqlalchemy import update
 
 from app.db.database import AsyncSessionLocal
 from app.core import config
+from app.creators import constants as CREATOR
 from app.discovery import limits as L
 from app.inngest.client import inngest_client
 from app.models.campaign import Campaign, CampaignStatus
@@ -132,3 +133,24 @@ async def run_outreach(ctx: inngest.Context):
         run_id=data["run_id"],
         thread_id=data["thread_id"],
     )
+
+
+@inngest_client.create_function(
+    fn_id="refresh_youtube_data",
+    trigger=inngest.TriggerCron(cron=CREATOR.REFRESH_CRON),
+    concurrency=[inngest.Concurrency(limit=1)],  # never two refreshes at once
+    retries=2,
+)
+async def refresh_youtube_data(ctx: inngest.Context):
+    """YouTube API policy: refresh or delete stored data after 30 days (spec §4.4)."""
+    from app.creators.refresh import run_refresh
+    from app.platforms.youtube import YouTubeAdapter
+    from app.platforms.youtube_api import HttpYouTubeAPI
+    from app.billing.costs import CostContext
+
+    api = HttpYouTubeAPI(context=CostContext(run_id=f"refresh-{ctx.run_id}"))
+    try:
+        report = await run_refresh(adapter_factory=lambda: YouTubeAdapter(api))
+    finally:
+        await api.aclose()
+    return report.to_dict()
