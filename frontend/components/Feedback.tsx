@@ -56,7 +56,7 @@ export function FeedbackSection({ items }: { items?: FeedbackItem[] }) {
   const c = counts(items);
   return (
     <section className="space-y-3">
-      <h3 className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-2">
+      <h3 className="text-[12px] font-medium text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
         <MessageSquare size={14} className="text-violet-500" />
         Feedback
         <span className="ml-auto normal-case tracking-normal font-medium text-[11px] text-zinc-500">
@@ -125,7 +125,7 @@ export function ReviewBox({ value, onSave }: { value?: MyFeedback; onSave: (v: M
   );
   return (
     <section className="space-y-2.5 rounded border border-violet-500/20 bg-violet-500/5 p-3.5">
-      <h3 className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">Your feedback</h3>
+      <h3 className="text-[12px] font-medium text-zinc-900 dark:text-zinc-100">Your feedback</h3>
       <div className="flex gap-2">
         {pill("yes", "Approve", ThumbsUp, "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400")}
         {pill("no", "Reject", ThumbsDown, "border-rose-500/40 bg-rose-500/10 text-rose-500")}

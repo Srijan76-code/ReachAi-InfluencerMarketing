@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Check, Pencil, Sparkles, X } from "lucide-react";
 import { CreatorAvatar } from "@/components/CreatorAvatar";
-import { SectionHeader } from "@/components/ui/stat";
 import { btn, btnPrimary, textarea } from "@/lib/ui";
 import { PROPOSAL_ACTION, type Proposal } from "@/data/deals";
 
@@ -15,13 +14,19 @@ function errorText(e: unknown, fallback: string) {
 }
 
 /** One suggested next step: what, why, the message (editable), and Approve / Edit / Skip. */
-export function ProposalCard({ p, api, onDone, onOpen }: {
+export function ProposalCard({ p, api, onDone, onOpen, selected, onSelect, text: liftedText, onText }: {
   p: Proposal;
   api: Api;
   onDone: (data: { proposals?: Proposal[] }) => void;
-  onOpen?: () => void; // open the deal (from the board's list)
+  onOpen?: () => void; // open the deal (from the To do list)
+  selected?: boolean; // the To do list's bulk selection
+  onSelect?: () => void;
+  text?: string; // the message as edited, kept by the list so "Approve selected" sends your edits
+  onText?: (t: string) => void;
 }) {
-  const [text, setText] = useState(p.message ?? "");
+  const [ownText, setOwnText] = useState(p.message ?? "");
+  const text = liftedText ?? ownText;
+  const setText = (t: string) => (onText ? onText(t) : setOwnText(t));
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState<"approve" | "skip" | "reword" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -73,8 +78,11 @@ export function ProposalCard({ p, api, onDone, onOpen }: {
   };
 
   return (
-    <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#0c0d0e] p-3 space-y-2.5">
+    <div className={`rounded-lg border bg-white dark:bg-[#0c0d0e] p-3 space-y-2.5 transition-colors ${selected ? "border-zinc-400 dark:border-zinc-500" : "border-zinc-200 dark:border-zinc-800"}`}>
       <div className="flex items-start gap-2.5 min-w-0">
+        {onSelect && (
+          <input type="checkbox" checked={!!selected} onChange={onSelect} aria-label={`Select ${p.name}`} className="mt-2 accent-zinc-900 dark:accent-zinc-100 shrink-0" />
+        )}
         {onOpen && (
           <button type="button" onClick={onOpen} aria-label={`Open ${p.name}`} className="shrink-0">
             <CreatorAvatar
@@ -132,34 +140,90 @@ export function ProposalCard({ p, api, onDone, onOpen }: {
   );
 }
 
-/** The board's "Needs you" list: every suggested next step across this campaign's deals. */
+/** The Deals tab's "To do" view: every suggested next step across this campaign's deals, with bulk actions.
+ * Nothing happens until you approve; edits you make in a card are what gets approved. */
 export function NeedsYou({ proposals, api, onDone, onOpen }: {
   proposals: Proposal[];
   api: Api;
   onDone: (data: { proposals?: Proposal[] }) => void;
   onOpen: (dealId: string) => void;
 }) {
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [edits, setEdits] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState<"approve" | "skip" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const live = new Set(proposals.map((p) => p.id));
+  const chosen = proposals.filter((p) => picked.has(p.id) && live.has(p.id));
+  const messages = chosen.filter((p) => p.is_message).length;
+  const toggle = (id: string) => setPicked((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+
+  const bulk = async (what: "approve" | "skip") => {
+    setBusy(what);
+    setError(null);
+    let last: { proposals?: Proposal[] } = {};
+    let failed = 0;
+    for (const p of chosen) {
+      try {
+        const data = what === "approve" ? { message: p.is_message ? edits[p.id] ?? p.message : null } : undefined;
+        last = (await api(`/api/proposals/${p.id}/${what}`, { method: "POST", data })).data as { proposals?: Proposal[] };
+      } catch {
+        failed += 1;
+      }
+    }
+    setPicked(new Set());
+    setBusy(null);
+    if (failed) setError(`${failed} couldn't be done. They're still in the list.`);
+    onDone(last);
+  };
+
+  if (proposals.length === 0)
+    return (
+      <div className="rounded-lg border border-dashed border-zinc-200 dark:border-zinc-800 px-4 py-10 text-center">
+        <p className="text-[13px] text-zinc-900 dark:text-zinc-100">Nothing to do right now</p>
+        <p className="text-xs text-zinc-500 mt-1">When a creator replies, open their deal and paste it in. We&apos;ll suggest what to do next.</p>
+      </div>
+    );
+
   return (
-    <section className="space-y-2.5">
-      <SectionHeader right={<span className="text-[11px] text-zinc-500">Nothing happens until you approve it</span>}>
-        <span className="flex items-center gap-2">
-          Needs you
-          {proposals.length > 0 && (
-            <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 text-[10px] font-semibold flex items-center justify-center tracking-normal">
-              {proposals.length}
-            </span>
-          )}
-        </span>
-      </SectionHeader>
-      {proposals.length === 0 ? (
-        <p className="text-xs text-zinc-500">Nothing needs you right now. When a creator answers, paste their reply in their deal and we&apos;ll suggest the next step.</p>
-      ) : (
-        <div className="grid gap-2.5 md:grid-cols-2">
-          {proposals.map((p) => (
-            <ProposalCard key={`${p.id}:${p.message}`} p={p} api={api} onDone={onDone} onOpen={() => onOpen(p.deal_id)} />
-          ))}
-        </div>
-      )}
-    </section>
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2 min-h-[30px]">
+        <label className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400 mr-1">
+          <input
+            type="checkbox"
+            checked={chosen.length === proposals.length}
+            onChange={() => setPicked(chosen.length === proposals.length ? new Set() : new Set(proposals.map((p) => p.id)))}
+            className="accent-zinc-900 dark:accent-zinc-100"
+          />
+          {chosen.length ? `${chosen.length} selected` : "Select all"}
+        </label>
+        {chosen.length > 0 && (
+          <>
+            <button type="button" onClick={() => bulk("approve")} disabled={!!busy} className={btnPrimary}>
+              <Check size={13} /> {busy === "approve" ? "Approving…" : `Approve ${chosen.length}`}
+            </button>
+            <button type="button" onClick={() => bulk("skip")} disabled={!!busy} className={btn}>
+              {busy === "skip" ? "Skipping…" : "Skip"}
+            </button>
+            {messages > 0 && <span className="text-[11px] text-zinc-500">{messages === 1 ? "1 message is" : `${messages} messages are`} marked sent. Send them yourself until Gmail is connected.</span>}
+          </>
+        )}
+      </div>
+      {error && <p className="text-[11px] text-rose-500">{error}</p>}
+      <div className="grid gap-2.5 lg:grid-cols-2">
+        {proposals.map((p) => (
+          <ProposalCard
+            key={`${p.id}:${p.message}`}
+            p={p}
+            api={api}
+            onDone={onDone}
+            onOpen={() => onOpen(p.deal_id)}
+            selected={picked.has(p.id)}
+            onSelect={() => toggle(p.id)}
+            text={edits[p.id] ?? p.message ?? ""}
+            onText={(t) => setEdits((e) => ({ ...e, [p.id]: t }))}
+          />
+        ))}
+      </div>
+    </div>
   );
 }

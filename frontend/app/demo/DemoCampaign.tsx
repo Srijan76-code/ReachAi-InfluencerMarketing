@@ -12,7 +12,7 @@ import { demoBrief, demoCollaboration, demoLeads, demoPitches, type DemoChannel 
 type Tab = "leads" | "outreach";
 
 const card = "bg-white dark:bg-[#0c0d0e] border border-zinc-200 dark:border-zinc-800/80 rounded-xl";
-const label = "text-[11px] font-medium uppercase tracking-[0.12em] text-zinc-400 dark:text-zinc-500";
+const label = "text-[11px] font-medium text-zinc-400 dark:text-zinc-500";
 
 function BriefCard({ title, rows }: { title: string; rows: [string, string][] }) {
   return (

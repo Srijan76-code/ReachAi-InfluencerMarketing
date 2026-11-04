@@ -113,3 +113,43 @@ def test_late_post_is_chased_and_live_link_moves_it():
 
 def test_no_fair_price_means_no_counter():
     assert run(deal(fair_high=None, fair_low=None, quoted_rate=300)) == []
+
+
+# --- negotiation memory -------------------------------------------------------------------------
+
+def test_later_counters_move_toward_their_ask_and_end_with_a_final_offer():
+    d = deal(stage="negotiating", quoted_rate=300)
+    events = [ev(1, "quoted_rate", 5, to=300), ev(2, "message_sent", 4, kind="send_counter", amounts={"counter": 180}),
+              ev(3, "quoted_rate", 1, to=260)]
+    [p] = run(d.__class__(**{**vars(d), "quoted_rate": 260}), events)
+    # $180 + 40% of the $80 gap = $212 → capped at the top of the fair range ($210): final offer
+    assert p.kind == "send_counter" and p.payload["amounts"] == {"counter": 210} and p.payload["final"] is True
+    assert p.title == "Final offer: $210" and "You offered $180, they ask $260" in p.reason
+    assert "the most we can do" in p.payload["message"] and "$180" not in p.payload["message"]
+
+
+def test_a_later_counter_moves_up_but_never_below_what_we_already_offered():
+    d = deal(stage="negotiating", quoted_rate=1500, fair_low=300, fair_high=1000)
+    events = [ev(1, "quoted_rate", 5, to=1500), ev(2, "message_sent", 4, kind="send_counter", amounts={"counter": 400}),
+              ev(3, "quoted_rate", 1, to=1500)]
+    [p] = run(d, events)
+    assert p.payload["amounts"]["counter"] == 840 and p.payload["final"] is False  # 400 + 0.4 × 1,100
+    assert p.payload["round"] == 2 and "move up to $840" in p.payload["message"]
+    # they came down below what we offered? we never go lower than our own offer
+    from app.deals import negotiation as N
+    a = N.advise(fair_low=300, fair_high=1000, typical_views=1, quote=1500)
+    assert N.next_offer(a, 350, N.History(offers=[400.0], asks=[])) == (400, False)
+
+
+def test_still_too_high_after_our_final_offer_suggests_marking_lost():
+    d = deal(stage="negotiating", quoted_rate=280)
+    events = [ev(1, "quoted_rate", 5, to=300), ev(2, "message_sent", 4, kind="send_counter", amounts={"counter": 210}, final=True),
+              ev(3, "quoted_rate", 1, to=280)]
+    [p] = run(d, events)
+    assert p.kind == "mark_lost" and "final offer of $210" in p.reason
+
+
+def test_fee_plus_commission_offers_count_as_their_full_price_in_the_history():
+    from app.agent.proposals import history
+    h = history([ev(1, "message_sent", 2, amounts={"base": 50, "commission_pct": 10, "counter": 65}), ev(2, "quoted_rate", 1, to=77)])
+    assert h.offers == [65.0] and h.asks == [77.0] and h.rounds == 1

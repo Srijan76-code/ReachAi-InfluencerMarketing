@@ -92,7 +92,7 @@ export default function SharedShortlist({ token }: { token: string }) {
             <>
               <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 px-1">
                 <div>
-                  <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-zinc-400">Shared shortlist</p>
+                  <p className="text-[11px] font-medium text-zinc-400">Shared shortlist</p>
                   <h1 className="mt-1 text-lg font-medium text-zinc-900 dark:text-zinc-100">{data.campaign_name}</h1>
                   <p className="mt-1 text-xs text-zinc-500 flex flex-wrap items-center gap-x-2">
                     {data.shared_by && <span>Shared by {data.shared_by}</span>}

@@ -39,8 +39,9 @@ function dueLabel(iso: string) {
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-export function DealCard({ deal, onOpen, onMove, dragging }: {
+export function DealCard({ deal, onOpen, onMove, dragging, todo }: {
   deal: Deal;
+  todo?: boolean; // has a suggested next step waiting
   onOpen: () => void;
   onMove: (stage: Stage) => void;
   dragging: boolean;
@@ -67,6 +68,7 @@ export function DealCard({ deal, onOpen, onMove, dragging }: {
           textClassName="text-[11px] font-medium"
         />
         <span className="text-[13px] font-medium text-zinc-900 dark:text-zinc-100 truncate flex-1" title={deal.name}>{deal.name}</span>
+        {todo && <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" title="Has a next step in To do" aria-label="Has a next step" />}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button type="button" onClick={(e) => e.stopPropagation()} aria-label={`Move ${deal.name}`} className="h-6 w-6 shrink-0 flex items-center justify-center rounded text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 opacity-0 group-hover:opacity-100 focus:opacity-100">

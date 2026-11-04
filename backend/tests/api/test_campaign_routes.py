@@ -541,6 +541,31 @@ async def test_needs_you_queue_from_reply_to_agreed(client, monkeypatch):
 
 @needs_pg
 @pytest.mark.asyncio
+async def test_quote_typos_merge_and_jev_sees_the_negotiation_so_far(client, monkeypatch):
+    from app.judge import client as jc
+    from app.judge.client import Answer, Judgment
+
+    await _set_leads(client, DEAL_LEADS)
+    d = (await client.post("/api/campaigns/c1/deals", json={"creator_ids": ["UC2"]})).json()["created"][0]
+    for v in (90, 80, None, 300):  # typing, fixing a typo, clearing, final value
+        await client.patch(f"/api/deals/{d['id']}", json={"quoted_rate": v})
+    quotes = [e for e in (await client.get(f"/api/deals/{d['id']}/events")).json() if e["type"] == "quoted_rate"]
+    assert len(quotes) == 1 and quotes[0]["payload"] == {"from": None, "to": 300}
+
+    [c] = (await client.get("/api/campaigns/c1/deals")).json()["proposals"]
+    await client.post(f"/api/proposals/{c['id']}/approve", json={})  # sends the $180 counter
+    seen = {}
+
+    async def fake_judge(state, questions, context=None, **k):
+        seen.update(state)
+        return Judgment({q: Answer("noul", 0.05) for q in questions}, "jev", "jev")
+    monkeypatch.setattr(jc, "judge", fake_judge)
+    await client.post(f"/api/deals/{d['id']}/reply", json={"text": "Can you do a bit more?"})
+    assert seen["thread"] == {"round": 2, "our_last_offer": "$180", "their_last_ask": "$300"}
+
+
+@needs_pg
+@pytest.mark.asyncio
 async def test_share_activity_feeds_the_sharing_panel(client):
     from datetime import datetime, timedelta, timezone
 

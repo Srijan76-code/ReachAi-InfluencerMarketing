@@ -173,7 +173,7 @@ def creator_reply_questions() -> dict:
     for the founder's approval), never a number or an action on their own."""
     return {
         "open_to_negotiate": Noul(instructions="Does `reply.text` suggest the creator is open to negotiating the price?"),
-        "firm_price": Noul(instructions="Does `reply.text` say the price is fixed or not negotiable?"),
+        "firm_price": Noul(instructions="Does `reply.text` say the price is fixed, final or not negotiable?"),
         "wants_commission": Noul(
             instructions="Does `reply.text` ask for, or say they accept, commission, affiliate or performance-based pay?"
         ),
@@ -184,7 +184,7 @@ def creator_reply_questions() -> dict:
             instructions="Does `reply.text` say the creator is not interested, not available, or turns the collaboration down?"
         ),
         "agrees": Noul(
-            instructions="Does `reply.text` accept the offer or price that was proposed to them?"
+            instructions="Does `reply.text` accept the offer or price that was proposed to them (`thread.our_last_offer`, when given)?"
         ),
         "gives_price": Noul(
             instructions="Does `reply.text` state the creator's own price or rate for the collaboration?"
