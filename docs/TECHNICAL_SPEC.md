@@ -27,7 +27,7 @@
 | Results UX | **Stream results as they arrive** (§4.12) |
 | Discovery quality rule | **Probe every selected platform, expand where a probe beats the current top N**; fit floor as a safety net; recall benchmark ≥ 90% (§4.9) |
 | Pipeline rollout | **The new discovery graph replaces the old pipeline (decided Nov 4).** The 3-brief comparison showed it never breaks size/country rules and leads on the consumer brief; its recall on niche B2B is tuned on top. The old pipeline and the `DISCOVERY_ENGINE` switch are removed (roadmap F1.13) |
-| Run execution | LangGraph runs and resumes the pipeline from Postgres checkpoints; Inngest starts, retries (resume), limits (2 per user, 10 total) and cancels runs (a re-run cancels the previous one); platforms are parallel LangGraph branches; Vercel; Postgres caches (§4.14) |
+| Run execution | LangGraph runs and resumes the pipeline from Postgres checkpoints; Inngest starts, retries (resume), limits (2 per user, 5 total: Inngest free-plan maximum, was 10) and cancels runs (a re-run cancels the previous one); platforms are parallel LangGraph branches; Vercel; Postgres caches (§4.14) |
 | After the deal | Founder pays creators directly (we send pay-on-proof requests and track); own short links; promo codes + signup snippet/server event; tracking included in paid plans (§8) |
 | Outreach | **Connected inbox**; founder approves first messages, follow-ups automatic; A/B test soft vs. concrete-offer first message (§7) |
 
@@ -404,13 +404,13 @@ Each source becomes an extra **rung-0 input**. Its candidates go through the sam
 - Credits are committed at the end, per §5.2.
 
 ### 4.14 Run execution model (decided, revised Nov 3)
-**Decisions:** LangGraph runs the pipeline and makes it durable inside a run; Inngest starts, retries, limits and cancels runs. Platforms run as parallel LangGraph branches in one run. Re-running a campaign cancels the previous run. Limits: 2 runs per user, 10 at once overall. Backend stays on Vercel; caches in Postgres.
+**Decisions:** LangGraph runs the pipeline and makes it durable inside a run; Inngest starts, retries, limits and cancels runs. Platforms run as parallel LangGraph branches in one run. Re-running a campaign cancels the previous run. Limits: 2 runs per user, 5 at once overall (Inngest free-plan maximum; changed from 10 on Nov 4 because syncs failed). Backend stays on Vercel; caches in Postgres.
 
 **Why (checked in code, Nov 3):** the old runner re-sent the input on every Inngest retry. In LangGraph that starts a new run from the first step and duplicates accumulated state (a test showed `['a','a','b']`), so the Postgres checkpoints were saved but never used. Resuming needs `None` as the input. The old runner also used one thread per campaign (so runs shared history), marked the campaign failed before Inngest retried, and used `InMemoryCache`, which doesn't survive between serverless requests.
 
 **Run lifecycle**
 ```
-campaign/run (event id = run_id)  ->  discovery/run  [concurrency: 2 per user, 10 per account; singleton key=campaign_id mode=cancel;
+campaign/run (event id = run_id)  ->  discovery/run  [concurrency: 2 per user, 5 per account (plan max); singleton key=campaign_id mode=cancel;
                                                       retries 3; timeouts.finish 15 min; cancel on campaign/cancel; on_failure handler]
    thread_id = run_id
    checkpoint with pending steps?  yes -> astream_events(None)   (resume)
@@ -452,7 +452,7 @@ Node settings: `retry_policy` on every node that calls an API. A failed search b
 **Concurrency and batching** (all limits in `app/discovery/limits.py`)
 | Resource | Limit |
 |---|---|
-| Runs | 2 per user, 10 per account (Inngest) |
+| Runs | 2 per user, 5 per account (Inngest free-plan maximum; 10 made every sync fail) |
 | YouTube | 4 searches at once; lookups 20 at once, 50 ids per call |
 | Jev | 8 at once per process; 1 request per creator with all questions |
 | LLM | reasons in parallel, 5 at once |
