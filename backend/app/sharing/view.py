@@ -20,6 +20,8 @@ EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 ROLES = ("viewer", "reviewer")  # reviewer: 👍/👎 and a comment per creator (personal links only)
 VERDICTS = ("yes", "no")
 MAX_COMMENT_CHARS = 500
+OPEN_EVENT_GAP_MINUTES = 30  # repeated opens of one link within this count as one in the activity feed
+ACTIVITY_LIMIT = 200
 
 # Lead fields every link shows
 LEAD_FIELDS = (

@@ -35,7 +35,7 @@ import {
 import { Sheet } from "@/components/ui/sheet";
 import { LeadListSkeleton } from "@/components/LeadListSkeleton";
 import { SkippedNote } from "@/components/SkippedNote";
-import { ShareDialog } from "@/components/ShareDialog";
+import { SharingPanel } from "@/components/SharingPanel";
 import { Segmented } from "@/components/ui/segmented";
 import { AddToDealsButton } from "@/components/deals/AddToDealsButton";
 import { CompareTray, MAX_COMPARE } from "@/components/CompareTray";
@@ -148,9 +148,20 @@ const InfluencerPage = ({ campaignId }: InfluencerPageProps) => {
   }, [campaignId]);
   const searchRef = useRef<HTMLInputElement>(null);
 
+  const feedbackCounts = useMemo(() => {
+    const out: Record<string, { yes: number; no: number; comments: number }> = {};
+    for (const [id, items] of Object.entries(feedback)) {
+      out[id] = {
+        yes: items.filter((f) => f.verdict === "yes").length,
+        no: items.filter((f) => f.verdict === "no").length,
+        comments: items.filter((f) => f.comment).length,
+      };
+    }
+    return out;
+  }, [feedback]);
   const displayedLeads = useMemo(
-    () => applyView(final_ranked_leads, view, savedLeadsMap),
-    [final_ranked_leads, view, savedLeadsMap],
+    () => applyView(final_ranked_leads, view, savedLeadsMap, feedbackCounts),
+    [final_ranked_leads, view, savedLeadsMap, feedbackCounts],
   );
   const platforms = useMemo(() => platformCounts(final_ranked_leads ?? []), [final_ranked_leads]);
   const shortlistCount = useMemo(
@@ -454,6 +465,12 @@ const InfluencerPage = ({ campaignId }: InfluencerPageProps) => {
                     <DropdownMenuCheckboxItem className="focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-900 dark:focus:text-zinc-100 cursor-pointer" checked={view.hideSuspicious} onCheckedChange={(c) => set("hideSuspicious", c === true)} onSelect={(e) => e.preventDefault()}>
                       Hide unusual engagement
                     </DropdownMenuCheckboxItem>
+                    <DropdownMenuCheckboxItem className="focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-900 dark:focus:text-zinc-100 cursor-pointer" checked={view.approved} onCheckedChange={(c) => set("approved", c === true)} onSelect={(e) => e.preventDefault()}>
+                      Approved by reviewers
+                    </DropdownMenuCheckboxItem>
+                    <DropdownMenuCheckboxItem className="focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-900 dark:focus:text-zinc-100 cursor-pointer" checked={view.hasFeedback} onCheckedChange={(c) => set("hasFeedback", c === true)} onSelect={(e) => e.preventDefault()}>
+                      Has feedback
+                    </DropdownMenuCheckboxItem>
                     <DropdownMenuSeparator className="bg-zinc-200 dark:bg-zinc-800" />
                     <DropdownMenuLabel>Confidence</DropdownMenuLabel>
                     <DropdownMenuRadioGroup value={view.confidence} onValueChange={(v) => set("confidence", v as LeadView["confidence"])}>
@@ -510,9 +527,30 @@ const InfluencerPage = ({ campaignId }: InfluencerPageProps) => {
 
                 {/* Share (view-only links) */}
                 {campaignId && (
-                  <ShareDialog
+                  <SharingPanel
                     campaignId={campaignId}
                     api={api}
+                    savedIds={new Set(Object.keys(savedLeadsMap).filter((k) => savedLeadsMap[k]))}
+                    onOpenCreator={(id) => {
+                      // a creator hidden by the current search or filters: show everyone, then open them
+                      if (!displayedLeads.some((l) => l.id === id)) setView((v) => ({ ...DEFAULT_VIEW, sort: v.sort }));
+                      keyboardNav.current = false;
+                      setOpenId(id);
+                    }}
+                    onShortlist={async (ids) => {
+                      for (const id of ids) {
+                        const lead = final_ranked_leads.find((l) => l.id === id);
+                        if (lead && !savedLeadsMap[id]) await toggleSaveLead(campaignId, lead, api);
+                      }
+                    }}
+                    onAddToDeals={async (ids) => {
+                      try {
+                        const r = await api(`/api/campaigns/${campaignId}/deals`, { method: "POST", data: { creator_ids: ids } });
+                        return ((r.data as { created?: unknown[] })?.created ?? []).length;
+                      } catch {
+                        return 0;
+                      }
+                    }}
                     scopes={[
                       // what "everyone" means follows the view you're in: the shortlist, or the whole list
                       view.savedOnly

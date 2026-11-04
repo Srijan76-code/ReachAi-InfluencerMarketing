@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, ChevronDown, Globe, Link2, Lock, MoreHorizontal, Share2 } from "lucide-react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Check, ChevronDown, Globe, Link2, Lock, MoreHorizontal } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -98,8 +97,16 @@ function CopyIcon({ path, copied, onCopy }: { path: string; copied: boolean; onC
   );
 }
 
-export function ShareDialog({ campaignId, api, scopes }: { campaignId: string; api: Api; scopes: ShareScope[] }) {
-  const [open, setOpen] = useState(false);
+/** The People tab of the Sharing panel: invite, roles, copy, prices, remove, general access.
+ *  `active`: the panel is open (load and refresh then). `onChanged`: tell the panel something changed. */
+export function ShareManager({ campaignId, api, scopes, active, onChanged }: {
+  campaignId: string;
+  api: Api;
+  scopes: ShareScope[];
+  active: boolean;
+  onChanged?: () => void;
+}) {
+  const open = active;
   const [links, setLinks] = useState<ShareLinkRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -132,7 +139,10 @@ export function ShareDialog({ campaignId, api, scopes }: { campaignId: string; a
   const sameScope = (l: ShareLinkRow) => JSON.stringify(l.creator_ids ?? null) === JSON.stringify(creatorIds);
   const anyone = links.find((l) => l.kind === "anyone" && sameScope(l));
   const people = links.filter((l) => l.kind === "person");
-  const upsert = (row: ShareLinkRow) => setLinks((ls) => [...ls.filter((l) => l.id !== row.id), row]);
+  const upsert = (row: ShareLinkRow) => {
+    setLinks((ls) => [...ls.filter((l) => l.id !== row.id), row]);
+    onChanged?.();
+  };
 
   const create = async (kind: "person" | "anyone", body: Record<string, unknown>) => {
     setBusy(true);
@@ -181,18 +191,7 @@ export function ShareDialog({ campaignId, api, scopes }: { campaignId: string; a
   const daysLeft = (iso: string | null) => (iso ? Math.max(0, Math.ceil((Date.parse(iso) - Date.now()) / 86_400_000)) : 0);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <button className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md border border-zinc-200 dark:border-zinc-800 transition-colors">
-          <Share2 size={14} />
-          Share
-        </button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-md gap-5 bg-white dark:bg-[#0c0d0e]">
-        <DialogHeader className="space-y-1">
-          <DialogTitle className="text-base">Share</DialogTitle>
-          <DialogDescription className="text-xs">No account needed · contact details are never shared</DialogDescription>
-        </DialogHeader>
+    <div className="space-y-5">
 
         {usable.length > 1 && (
           <Segmented
@@ -325,7 +324,6 @@ export function ShareDialog({ campaignId, api, scopes }: { campaignId: string; a
             </button>
           )}
         </div>
-      </DialogContent>
-    </Dialog>
+    </div>
   );
 }
