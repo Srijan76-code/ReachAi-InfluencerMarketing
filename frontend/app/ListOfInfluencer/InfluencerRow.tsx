@@ -1,5 +1,5 @@
 import type { Influencer } from "@/data/influencerList";
-import { CreatorBadges } from "@/components/CreatorBadges";
+import { CreatorBadges, badgeFlags } from "@/components/CreatorBadges";
 import {
   ShieldCheck,
   MousePointerClick,
@@ -30,6 +30,8 @@ export const InfluencerRow = ({
   onToggleSave?: (influencer: Influencer) => void;
 }) => {
   const { title, subscribers, metrics, deal_status, final_score } = influencer;
+  const expired = Boolean(influencer.data_expired); // numbers removed after 30 days (YouTube rules)
+  const dash = "—";
 
   const statusStyles = {
     "Strong Buy": "text-emerald-500 bg-emerald-500/10 border-emerald-500/20",
@@ -77,7 +79,7 @@ export const InfluencerRow = ({
             >
               {deal_status}
             </span>
-            <CreatorBadges flags={influencer.flags} />
+            <CreatorBadges flags={badgeFlags(influencer)} />
           </div>
         </div>
       </div>
@@ -120,7 +122,7 @@ export const InfluencerRow = ({
         {/* Block 1: Audience & Reach */}
         <div className="hidden md:flex flex-col items-end justify-center min-w-[90px] gap-1">
           <span className="font-mono text-[12px] font-bold text-zinc-600 dark:text-zinc-400 flex items-center gap-1.5 justify-end">
-            {(metrics.avg_views / 1000).toFixed(1)}k
+            {expired ? dash : `${(metrics.avg_views / 1000).toFixed(1)}k`}
             <span className="text-[9px] font-bold text-zinc-600 dark:text-zinc-400 tracking-wide  flex items-center gap-1">
               Views
               <Tooltip>
@@ -140,7 +142,7 @@ export const InfluencerRow = ({
             </span>
           </span>
           <span className="font-mono text-[12px] font-bold text-zinc-600 dark:text-zinc-400 flex items-center gap-1.5 justify-end">
-            {metrics.engagement_rate}%
+            {expired ? dash : `${metrics.engagement_rate}%`}
             <span className="text-[9px] font-bold text-zinc-600 dark:text-zinc-400 tracking-wide  flex items-center gap-1">
               Eng.
               <Tooltip>
@@ -182,7 +184,7 @@ export const InfluencerRow = ({
             </Tooltip>
           </span>
           <span className="font-mono text-[12px] font-bold text-rose-400 leading-none">
-            ${influencer.valuation}
+            {expired ? dash : `$${influencer.valuation}`}
           </span>
         </div>
 
@@ -207,7 +209,7 @@ export const InfluencerRow = ({
             </Tooltip>
           </span>
           <span className="font-mono text-[12px] font-bold text-emerald-400 leading-none">
-            ~{metrics.forecast.split(" ")[0].replace("~", "")}
+            {expired ? dash : `~${metrics.forecast.split(" ")[0].replace("~", "")}`}
           </span>
         </div>
 

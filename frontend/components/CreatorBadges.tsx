@@ -1,4 +1,4 @@
-import { TrendingUp, Flame, AlertTriangle, Globe } from "lucide-react";
+import { TrendingUp, Flame, AlertTriangle, Globe, Clock } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 /** Labels the discovery engine attaches to a creator (`flags` on each result). */
@@ -20,6 +20,12 @@ export const BADGES: Record<string, { label: string; help: string; icon: typeof 
     help: "Views, likes or comments look unusual for a channel this size. Ask for audience stats before paying.",
     icon: AlertTriangle,
     className: "text-rose-600 dark:text-rose-400 bg-rose-500/10 border-rose-500/20",
+  },
+  data_expired: {
+    label: "Data expired",
+    help: "YouTube's rules let us keep a channel's numbers for 30 days. Run the campaign again to get fresh numbers.",
+    icon: Clock,
+    className: "text-zinc-600 dark:text-zinc-400 bg-zinc-500/10 border-zinc-500/20",
   },
   country_unknown: {
     label: "Country unknown",
@@ -56,4 +62,9 @@ export function CreatorBadges({ flags, size = "sm" }: { flags?: string[] | null;
       })}
     </span>
   );
+}
+
+/** Flags to show for a result, including "data_expired" when the nightly refresh removed its numbers. */
+export function badgeFlags(lead: { flags?: string[] | null; data_expired?: boolean }): string[] {
+  return [...(lead.data_expired ? ["data_expired"] : []), ...(lead.flags ?? [])];
 }

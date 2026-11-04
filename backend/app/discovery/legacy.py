@@ -19,6 +19,10 @@ def _socials(profile: dict) -> dict:
     }
 
 
+def _iso(value) -> Optional[str]:
+    return value.isoformat() if hasattr(value, "isoformat") else value
+
+
 def to_legacy_lead(profile: dict, metrics: dict, record: dict, reason: Optional[str], industry: str) -> dict:
     stats = profile.get("platform_stats") or {}
     m = metrics or {}
@@ -72,4 +76,6 @@ def to_legacy_lead(profile: dict, metrics: dict, record: dict, reason: Optional[
         "anomaly_score": m.get("anomaly_score"),
         "risk": record.get("risk"),
         "niche": (record.get("signals") or {}).get("niche"),
+        # when the YouTube numbers were fetched; the nightly refresh updates or expires them after 30 days
+        "data_as_of": _iso(profile.get("fetched_at")),
     }
