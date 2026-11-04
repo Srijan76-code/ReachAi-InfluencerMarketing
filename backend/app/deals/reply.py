@@ -23,8 +23,10 @@ _PERCENT = re.compile(r"(\d+(?:\.\d+)?)\s?%")
 MAX_MESSAGE_CHARS = 900
 
 
-async def read_reply(text: str, context: CostContext) -> dict:
-    """Jev's yes/no reading of the creator's reply → {signal: probability}. {} if Jev is unavailable."""
+async def read_reply(text: str, context: CostContext, thread: Optional[dict] = None) -> dict:
+    """Jev's yes/no reading of the creator's reply → {signal: probability}. {} if Jev is unavailable.
+    `thread` (optional) is the negotiation so far in words written by code (our last offer, their last ask,
+    which round), so "sounds good" is read against what was actually offered."""
     from app.judge.client import judge
     from app.judge.questions import creator_reply_questions
 
@@ -32,7 +34,10 @@ async def read_reply(text: str, context: CostContext) -> dict:
     if not text:
         return {}
     try:
-        j = await judge({"reply": {"text": text}}, creator_reply_questions(), context=context)
+        state = {"reply": {"text": text}}
+        if thread:
+            state["thread"] = thread
+        j = await judge(state, creator_reply_questions(), context=context)
     except Exception as exc:  # the template still works without it
         logger.warning("reading the creator's reply failed: %s", type(exc).__name__)
         return {}
@@ -47,7 +52,9 @@ async def read_reply(text: str, context: CostContext) -> dict:
 def allowed(text: str, amounts: dict) -> bool:
     """The wording may only contain our money figures and percentages, and must contain the main one."""
     money = {int(round(float(m.replace(",", "")))) for m in _MONEY.findall(text)}
-    allowed_money = {int(v) for k, v in amounts.items() if k != "commission_pct"}
+    # only the amounts the message offers: a base + commission offer may not also quote the full counter
+    # (that's how "lower than the $65 we discussed" got through)
+    allowed_money = {int(v) for k, v in amounts.items() if k != "commission_pct" and not (k == "counter" and "base" in amounts)}
     if not money or not money <= allowed_money:
         return False
     pcts = {float(p) for p in _PERCENT.findall(text)}

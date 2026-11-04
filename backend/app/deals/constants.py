@@ -24,6 +24,10 @@ EXCLUSIVITY_UPLIFT = ((0, 0.0), (30, 0.2), (60, 0.25), (90, 0.3), (365, 0.5))  #
 # Negotiation helper (spec §8.7)
 WALK_AWAY_MULTIPLE = 2.0  # quote above 2× the top of the fair range: walk away (or counter at the top)
 ROUND_TO = 5  # dollars
+ROUND_SMALL_BELOW = 50  # prices under $50 round to the dollar (else "$10–$10" for small creators)
+CONCESSION_SHARE = 0.4  # each later counter moves this share of the gap from our last offer toward their ask
+MAX_ROUNDS = 3  # after this many offers from us, the next one is the final offer
+QUOTE_EDIT_MERGE_SECONDS = 120  # quote edits this close together are one timeline entry
 SUGGESTED_COMMISSION_PCT = 10  # base + commission deals for signup/sales goals
 BASE_SHARE_WITH_COMMISSION = 0.7  # the base when offering base + commission, as a share of the counter
 

@@ -92,7 +92,8 @@ def approve(db: AsyncSession, p: AgentProposal, d: CreatorDeal, message: Optiona
         # an edited message keeps its amounts only if it still says exactly our numbers (used if they accept)
         keep = amounts if amounts and (not edited or allowed(final, amounts)) else None
         db.add(DealEvent(deal_id=d.deal_id, type="message_sent",
-                         payload={"kind": p.kind, "text": final, "amounts": keep, "edited": edited, "proposal_id": p.proposal_id}))
+                         payload={"kind": p.kind, "text": final, "amounts": keep, "edited": edited, "final": bool(pl.get("final")),
+                                  "proposal_id": p.proposal_id}))
         result = {"message": final, "edited": edited}
     db.add(DealEvent(deal_id=d.deal_id, type="proposal", payload={"kind": p.kind, "title": p.title, "decision": "approved",
                                                                  "edited": result.get("edited", False)}))

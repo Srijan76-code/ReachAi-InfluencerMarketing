@@ -11,6 +11,7 @@ import { AddCreatorsDialog } from "@/components/deals/AddCreatorsDialog";
 import { DealCard } from "@/components/deals/DealCard";
 import { DealPanel } from "@/components/deals/DealPanel";
 import { NeedsYou } from "@/components/deals/NeedsYou";
+import { Segmented } from "@/components/ui/segmented";
 import { BOARD_STAGES, type Deal, type DealsSummary, type Proposal, STAGE_HINT, STAGE_LABEL, type Stage, money } from "@/data/deals";
 
 /** The Deals tab (spec §8.1, §8.5): one column per stage, drag cards to move them, click to open. */
@@ -23,6 +24,7 @@ export default function DealsBoard({ campaignId, apiOverride }: {
   const [deals, setDeals] = useState<Deal[] | null>(null);
   const [summary, setSummary] = useState<DealsSummary | null>(null);
   const [proposals, setProposals] = useState<Proposal[]>([]);
+  const [view, setView] = useState<"board" | "todo">("board");
   const [error, setError] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [showLost, setShowLost] = useState(false);
@@ -83,6 +85,7 @@ export default function DealsBoard({ campaignId, apiOverride }: {
   const columns: Stage[] = showLost ? [...BOARD_STAGES, "lost"] : BOARD_STAGES;
   const lostCount = deals?.filter((d) => d.stage === "lost").length ?? 0;
   const open = deals?.find((d) => d.id === openId) ?? null;
+  const todoDeals = new Set(proposals.map((p) => p.deal_id));
 
   return (
     <TooltipProvider delayDuration={150}>
@@ -90,7 +93,15 @@ export default function DealsBoard({ campaignId, apiOverride }: {
         <div className="flex items-center justify-between gap-3 px-1">
           <div className="flex items-center gap-3">
             <h1 className="text-[14px] font-medium text-zinc-900 dark:text-zinc-100">Deals</h1>
-            {lostCount > 0 && (
+            {deals && deals.length > 0 && (
+              <Segmented
+                label="View"
+                value={view}
+                onChange={setView}
+                options={[{ value: "board", label: "Board" }, { value: "todo", label: "To do", count: proposals.length }]}
+              />
+            )}
+            {view === "board" && lostCount > 0 && (
               <button type="button" onClick={() => setShowLost((v) => !v)} className={btn}>
                 {showLost ? "Hide lost" : `Show lost (${lostCount})`}
               </button>
@@ -115,9 +126,9 @@ export default function DealsBoard({ campaignId, apiOverride }: {
           </StatStrip>
         )}
 
-        {deals && deals.length > 0 && <NeedsYou proposals={proposals} api={api} onDone={onProposals} onOpen={setOpenId} />}
-
-        {deals === null ? (
+        {deals && deals.length > 0 && view === "todo" ? (
+          <NeedsYou proposals={proposals} api={api} onDone={onProposals} onOpen={setOpenId} />
+        ) : deals === null ? (
           <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
             {BOARD_STAGES.map((s) => <div key={s} className="h-40 rounded-lg bg-zinc-200/50 dark:bg-zinc-800/50 animate-pulse motion-reduce:animate-none" />)}
           </div>
@@ -159,7 +170,7 @@ export default function DealsBoard({ campaignId, apiOverride }: {
                     <p className="px-1 -mt-1.5 text-[11px] text-zinc-500 truncate">{STAGE_HINT[stage]}</p>
                     {items.map((d) => (
                       <div key={d.id} onDragStart={() => setDragging(d.id)} onDragEnd={() => { setDragging(null); setOver(null); }}>
-                        <DealCard deal={d} dragging={dragging === d.id} onOpen={() => setOpenId(d.id)} onMove={(s) => move(d, s)} />
+                        <DealCard deal={d} todo={todoDeals.has(d.id)} dragging={dragging === d.id} onOpen={() => setOpenId(d.id)} onMove={(s) => move(d, s)} />
                       </div>
                     ))}
                   </div>

@@ -222,9 +222,9 @@ export const InfluencerDetailSheet = ({
           <section className="space-y-3">
             <div className="flex items-center justify-between pr-2">
               <div className="flex items-center gap-1.5">
-                <h3 className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-2">
+                <h3 className="text-[12px] font-medium text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
                   <Sparkles size={14} className="text-emerald-500" />
-                  Campaign Fit Analysis
+                  Campaign fit
                 </h3>
                 <Tooltip>
                   <TooltipTrigger asChild><Info size={12} className="text-zinc-400 dark:text-zinc-600 cursor-help hover:text-zinc-600 dark:hover:text-zinc-400 transition-colors" /></TooltipTrigger>
@@ -234,7 +234,7 @@ export const InfluencerDetailSheet = ({
                 </Tooltip>
               </div>
               <div className="flex items-center gap-2 bg-zinc-100 dark:bg-zinc-800/30 px-2 py-1 rounded-full border border-zinc-200/60 dark:border-zinc-700/50">
-                <span className="text-[9px] font-bold tracking-widest uppercase text-zinc-600 dark:text-zinc-400 pl-1">Impact</span>
+                <span className="text-[11px] font-medium text-zinc-600 dark:text-zinc-400 pl-1">Impact</span>
                 <div className="relative w-6 h-6 flex items-center justify-center">
                   <svg className="w-6 h-6 transform -rotate-90">
                     <circle className="text-zinc-200 dark:text-zinc-800" strokeWidth="2.5" stroke="currentColor" fill="transparent" r="10" cx="12" cy="12" />
@@ -268,9 +268,9 @@ export const InfluencerDetailSheet = ({
           <hr className="border-zinc-200/80 dark:border-zinc-800/60" />
           <section className="space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-2">
+              <h3 className="text-[12px] font-medium text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
                 <PlayCircle size={14} className="text-amber-500" />
-                {posts.length > 0 ? "Posts" : "Recent Content"}
+                {posts.length > 0 ? "Posts" : "Recent content"}
               </h3>
               <a href={platformName === "YouTube" ? `${channelUrl}/videos` : channelUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors flex items-center gap-1 group">
                 View on {platformName} <ExternalLink size={11} className="group-hover:translate-x-0.5 transition-transform" />
@@ -298,9 +298,9 @@ export const InfluencerDetailSheet = ({
           {/* METRICS */}
           <hr className="border-zinc-200/80 dark:border-zinc-800/60" />
           <section className="space-y-3">
-            <h3 className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-2">
+            <h3 className="text-[12px] font-medium text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
               <BarChart2 size={14} className="text-indigo-400" />
-              Performance Metrics
+              Performance
               {trend && (
                 <span
                   title="Views on their newest posts compared with the ones before"
@@ -361,7 +361,7 @@ export const InfluencerDetailSheet = ({
           {/* WHY THIS SCORE: detail for whoever wants it */}
           <hr className="border-zinc-200/80 dark:border-zinc-800/60" />
           <section className="space-y-3 pb-6">
-            <h3 className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-2">
+            <h3 className="text-[12px] font-medium text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
               <Target size={14} className="text-blue-500" />
               Why this score
             </h3>
@@ -436,7 +436,7 @@ const MetricCell = ({ label, value, icon, info, borderTop, removeBorderRight, va
   `}>
     <div className="flex items-center gap-1.5 text-zinc-500">
       <span className="text-zinc-400 dark:text-zinc-600">{icon}</span>
-      <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-600 dark:text-zinc-400">{label}</span>
+      <span className="text-[11px] font-medium text-zinc-500">{label}</span>
       {info && (
         <Tooltip>
           <TooltipTrigger asChild>

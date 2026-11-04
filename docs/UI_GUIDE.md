@@ -19,10 +19,10 @@ styling controls by hand, and never use the browser's own dropdowns (they ignore
 | Body, list names | `text-[13px]` |
 | Controls, secondary text | `text-xs` (12px) |
 | Meta, hints, field labels | `text-[11px] text-zinc-500` (sentence case) |
-| Panel section header | `SectionHeader` (11px, semibold, uppercase, icon) |
-| Tile label | `StatTile` label (10px, semibold, uppercase, wide tracking) |
+| Panel section header | `SectionHeader` (12px, medium, zinc-900) |
+| Tile label | `StatTile` label (11px, medium, zinc-500) |
 
-Uppercase is only for panel section headers and tile labels. Everything else is sentence case.
+**Sentence case everywhere. No uppercase labels** (decided Nov 4).
 
 ## Controls (all 30px tall, `text-xs`)
 | Need | Use |
@@ -36,6 +36,14 @@ Uppercase is only for panel section headers and tile labels. Everything else is 
 | Numbers in a row of tiles | `StatStrip` + `StatTile` (`components/ui/stat.tsx`) |
 | Section in a panel | `SectionHeader icon={…}` |
 | Side panel | `Sheet` + `SheetContent`, header block `p-5 bg-zinc-50 dark:bg-[#08090a]` |
+
+## Tooltips
+Explanations open from a small ⓘ next to the label (`StatTile help=…`), never from hovering a whole tile or row:
+a big hover area covers the fields above it.
+
+## Panels
+Show what matters at the deal's or creator's current step first; fold the rest (terms, notes, history) behind
+one line with "Edit". Prefilled values say so. Saves that take a moment show a button and a loading state.
 
 ## Words
 Plain, short, sentence case. Say what happens ("Add to deals"), not how ("Create deal record").

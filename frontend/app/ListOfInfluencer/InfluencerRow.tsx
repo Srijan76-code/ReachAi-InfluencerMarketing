@@ -16,7 +16,7 @@ const STATUS_STYLES = {
   Avoid: "text-rose-500 bg-rose-500/10 border-rose-500/20",
 } as const;
 
-const LABEL = "text-[9px] font-bold tracking-widest uppercase whitespace-nowrap flex items-center gap-1";
+const LABEL = "text-[11px] font-medium whitespace-nowrap flex items-center gap-1";
 
 function Help({ text }: { text: string }) {
   return (

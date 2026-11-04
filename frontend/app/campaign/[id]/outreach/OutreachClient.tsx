@@ -665,7 +665,7 @@ export default function OutreachClient({
                           <Instagram size={14} />
                         </a>
                       )}
-                      <span className="ml-auto rounded-full border border-zinc-200/60 bg-white/60 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-zinc-500 dark:border-zinc-700/50 dark:bg-zinc-900/50 dark:text-zinc-400">
+                      <span className="ml-auto rounded-full border border-zinc-200/60 bg-white/60 px-2.5 py-1 text-[11px] font-medium text-zinc-500 dark:border-zinc-700/50 dark:bg-zinc-900/50 dark:text-zinc-400">
                         {(activePitch.available_channels || []).length} channels ready
                       </span>
                     </div>
@@ -736,7 +736,7 @@ export default function OutreachClient({
                   <div className="flex-1 space-y-7 overflow-y-auto bg-white p-6 dark:bg-[#0c0d0e]">
                     {bundle?.pitch_angle && (
                       <section className="space-y-3">
-                        <h3 className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
+                        <h3 className="flex items-center gap-2 text-[12px] font-medium text-zinc-900 dark:text-zinc-100">
                           <Sparkles size={14} className="text-emerald-500" />
                           Pitch strategy
                         </h3>
@@ -748,7 +748,7 @@ export default function OutreachClient({
 
                     {bundle?.personalization && bundle.personalization.length > 0 && (
                       <section className="space-y-3">
-                        <h3 className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
+                        <h3 className="flex items-center gap-2 text-[12px] font-medium text-zinc-900 dark:text-zinc-100">
                           <Sparkles size={14} className="text-blue-500" />
                           Grounded creator evidence
                         </h3>
@@ -767,7 +767,7 @@ export default function OutreachClient({
 
                     <div className="flex items-center gap-2">
                       <Mail size={14} className="text-amber-500" />
-                      <h3 className="text-[11px] font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">Draft workspace</h3>
+                      <h3 className="text-[12px] font-medium text-zinc-900 dark:text-zinc-100">Draft workspace</h3>
                     </div>
                     {/* EMAIL TAB */}
                     {activeTab === "email" && (
@@ -777,7 +777,7 @@ export default function OutreachClient({
                             {/* Subject */}
                             <div className="space-y-1.5">
                               <div className="flex items-center justify-between">
-                                <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
+                                <span className="text-[11px] font-medium text-zinc-400">
                                   Subject Line
                                 </span>
                                 <button
@@ -797,7 +797,7 @@ export default function OutreachClient({
                             {/* Body */}
                             <div className="space-y-1.5">
                               <div className="flex items-center justify-between">
-                                <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
+                                <span className="text-[11px] font-medium text-zinc-400">
                                   Email Body
                                 </span>
                                 <button
@@ -841,7 +841,7 @@ export default function OutreachClient({
                     {activeTab === "instagram" && (
                       <div className="space-y-6">
                         <div className="flex items-center justify-between">
-                          <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
+                          <span className="text-[11px] font-medium text-zinc-400">
                             Instagram DM Pitch
                           </span>
                           <button
@@ -874,7 +874,7 @@ export default function OutreachClient({
                     {activeTab === "twitter" && (
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                          <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
+                          <span className="text-[11px] font-medium text-zinc-400">
                             X / Twitter Direct Message
                           </span>
                           <button
@@ -907,7 +907,7 @@ export default function OutreachClient({
                     {activeTab === "linkedin" && (
                       <div className="space-y-6">
                         <div className="flex items-center justify-between">
-                          <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
+                          <span className="text-[11px] font-medium text-zinc-400">
                             LinkedIn Connection Note
                           </span>
                           <button

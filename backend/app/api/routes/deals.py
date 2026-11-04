@@ -190,10 +190,37 @@ class DealChange(BaseModel):
     notes: Optional[str] = None
 
 
+_NO_MERGE = object()
+
+
+async def _merge_quote_edit(db: AsyncSession, d: CreatorDeal, ch: dict):
+    """Quote edits a few seconds apart (typing, fixing a typo) become one timeline entry: drops the previous
+    entry if it's the latest and recent, and returns the value it started from."""
+    if "quoted_rate" not in ch or ch["quoted_rate"] == d.quoted_rate:
+        return _NO_MERGE
+    last = (await db.execute(select(DealEvent).where(DealEvent.deal_id == d.deal_id)
+                             .order_by(DealEvent.created_at.desc()).limit(1))).scalar_one_or_none()
+    if not (last and last.type == "quoted_rate" and last.created_at
+            and (_now() - last.created_at).total_seconds() < C.QUOTE_EDIT_MERGE_SECONDS):
+        return _NO_MERGE
+    start = (last.payload or {}).get("from")
+    await db.delete(last)
+    return start
+
+
 @router.patch("/api/deals/{deal_id}")
 async def change_deal(deal_id: str, body: DealChange, user: User = Depends(get_db_user), db: AsyncSession = Depends(get_db)):
     d, row = await _deal(db, deal_id, user)
-    apply_change(db, d, body.model_dump(exclude_unset=True))
+    ch = body.model_dump(exclude_unset=True)
+    merged_from = await _merge_quote_edit(db, d, ch)
+    apply_change(db, d, ch)
+    if merged_from is not _NO_MERGE:
+        for obj in list(db.new):
+            if isinstance(obj, DealEvent) and obj.type == "quoted_rate":
+                if merged_from == ch.get("quoted_rate"):
+                    db.expunge(obj)  # edited back to where it started: no entry at all
+                else:
+                    obj.payload = {**(obj.payload or {}), "from": merged_from}
     await db.commit()
     await db.refresh(d)
     return _out(d, _leads_by_id(row.campaign_leads).get(d.creator_id), date.today())
@@ -267,10 +294,28 @@ async def paste_reply(deal_id: str, body: ReplyIn, user: User = Depends(get_db_u
     if not text:
         raise HTTPException(422, "Paste their reply first.")
     d, row = await _deal(db, deal_id, user)
-    signals = await read_reply(text, CostContext(user_id=user.user_id, campaign_id=d.campaign_id))
+    signals = await read_reply(text, CostContext(user_id=user.user_id, campaign_id=d.campaign_id), await _thread(db, d))
     db.add(DealEvent(deal_id=d.deal_id, type="creator_reply", payload={"text": text, "signals": signals, "amounts": money_in(text)}))
     await db.commit()
     return {"signals": signals, "proposals": await _campaign_proposals(db, d.campaign_id, row)}
+
+
+async def _thread(db: AsyncSession, d: CreatorDeal) -> Optional[dict]:
+    """The negotiation so far, in code's words, as context for Jev (numbers from our own records only)."""
+    from app.agent.proposals import Ev
+
+    rows = (await db.execute(select(DealEvent).where(DealEvent.deal_id == d.deal_id).order_by(DealEvent.created_at))).scalars().all()
+    sent = [e for e in rows if e.type == "message_sent" and (e.payload or {}).get("amounts")]
+    if not sent and d.quoted_rate is None:
+        return None
+    out: dict = {"round": len(sent) + 1}
+    if sent:
+        a = sent[-1].payload["amounts"]
+        out["our_last_offer"] = (f"${a['base']:,} fee plus {a.get('commission_pct')}% commission" if a.get("base")
+                                 else f"${(a.get('price') or a.get('counter')):,}")
+    if d.quoted_rate is not None:
+        out["their_last_ask"] = f"${d.quoted_rate:,.0f}"
+    return out
 
 
 async def _proposal(db: AsyncSession, proposal_id: str, user: User):

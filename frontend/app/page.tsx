@@ -7,7 +7,7 @@ export default function Home() {
   return (
     <main className="min-h-screen flex items-center justify-center px-6 pt-14">
       <div className="w-full max-w-xl flex flex-col items-center text-center gap-8">
-        <span className="inline-flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#0c0d0e] px-3 py-1 rounded-full">
+        <span className="inline-flex items-center gap-2 text-[11px] font-medium text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#0c0d0e] px-3 py-1 rounded-full">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
           ReachAI
         </span>

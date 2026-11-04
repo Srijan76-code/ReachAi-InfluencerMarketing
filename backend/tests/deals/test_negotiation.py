@@ -124,3 +124,24 @@ async def test_reading_the_creators_reply_with_jev(monkeypatch):
         raise RuntimeError("jev down")
     monkeypatch.setattr(jc, "judge", broken)
     assert await R.read_reply("hello", CostContext()) == {}
+
+
+def test_small_prices_round_to_the_dollar_not_to_five():
+    a = N.advise(fair_low=5.57, fair_high=9.66, typical_views=1350, quote=None)
+    assert (a.fair_low, a.fair_high) == (6, 10)  # was $10–$10
+
+
+def test_a_fee_plus_commission_message_may_not_mention_the_full_counter():
+    amounts = {"base": 50, "commission_pct": 10, "counter": 65}
+    assert R.allowed("Hi there, could we do $50 plus 10% commission?", amounts)
+    assert not R.allowed("Hi there, $50 plus 10% commission, lower than the $65 we discussed.", amounts)
+
+
+def test_next_offer_rules():
+    a = N.advise(fair_low=150, fair_high=210, typical_views=28_300, quote=300)
+    assert N.next_offer(a, 300, None) == (180, False)  # first round: middle of the range
+    h = N.History(offers=[180.0], asks=[300.0])
+    assert N.next_offer(a, 300, h) == (210, True)  # 180 + 0.4×120 = 228 → capped at the top: final
+    assert N.next_offer(a, 300, N.History(offers=[210.0], asks=[300.0])) == (210, True)
+    wide = N.advise(fair_low=100, fair_high=1000, typical_views=1, quote=1500)
+    assert N.next_offer(wide, 1500, N.History(offers=[300.0, 400.0, 500.0], asks=[])) == (900, True)  # round 4: final

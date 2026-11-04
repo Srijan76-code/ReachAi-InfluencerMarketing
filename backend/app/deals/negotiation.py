@@ -24,7 +24,8 @@ def deal_multiplier(deliverable: str, usage_rights: str, exclusivity_days: int) 
 
 
 def _round(x: float) -> int:
-    return int(C.ROUND_TO * math.ceil(x / C.ROUND_TO))
+    step = 1 if x < C.ROUND_SMALL_BELOW else C.ROUND_TO
+    return int(step * math.ceil(x / step))
 
 
 @dataclass
@@ -125,9 +126,40 @@ def angle_for(advice: Advice, *, goal: Optional[str], signals: Optional[dict]) -
     return "budget"
 
 
-def amounts_for(advice: Advice, angle: str, quote: Optional[float]) -> dict:
-    """The only money figures a message may contain (the LLM's output is checked against these)."""
-    counter = advice.counter or advice.fair_high or 0
+@dataclass
+class History:
+    """What has been offered so far (from the deal's timeline; numbers only)."""
+    offers: list  # our offers, oldest first, as the full-price equivalent (a base + commission offer counts its counter)
+    asks: list  # their quotes, oldest first
+
+    @property
+    def last_offer(self) -> Optional[float]:
+        return self.offers[-1] if self.offers else None
+
+    @property
+    def rounds(self) -> int:
+        return len(self.offers)
+
+
+def next_offer(advice: Advice, quote: Optional[float], history: Optional[History]) -> tuple[Optional[int], bool]:
+    """(price to offer, is it our final offer). First round: the middle of the fair range (advise). Later rounds
+    move part of the way toward their ask, never below what we already offered and never above the top of the
+    fair range; after MAX_ROUNDS, or at the top, it's the final offer."""
+    first = advice.counter or advice.fair_high
+    if not history or history.last_offer is None or not quote or not advice.fair_high:
+        return first, False
+    last, limit = history.last_offer, advice.fair_high
+    if last >= limit:
+        return int(last), True
+    step = last + C.CONCESSION_SHARE * max(0.0, quote - last)
+    new = max(int(last), min(limit, _round(step)))
+    return new, new >= limit or history.rounds >= C.MAX_ROUNDS
+
+
+def amounts_for(advice: Advice, angle: str, quote: Optional[float], counter: Optional[int] = None) -> dict:
+    """The only money figures a message may contain (the LLM's output is checked against these). `counter`
+    overrides the first-round counter with the history-aware one from next_offer()."""
+    counter = counter or advice.counter or advice.fair_high or 0
     if angle == "performance":
         base = _round(counter * C.BASE_SHARE_WITH_COMMISSION)
         return {"base": base, "commission_pct": C.SUGGESTED_COMMISSION_PCT, "counter": counter}
@@ -139,7 +171,8 @@ def amounts_for(advice: Advice, angle: str, quote: Optional[float]) -> dict:
 
 
 def template(*, name: str, advice: Advice, angle: str, amounts: dict, deliverable: str, usage_rights: str,
-             post_by: Optional[str], typical_views: Optional[float]) -> str:
+             post_by: Optional[str], typical_views: Optional[float], again: bool = False, final: bool = False) -> str:
+    """`again`: we've already made an offer (later round); `final`: this is our last offer."""
     first = greeting_name(name)
     what = DELIVERABLE_WORDS.get(deliverable, "the collaboration")
     usage = USAGE_WORDS.get(usage_rights, "")
@@ -148,7 +181,7 @@ def template(*, name: str, advice: Advice, angle: str, amounts: dict, deliverabl
     if angle == "accept":
         return (f"Hi {first},\n\nThanks for sending your rate. ${amounts['price']:,} works for us for {what}{usage}{when}. "
                 f"Shall we lock in the details?\n\nThanks!")
-    if angle == "performance":
+    if angle == "performance" and not again:
         return (f"Hi {first},\n\nThanks for sending your rate. For {what}{usage}, could we do a ${amounts['base']:,} fee "
                 f"plus {amounts['commission_pct']}% commission on every sale through your link? That way you earn more "
                 f"the better it does.\n\nWould that work for you?")
@@ -156,5 +189,13 @@ def template(*, name: str, advice: Advice, angle: str, amounts: dict, deliverabl
         return (f"Hi {first},\n\nThanks for sending your rate. To make ${amounts['price']:,} work, could we keep it to "
                 f"{what} with no paid-ads use or exclusivity? Otherwise our budget for the full package is "
                 f"${amounts['counter']:,}.\n\nLet me know what you prefer.")
+    if again and angle in ("budget", "performance"):
+        offer = (f"a ${amounts['base']:,} fee plus {amounts['commission_pct']}% commission on every sale through your link"
+                 if angle == "performance" else f"${amounts['counter']:,}")
+        if final:
+            return (f"Hi {first},\n\nThanks for working through this with us. For {what}{usage}{when}, {offer} is the most "
+                    f"we can do. If that doesn't work for you, no hard feelings, and we'd love to work together another time.")
+        return (f"Hi {first},\n\nThanks for getting back to us. We can move up to {offer} for {what}{usage}{when}.\n\n"
+                f"Would that work for you?")
     return (f"Hi {first},\n\nThanks for sending your rate. Based on your typical reach{views}, our budget for {what}{usage}"
             f"{when} is ${amounts['counter']:,}.\n\nWould that work for you?")
