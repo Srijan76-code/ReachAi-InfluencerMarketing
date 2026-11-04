@@ -37,6 +37,8 @@ export interface Influencer {
   recent_videos: {
     title: string;
     views: number;
+    url?: string | null; // watch link (new engine); older results link to the channel's videos
+    published_at?: string | null;
   }[];
 
   // ---------- AI SCORING ----------
@@ -60,6 +62,7 @@ export interface Influencer {
   // ---------- NEW DISCOVERY ENGINE (absent on results from the old one) ----------
   platform?: string;
   url?: string;
+  avatar_url?: string | null; // profile photo from the platform
   found_via?: string | null;
   flags?: string[]; // rising | trend | suspicious | country_unknown
   fair_low?: number | null;

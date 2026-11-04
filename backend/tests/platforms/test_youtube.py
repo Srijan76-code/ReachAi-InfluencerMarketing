@@ -402,3 +402,32 @@ async def test_cheap_check_covers_every_candidate_but_posts_only_for_the_best():
     assert over  # passed the cheap check but weren't measured, and say so
     ranked = [r.platform_id for r in refs]
     assert [p["platform_id"] for p in profiles] == [c for c in ranked if c in {p["platform_id"] for p in profiles}]
+
+
+# --- profile photos ----------------------------------------------------------------------------------
+
+def test_channel_photo_is_kept_preferring_the_medium_size():
+    a = adapter()
+    base = {"id": "UC1", "snippet": {"title": "T"}, "statistics": {"subscriberCount": "10"}}
+    item = {**base, "snippet": {"title": "T", "thumbnails": {"default": {"url": "https://yt3/s88"}, "medium": {"url": "https://yt3/s240"}}}}
+    assert a._channel_to_profile(item)["avatar_url"] == "https://yt3/s240"
+    only_default = {**base, "snippet": {"title": "T", "thumbnails": {"default": {"url": "https://yt3/s88"}}}}
+    assert a._channel_to_profile(only_default)["avatar_url"] == "https://yt3/s88"
+    assert a._channel_to_profile(base)["avatar_url"] is None  # no photo: the UI shows the initial
+
+
+@pytest.mark.asyncio
+async def test_fetch_avatars_batches_fifty_and_skips_channels_without_a_photo():
+    calls = []
+
+    class API:
+        async def channels(self, **p):
+            ids = p["id"].split(",")
+            calls.append(len(ids))
+            return {"items": [{"id": i, "snippet": {"thumbnails": {"default": {"url": f"https://yt3/{i}"}}}} for i in ids if i != "UCnone"]}
+
+    a = YouTubeAdapter(API(), cache=no_cache, now=lambda: RECORDED_AT)
+    ids = [f"UC{i}" for i in range(120)] + ["UCnone", "UC0"]
+    photos = await a.fetch_avatars(ids)
+    assert calls == [50, 50, 21]  # deduped, 50 per call
+    assert len(photos) == 120 and "UCnone" not in photos and photos["UC7"] == "https://yt3/UC7"

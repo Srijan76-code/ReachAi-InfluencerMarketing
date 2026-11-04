@@ -35,6 +35,7 @@ class CreatorProfile(TypedDict, total=False):
     display_name: str
     bio: str
     url: str
+    avatar_url: Optional[str]  # profile photo from the platform (counts as platform data: refreshed/expired like the rest)
     followers: int
     country: Optional[str]  # ISO code from the platform; None if unknown
     language: Optional[str]

@@ -16,7 +16,7 @@ def _key(resource: str, params: dict) -> str:
     return resource + "?" + json.dumps(clean, sort_keys=True)
 
 
-UNUSED_FIELDS = {"thumbnails", "localized", "tags", "etag", "liveBroadcastContent", "categoryId", "defaultAudioLanguage"}
+UNUSED_FIELDS = {"localized", "tags", "etag", "liveBroadcastContent", "categoryId", "defaultAudioLanguage"}
 MAX_DESCRIPTION = 1500
 
 

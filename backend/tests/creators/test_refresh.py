@@ -236,3 +236,23 @@ async def test_old_checkpoint_threads_are_purged_recent_ones_kept():
             row = await cur.fetchone()
             assert (row["n"] if isinstance(row, dict) else row[0]) == 0
         await saver.adelete_thread("new-thread")
+
+
+@pytest.mark.asyncio
+async def test_results_without_photos_get_them_added(sf, world):
+    class PhotoAdapter(FakeAdapter):
+        async def fetch_avatars(self, ids):
+            self.photo_ids = list(ids)
+            return {i: f"https://yt3/{i}" for i in ids if i != "UCgone"}
+
+    adapter = PhotoAdapter({"UCuseful": yt("UCuseful")})
+    report = await run_refresh(adapter_factory=lambda: adapter, session_factory=sf)
+    async with sf() as s:
+        camp = (await s.execute(select(Campaign))).scalar_one()
+    by_id = {l["id"]: l for l in camp.campaign_leads}
+    assert by_id["UClater"]["avatar_url"] == "https://yt3/UClater"  # a recent result gets its photo
+    assert "avatar_url" not in by_id["UCold"]  # expired results stay without YouTube data
+    assert "x-not-youtube" not in adapter.photo_ids and "UCold" not in adapter.photo_ids
+    assert report.avatars_added >= 1
+    again = await run_refresh(adapter_factory=lambda: PhotoAdapter({}), session_factory=sf)
+    assert again.avatars_added == 0  # nothing left to fill

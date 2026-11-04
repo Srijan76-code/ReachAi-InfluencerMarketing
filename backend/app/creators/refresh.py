@@ -37,7 +37,7 @@ TTL = C.DATA_TTL[PLATFORM]
 
 # Lead fields that come from YouTube (refreshed or removed). Scores, labels and reasons are ours.
 API_FIELDS = ("title", "description", "country", "uploads_id", "subscribers", "video_count", "estimated_cpm",
-              "lifetime_health", "metrics", "socials", "valuation", "recent_videos", "url", "rising", "momentum",
+              "lifetime_health", "metrics", "socials", "valuation", "recent_videos", "url", "avatar_url", "rising", "momentum",
               "anomaly_score", "fair_low", "fair_high")
 KEEP_WHEN_EXPIRED = ("id", "title", "url", "platform", "creator_id", "final_score", "deal_status", "relevance_score",
                      "semantic_score", "score_breakdown", "llm_reasoning", "flags", "found_via", "niche", "risk")
@@ -55,6 +55,7 @@ class RefreshReport:
     run_records_cleared: int = 0
     leads_updated: int = 0
     leads_expired: int = 0
+    avatars_added: int = 0
     checkpoint_threads_deleted: int = 0
     warnings: list[str] = field(default_factory=list)
 
@@ -228,6 +229,46 @@ async def _update_results(sf, now: datetime, refreshed: dict[str, dict], report:
         await s.commit()
 
 
+async def _backfill_avatars(sf, adapter_factory, report: RefreshReport) -> None:
+    """Results saved before photos were stored get them added: one cheap lookup per 50 channels."""
+    def missing(lead) -> bool:
+        return _is_youtube_lead(lead) and not lead.get("avatar_url") and not lead.get("data_expired")
+
+    async with sf() as s:
+        campaigns = (await s.execute(select(Campaign).where(Campaign.campaign_leads.is_not(None)))).scalars().all()
+        saved = (await s.execute(select(SavedLead))).scalars().all()
+        ids = [l["id"] for c in campaigns for l in (c.campaign_leads or []) if missing(l)]
+        ids += [sl.lead_data["id"] for sl in saved if missing(sl.lead_data or {})]
+        ids = list(dict.fromkeys(ids))[: C.AVATAR_BACKFILL_MAX]
+        if not ids:
+            return
+        adapter = adapter_factory()
+        fetch = getattr(adapter, "fetch_avatars", None)
+        if fetch is None:
+            return
+        try:
+            photos = await fetch(ids)
+        except Exception as exc:
+            report.warnings.append(f"photo lookup failed: {type(exc).__name__}")
+            return
+        for c in campaigns:
+            new, changed = [], False
+            for l in c.campaign_leads or []:
+                if missing(l) and l["id"] in photos:
+                    l = {**l, "avatar_url": photos[l["id"]]}
+                    changed = True
+                    report.avatars_added += 1
+                new.append(l)
+            if changed:
+                c.campaign_leads = new
+        for sl in saved:
+            d = sl.lead_data or {}
+            if missing(d) and d["id"] in photos:
+                sl.lead_data = {**d, "avatar_url": photos[d["id"]]}
+                report.avatars_added += 1
+        await s.commit()
+
+
 async def _fresh_profiles(sf, now: datetime) -> dict[str, dict]:
     """platform_id -> stored profile, for YouTube creators whose data is still within 30 days."""
     async with sf() as s:
@@ -293,6 +334,7 @@ async def run_refresh(*, adapter_factory: Callable[[], Any], now: Optional[datet
 
     await _purge_old_copies(sf, now, report)
     await _update_results(sf, now, refreshed, report)
+    await _backfill_avatars(sf, adapter_factory, report)
     logger.info("youtube refresh: %s", report.to_dict())
     return report
 

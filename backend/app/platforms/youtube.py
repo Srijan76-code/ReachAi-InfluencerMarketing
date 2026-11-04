@@ -117,6 +117,16 @@ def rank_fused(results: list[tuple[str, list[tuple[str, str]]]], cap: int) -> li
     return [CandidateRef(platform="youtube", platform_id=c, found_via=first[c][2], query=first[c][3]) for c in ordered[:cap]]
 
 
+def _thumbnail(snippet: dict) -> Optional[str]:
+    """The channel's profile photo: 240px ("medium") if present, else the smallest one."""
+    thumbs = snippet.get("thumbnails") or {}
+    for size in ("medium", "high", "default"):
+        url = (thumbs.get(size) or {}).get("url")
+        if url:
+            return url
+    return None
+
+
 class YouTubeAdapter:
     platform = "youtube"
 
@@ -194,6 +204,20 @@ class YouTubeAdapter:
 
     # --- Fetching -------------------------------------------------------------------------------
 
+    async def fetch_avatars(self, channel_ids: list[str]) -> dict[str, str]:
+        """Profile photos only: 1 quota unit per 50 channels (used to add photos to older results)."""
+        out: dict[str, str] = {}
+        ids = list(dict.fromkeys(channel_ids))
+        for batch in _chunks(ids, BATCH):
+            page = await self._safe(self.api.channels(part="snippet", id=",".join(batch), maxResults=BATCH), "photo lookup")
+            for item in (page or {}).get("items", []):
+                url = _thumbnail(item.get("snippet") or {})
+                if url:
+                    out[item["id"]] = url
+            if self._quota_exhausted:
+                break
+        return out
+
     def _channel_to_profile(self, item: dict) -> CreatorProfile:
         snip, stats = item.get("snippet", {}), item.get("statistics", {})
         description = snip.get("description", "") or ""
@@ -206,6 +230,7 @@ class YouTubeAdapter:
             display_name=snip.get("title", ""),
             bio=description,
             url=f"https://www.youtube.com/{handle}" if handle else f"https://www.youtube.com/channel/{item['id']}",
+            avatar_url=_thumbnail(snip),
             followers=0 if stats.get("hiddenSubscriberCount") else (_int(stats.get("subscriberCount")) or 0),
             country=(snip.get("country") or None),
             language=snip.get("defaultLanguage"),
