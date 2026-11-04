@@ -125,13 +125,14 @@ Known gaps in what's built:
 | K2 | Old pipeline nodes still call `app/core/model.py` directly; they move to `app/llm` as part of F1.7/F1.9 | later |
 | K6 | Tune Jev questions and thresholds on ~300 AI-labelled creators (user spot-checks 20%). First live check (3 real creators, Nov 3): `safety_risk` 1.43 for purely technical LLM videos (Ayush Singh) is a misread: reword the safety question with concrete examples; `posts_on_trend` ~0.6 for all three: raise `TREND_THRESHOLD` or tighten the question | next |
 | K7 | `outreach_pitches` index name differs between the old migration (`ix_outreach_pitches_job_id`) and the model (`ix_outreach_pitches_outreach_job_id`); `alembic check` reports it. Harmless; align with a tiny migration later | later |
-| K8 | Production DB needs `alembic upgrade head` (creates the pgvector extension and creator tables). Vercel deploys don't run migrations | next (user) |
+| K8 | Production database migrated to head (`e4b8c1d6a2f9`) on Nov 4 through the Neon connector. Vercel deploys don't run migrations: apply each new migration the same way | done |
 | K9 | Saved demo data has a wrong channel ID: `UCkw4JCwteGrDHIsyIIKo4tQ` is labelled "Krish Naik" but belongs to edureka!. Only names/numbers are shown, so nothing breaks; fix when regenerating demo data | later |
 | K10 | Jev key was an OpenRouter key, so TypeSafe's server rejected it. Fixed: the client detects OpenRouter keys and uses OpenRouter's Jev gateway, pinned to `typesafe/jev-1.14-20261014` (`jev-openrouter`) | done |
 | K11 | YouTube's API doesn't include a channel's "links" section, so cross-platform links are rarely found from YouTube alone (0 of 8 in the first recording). Links will mostly come from X/Instagram profiles and link pages | later |
 | K12 | Frontend bugs found while wiring the new engine: `getCountryCode` sends country names the backend can't map, and the brief form sends a hard-coded website. Fix in `results-ui` (F1.12) | next |
 | K13 | First live runs (Nov 3): most YouTube candidates fail the minimum-subscriber check (84 of 114), because channel search on sentence-like queries returns few channels. The top-up round (video search by views) doubled the leads (8 → 16). Next: shorter channel-search queries in the strategy prompt, and track pass rate per query | next |
 | K14 | No result reached "Strong Buy" in the first live runs (top 63.9, "Consider"). Check the label thresholds as part of K6 | next |
+| K15 | Neon branch names don't match what's live: the app uses the branch named `dev ` (trailing space, endpoint `ep-calm-sky`); the branch named `production` is stale (first migration only, unused since Sep 28). Rename in the Neon console when convenient; nothing is broken | later (user) |
 | K3 | Route models for `strategy`, `pitch`, `reply` are placeholders (current Gemini first); pick them with the LangSmith evals | next |
 
 ## Open questions waiting on the user
