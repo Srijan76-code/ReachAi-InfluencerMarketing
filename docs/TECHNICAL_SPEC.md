@@ -26,7 +26,7 @@
 | Extra sources | Competitor sponsors, lookalikes, founder's own X followers, pre-warmed trending niches (§4.10) |
 | Results UX | **Stream results as they arrive** (§4.12) |
 | Discovery quality rule | **Probe every selected platform, expand where a probe beats the current top N**; fit floor as a safety net; recall benchmark ≥ 90% (§4.9) |
-| Pipeline rollout | Replace the old YouTube pipeline directly once the new one works; compare both on 3 briefs before deleting the old code (roadmap Phase 1) |
+| Pipeline rollout | Replace the old YouTube pipeline once the new one matches or beats it on 3 blind-rated briefs. Until then the env switch `DISCOVERY_ENGINE` (`legacy` default, `graph`) picks the engine; the switch and old code are removed after (roadmap F1.13) |
 | Run execution | LangGraph runs and resumes the pipeline from Postgres checkpoints; Inngest starts, retries (resume), limits (2 per user, 10 total) and cancels runs (a re-run cancels the previous one); platforms are parallel LangGraph branches; Vercel; Postgres caches (§4.14) |
 | After the deal | Founder pays creators directly (we send pay-on-proof requests and track); own short links; promo codes + signup snippet/server event; tracking included in paid plans (§8) |
 | Outreach | **Connected inbox**; founder approves first messages, follow-ups automatic; A/B test soft vs. concrete-offer first message (§7) |
