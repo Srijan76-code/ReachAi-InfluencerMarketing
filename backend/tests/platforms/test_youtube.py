@@ -106,11 +106,13 @@ def test_search_plan_dedupes_and_falls_back_to_topics():
 # --- failures --------------------------------------------------------------------------------------------
 
 @pytest.mark.asyncio
-async def test_quota_exhaustion_stops_searching_and_is_reported():
-    api = ReplayAPI(overrides={"search": YouTubeAPIError(403, "quotaExceeded")})
+@pytest.mark.parametrize("reason", ["quotaExceeded", "rateLimitExceeded"])
+async def test_quota_exhaustion_stops_searching_and_is_reported(reason):
+    api = ReplayAPI(overrides={"search": YouTubeAPIError(403, reason)})
     a = adapter(api)
     refs = await a.source_candidates(Strategy(topics=[], pain_points=[], queries={"youtube": ["a", "b", "c"]}), Limits(max_queries=6))
-    assert refs == [] and any("quota" in w for w in a.warnings)
+    assert refs == [] and any("daily limit" in w for w in a.warnings)
+    assert len(a.warnings) == 1  # one clear message, not one per search
     assert api.calls.count("search") <= 4  # the rest were skipped once the quota ran out (some run concurrently)
 
 
@@ -300,6 +302,8 @@ def test_http_client_needs_a_key(monkeypatch):
 def test_quota_error_detection():
     assert YouTubeAPIError(403, "quotaExceeded").quota_exceeded
     assert not YouTubeAPIError(403, "forbidden").quota_exceeded
+    assert YouTubeAPIError(403, "rateLimitExceeded").quota_exceeded  # also sent once the daily search allowance is gone
+    assert YouTubeAPIError(403, "dailyLimitExceeded").quota_exceeded
     assert not YouTubeAPIError(500, "quotaExceeded").quota_exceeded
 
 

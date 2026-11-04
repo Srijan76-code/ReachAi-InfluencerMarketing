@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 # --- Settings ---------------------------------------------------------------------------------
 TREND_SHARE = 0.25  # share of the search budget spent on recent-video (trend) search; niche trend searches return few results
+QUOTA_WARNING = "YouTube's daily limit was reached (it resets at midnight Pacific time), so some searches or creators were skipped"
 SEARCH_RESULTS = 50  # max per search call (API limit)
 POSTS_PER_CREATOR = 15
 BATCH = 50  # max ids per channels.list / videos.list call
@@ -155,8 +156,9 @@ class YouTubeAdapter:
             ids, _ = await self._cache("search", key, timedelta(hours=SEARCH_CACHE_HOURS), run)
         except YouTubeAPIError as exc:
             if exc.quota_exceeded:
+                if not self._quota_exhausted:  # one message, even when parallel searches all fail
+                    self.warnings.append(QUOTA_WARNING)
                 self._quota_exhausted = True
-                self.warnings.append("YouTube daily quota reached; some searches were skipped")
             else:
                 self.warnings.append(f"search failed for '{query}': {exc.reason}")
             return []
@@ -237,8 +239,9 @@ class YouTubeAdapter:
             return await coro
         except YouTubeAPIError as exc:
             if exc.quota_exceeded:
+                if not self._quota_exhausted:
+                    self.warnings.append(QUOTA_WARNING)
                 self._quota_exhausted = True
-                self.warnings.append("YouTube daily quota reached; some creators weren't fetched")
             else:
                 self.warnings.append(f"{what} failed: {exc.reason}")
             return None

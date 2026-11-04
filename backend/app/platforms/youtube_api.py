@@ -28,7 +28,13 @@ class YouTubeAPIError(RuntimeError):
 
     @property
     def quota_exceeded(self) -> bool:
-        return self.status == 403 and "quota" in self.reason.lower()
+        """Out of quota for now: stop calling YouTube for the rest of the run. Includes
+        rateLimitExceeded, which YouTube also returns once the daily search allowance is used up."""
+        reason = self.reason.lower()
+        return self.status == 403 and ("quota" in reason or reason in STOP_REASONS)
+
+
+STOP_REASONS = {"ratelimitexceeded", "userratelimitexceeded", "dailylimitexceeded"}
 
 
 class YouTubeAPI(Protocol):
