@@ -177,7 +177,7 @@ class FakeProbeAdapter:
         self.calls.append(limits.max_queries)
         return [CandidateRef("x", f"x{i}", "search") for i in range(3)]
 
-    async def fetch_profiles(self, refs, constraints=None):
+    async def fetch_profiles(self, refs, constraints=None, max_deep=None):
         from tests.shared_core.factories import post, profile
         from scripts.record_youtube_fixtures import RECORDED_AT
 
@@ -365,8 +365,8 @@ async def test_creators_without_a_country_are_flagged_when_the_brief_sets_countr
         a = factory()
         real = a.fetch_profiles
 
-        async def fetch(refs, constraints=None):
-            profiles = await real(refs, constraints)
+        async def fetch(refs, constraints=None, max_deep=None):
+            profiles = await real(refs, constraints, max_deep)
             for p in profiles:
                 if p["display_name"].lower().startswith("campusx"):
                     p["country"] = None

@@ -37,8 +37,10 @@ STRATEGY = StrategyOut(
 
 
 def use_recorded_limits(monkeypatch):
-    """The recording used a 2-search budget; make the 'full' branch ask for exactly that."""
-    monkeypatch.setitem(L.LIMITS_BY_MODE, "full", replace(RECORDED_LIMITS, region=None))
+    """The recording used a 2-search budget; make the 'full' branch ask for exactly that. All 100 search
+    results become candidates (fused ranking would otherwise pick channels whose details weren't
+    recorded); the 8 recorded channels are the ones the replayed channel lookups return."""
+    monkeypatch.setitem(L.LIMITS_BY_MODE, "full", replace(RECORDED_LIMITS, region=None, max_candidates=100))
 
 
 async def _no_cache(namespace, key, ttl, compute):

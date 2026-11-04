@@ -73,6 +73,7 @@ class ReplayAPI:
         self.overrides = overrides or {}
         self.calls: list[str] = []
         self.misses: list[str] = []
+        self.unrecorded: list[str] = []  # ids asked for in a batch whose other ids were recorded
 
     async def _get(self, resource, params):
         key = _key(resource, params)
@@ -86,8 +87,11 @@ class ReplayAPI:
             return self.responses[key]
         if resource in self.items and "id" in params:
             ids = str(params["id"]).split(",")
-            if all(i in self.items[resource] for i in ids):
-                return {"items": [self.items[resource][i] for i in ids]}
+            # Like the real API, unknown ids are simply left out (as for deleted channels);
+            # they're listed in `unrecorded` so tests can see them.
+            known = [i for i in ids if i in self.items[resource]]
+            self.unrecorded.extend(i for i in ids if i not in self.items[resource])
+            return {"items": [self.items[resource][i] for i in known]}
         self.misses.append(key)
         return {"items": []}
 

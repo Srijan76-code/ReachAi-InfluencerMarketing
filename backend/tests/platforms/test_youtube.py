@@ -10,7 +10,13 @@ from app.metrics.compute import BriefContext, compute_metrics, passes_gates
 from app.platforms.base import CandidateRef, Limits, PlatformAdapter, Strategy
 from app.platforms.youtube import BATCH, YouTubeAdapter, extract_links
 from app.platforms.youtube_api import HttpYouTubeAPI, YouTubeAPIError
-from scripts.record_youtube_fixtures import CONSTRAINTS, LIMITS, RECORDED_AT, STRATEGY
+from dataclasses import replace
+
+from scripts.record_youtube_fixtures import CONSTRAINTS, LIMITS as RECORDED_LIMITS, RECORDED_AT, STRATEGY
+
+# Every search result becomes a candidate: fused ranking puts channels found by both recorded searches
+# first, and only 8 channels' details were recorded. Unrecorded ids are left out, like deleted channels.
+LIMITS = replace(RECORDED_LIMITS, max_candidates=100)
 from tests.platforms.youtube_replay import FIXTURE, ReplayAPI
 
 
@@ -36,7 +42,8 @@ async def run_recorded():
 async def test_replay_matches_every_recorded_call():
     api, a, refs, profiles = await run_recorded()
     assert api.misses == [] and a.warnings == []
-    assert Counter(api.calls) == {"search": 2, "channels": 1, "playlistItems": 8, "videos": 3}
+    assert Counter(api.calls) == {"search": 2, "channels": 2, "playlistItems": 8, "videos": 3}  # 100 ids = 2 lookups
+    assert len(profiles) == 8 and len(api.unrecorded) == len(refs) - 8
 
 
 @pytest.mark.asyncio
@@ -44,7 +51,7 @@ async def test_candidates_mix_channel_and_trend_search():
     _, _, refs, _ = await run_recorded()
     vias = Counter(r.found_via for r in refs)
     assert vias["search"] > 0 and vias["trend_search"] > 0
-    assert len({r.platform_id for r in refs}) == len(refs) == LIMITS.max_candidates
+    assert len({r.platform_id for r in refs}) == len(refs) <= LIMITS.max_candidates  # deduped across searches
 
 
 @pytest.mark.asyncio
@@ -363,3 +370,35 @@ async def test_top_up_video_search_is_all_time_by_views_and_cached_separately():
     assert seen_params[0]["type"] == "video" and seen_params[0]["order"] == "viewCount"
     assert "publishedAfter" not in seen_params[0]
     assert keys[0]["order"] == "viewCount" and keys[0]["kind"] == "video" and "order" not in keys[1]
+
+
+# --- fused ranking -------------------------------------------------------------------------------------
+
+def test_fused_ranking_puts_channels_found_by_several_searches_first():
+    from app.platforms.youtube import rank_fused
+
+    results = [("q1", [("A", "search"), ("B", "search"), ("C", "search")]),
+               ("q2", [("D", "trend_search"), ("C", "trend_search"), ("E", "trend_search")])]
+    order = [r.platform_id for r in rank_fused(results, 10)]
+    assert order[0] == "C"  # in both searches
+    assert order[1:3] == ["A", "D"]  # then each search's top result, in search order
+    assert set(order) == {"A", "B", "C", "D", "E"} and len(order) == 5
+    c = rank_fused(results, 10)[0]
+    assert c.found_via == "trend_search" and c.query == "q2"  # where it ranked best (rank 1 vs 2)
+    assert [r.platform_id for r in rank_fused(results, 2)] == ["C", "A"]  # cap respected
+    assert rank_fused([], 5) == [] and rank_fused([("q", [])], 5) == []
+
+
+@pytest.mark.asyncio
+async def test_cheap_check_covers_every_candidate_but_posts_only_for_the_best():
+    """Subscriber counts for all candidates (1 unit per 50); posts only for the first `max_deep` that pass."""
+    api = ReplayAPI()
+    a = adapter(api)
+    refs = await a.source_candidates(STRATEGY, LIMITS)
+    profiles = await a.fetch_profiles(refs, CONSTRAINTS, max_deep=3)
+    assert len(profiles) == 3 and api.calls.count("playlistItems") == 3
+    assert api.calls.count("channels") == 2  # every candidate's channel info was checked
+    over = [cid for cid, why in a.dropped.items() if why.startswith("over the measuring limit")]
+    assert over  # passed the cheap check but weren't measured, and say so
+    ranked = [r.platform_id for r in refs]
+    assert [p["platform_id"] for p in profiles] == [c for c in ranked if c in {p["platform_id"] for p in profiles}]

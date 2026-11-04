@@ -277,8 +277,9 @@ async def fetch_measure(state: BranchState, runtime: Runtime[Deps]) -> dict:
     todo = list(via) if state.get("fetch_ids") is None else state["fetch_ids"]
     if state.get("fetch_ids") is not None:
         limits = L.TOPUP_LIMITS
-    refs = [CandidateRef(platform, pid, via[pid]) for pid in todo[: limits.max_profiles]]
-    profiles = await adapter.fetch_profiles(refs, brief.constraints())
+    # Every candidate gets the cheap profile check; only the best `max_profiles` that pass get posts fetched.
+    refs = [CandidateRef(platform, pid, via[pid]) for pid in todo[: limits.max_candidates]]
+    profiles = await adapter.fetch_profiles(refs, brief.constraints(), max_deep=limits.max_profiles)
     sf, mctx, now = runtime.context.session_factory, brief.metrics_context(), _now(runtime)
 
     kept, rows = [], []

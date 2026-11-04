@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 # --- Settings ---------------------------------------------------------------------------------
 TREND_SHARE = 0.25  # share of the search budget spent on recent-video (trend) search; niche trend searches return few results
 QUOTA_WARNING = "YouTube's daily limit was reached (it resets at midnight Pacific time), so some searches or creators were skipped"
+RRF_K = 60  # reciprocal rank fusion constant (the usual default)
 SEARCH_RESULTS = 50  # max per search call (API limit)
 POSTS_PER_CREATOR = 15
 BATCH = 50  # max ids per channels.list / videos.list call
@@ -99,6 +100,21 @@ def extract_links(text: str) -> tuple[list[str], dict[str, str], list[str]]:
     others = [u.rstrip("/.") for u in URL.findall(text)]
     others = [u for u in dict.fromkeys(others) if not any(u.startswith(s) for s in social_urls)]
     return emails, socials, others
+
+
+def rank_fused(results: list[tuple[str, list[tuple[str, str]]]], cap: int) -> list[CandidateRef]:
+    """Merge several searches' results with reciprocal rank fusion: score = sum of 1 / (RRF_K + rank)
+    over the searches a channel appears in. Channels several searches agree on come first; the top
+    result of every search still ranks high, so no single search crowds out the others."""
+    score: dict[str, float] = {}
+    first: dict[str, tuple[int, int, str, str]] = {}  # cid -> (rank, search order, via, query)
+    for order, (query, hits) in enumerate(results):
+        for rank, (cid, via) in enumerate(hits):
+            score[cid] = score.get(cid, 0.0) + 1.0 / (RRF_K + rank)
+            if cid not in first or (rank, order) < first[cid][:2]:
+                first[cid] = (rank, order, via, query)
+    ordered = sorted(score, key=lambda c: (-score[c], first[c][0], first[c][1]))
+    return [CandidateRef(platform="youtube", platform_id=c, found_via=first[c][2], query=first[c][3]) for c in ordered[:cap]]
 
 
 class YouTubeAdapter:
@@ -174,17 +190,7 @@ class YouTubeAdapter:
                 return q, await self._search(kind, q, limits)
 
         results = await asyncio.gather(*(one(k, q) for k, q in plan))
-        # Take results round-robin across searches, so the candidate cap doesn't keep only the
-        # first search's results (trend results would otherwise never make it in).
-        refs: dict[str, CandidateRef] = {}
-        longest = max((len(hits) for _, hits in results), default=0)
-        for rank in range(longest):
-            for query, hits in results:
-                if rank < len(hits):
-                    cid, via = hits[rank]
-                    if cid not in refs:
-                        refs[cid] = CandidateRef(platform="youtube", platform_id=cid, found_via=via, query=query)
-        return list(refs.values())[: limits.max_candidates]
+        return rank_fused(results, limits.max_candidates)
 
     # --- Fetching -------------------------------------------------------------------------------
 
@@ -246,7 +252,10 @@ class YouTubeAdapter:
                 self.warnings.append(f"{what} failed: {exc.reason}")
             return None
 
-    async def fetch_profiles(self, refs: list[CandidateRef], constraints: Optional[dict] = None) -> list[CreatorProfile]:
+    async def fetch_profiles(self, refs: list[CandidateRef], constraints: Optional[dict] = None,
+                             max_deep: Optional[int] = None) -> list[CreatorProfile]:
+        """Channel info for every ref (1 unit per 50), then the cheap filter, then recent videos
+        (about 1 unit per creator) for at most `max_deep` survivors, in the order given."""
         ids = list(dict.fromkeys(r.platform_id for r in refs if r.platform == "youtube"))
         if not ids:
             return []
@@ -278,6 +287,10 @@ class YouTubeAdapter:
                     self.dropped[cid] = reason or "filtered"
                     continue
             survivors.append(p)
+        if max_deep is not None and len(survivors) > max_deep:
+            for p in survivors[max_deep:]:
+                self.dropped[p["platform_id"]] = "over the measuring limit for this run"
+            survivors = survivors[:max_deep]
 
         # 3. latest uploads per creator: 1 unit each
         async def uploads(p: CreatorProfile) -> list[str]:
