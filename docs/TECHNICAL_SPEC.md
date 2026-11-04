@@ -27,7 +27,7 @@
 | Results UX | **Stream results as they arrive** (§4.12) |
 | Discovery quality rule | **Probe every selected platform, expand where a probe beats the current top N**; fit floor as a safety net; recall benchmark ≥ 90% (§4.9) |
 | Creator country when the platform lists none | **Jev decides, no estimating in code (decided Nov 4).** For creators with no listed country, the per-creator Jev request gets one more question: which of the brief's countries is the audience mostly in (`other` / `not_stated` allowed), from bio, titles and description openings. Code only applies thresholds: a target country at ≥ 0.6 confidence counts as that country (no penalty, marked "judged from their posts"); `other` at ≥ 0.75 drops the creator; anything else keeps them × 0.8 flagged `country_unknown`. No extra requests. Web search was rejected (paid vendor, slow, finds where the creator lives, not the audience) |
-| Sharing | **Drive-style, view only, no viewer accounts (decided Nov 4).** Personal link per email or "anyone with the link" (30 days). Fair prices per link, off by default. Contact details only for a named person who passes a one-time email code (PR 4b), never on a public link. No emails sent by ReachAI except those codes: Gmail SMTP until there's a domain, then Resend. Editors are a Teams feature, not a link role |
+| Sharing | **Drive-style, no viewer accounts (decided Nov 4, revised the same day).** Invite by email (personal link, Can view or Can review) or "anyone with the link" (view only, 30 days). Fair prices per link, off by default. **Contact details are never shared through links**, so there are no email codes and ReachAI sends no email. Editors are a Teams feature, not a link role |
 | Pipeline rollout | **The new discovery graph replaces the old pipeline (decided Nov 4).** The 3-brief comparison showed it never breaks size/country rules and leads on the consumer brief; its recall on niche B2B is tuned on top. The old pipeline and the `DISCOVERY_ENGINE` switch are removed (roadmap F1.13) |
 | Run execution | LangGraph runs and resumes the pipeline from Postgres checkpoints; Inngest starts, retries (resume), limits (2 per user, 5 total: Inngest free-plan maximum, was 10) and cancels runs (a re-run cancels the previous one); platforms are parallel LangGraph branches; Vercel; Postgres caches (§4.14) |
 | After the deal | Founder pays creators directly (we send pay-on-proof requests and track); own short links; promo codes + signup snippet/server event; tracking included in paid plans (§8) |
@@ -887,7 +887,6 @@ GET  /creators/{creator_id}                       → profile + latest snapshot 
 GET  /campaigns/{id}/skipped                       → {looked_at, skipped, reasons[{reason, count}]} (built)
 GET/POST /campaigns/{id}/shares, PATCH/DELETE /shares/{link_id} → owner manages view-only links (built)
 GET  /share/{token}                               → public, allowlisted shortlist; 404 unknown, 410 off/expired (built)
-POST /share/{token}/code, POST /share/{token}/verify → email code → session (X-Share-Session) that shows contacts (built)
 PUT  /share/{token}/feedback/{creator_id}          → reviewer verdict + comment (built)
 GET  /campaigns/{id}/feedback                      → owner: what reviewers said (built)
 POST /campaigns/{id}/creators/{cid}/contact       → find + verify email (1 credit)

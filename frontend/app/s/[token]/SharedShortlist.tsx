@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Eye, Lock, Mail, MessageSquare } from "lucide-react";
+import { Eye, Lock, MessageSquare } from "lucide-react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Sheet } from "@/components/ui/sheet";
 import { InfluencerRow } from "@/app/ListOfInfluencer/InfluencerRow";
@@ -21,96 +21,13 @@ type Shared = {
   creators: Influencer[];
   can_review: boolean;
   my_feedback: Record<string, MyFeedback>;
-  contacts: { offered: boolean; verified: boolean; email_hint: string | null };
 };
 
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
-const sessionKey = (token: string) => `reachai:share-session:${token}`;
-
-function readSession(token: string): string | null {
-  try {
-    return window.localStorage.getItem(sessionKey(token));
-  } catch {
-    return null;
-  }
-}
-
 async function call(path: string, init?: RequestInit) {
   const r = await fetch(`${BACKEND}${path}`, { cache: "no-store", referrerPolicy: "no-referrer", ...init });
   const body = await r.json().catch(() => ({}));
   return { ok: r.ok, status: r.status, body };
-}
-
-/** The email-code step that unlocks contact details (only on links that share them). */
-function ContactsGate({ token, hint, onVerified }: { token: string; hint: string | null; onVerified: () => void }) {
-  const [step, setStep] = useState<"ask" | "code">("ask");
-  const [code, setCode] = useState("");
-  const [msg, setMsg] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  const send = async () => {
-    setBusy(true);
-    setMsg(null);
-    const r = await call(`/api/share/${encodeURIComponent(token)}/code`, { method: "POST" });
-    setBusy(false);
-    if (r.ok) setStep("code");
-    else setMsg(typeof r.body?.detail === "string" ? r.body.detail : "Couldn't send the code.");
-    if (r.status === 429) setStep("code"); // a code was just sent: let them type it
-  };
-  const verify = async () => {
-    setBusy(true);
-    setMsg(null);
-    const r = await call(`/api/share/${encodeURIComponent(token)}/verify`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code }),
-    });
-    setBusy(false);
-    if (r.ok && r.body?.session) {
-      try {
-        window.localStorage.setItem(sessionKey(token), r.body.session);
-      } catch {}
-      onVerified();
-    } else setMsg(typeof r.body?.detail === "string" ? r.body.detail : "That didn't work.");
-  };
-
-  return (
-    <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#0c0d0e] p-3.5 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
-      <div className="flex items-start gap-2.5">
-        <Mail size={16} className="mt-0.5 text-zinc-400 shrink-0" />
-        <div>
-          <p className="text-xs font-medium text-zinc-900 dark:text-zinc-100">Contact details are hidden</p>
-          <p className="text-[11px] text-zinc-500">
-            {step === "ask"
-              ? `To see them, confirm it's you: we'll email a 6-digit code to ${hint ?? "your inbox"}.`
-              : `Enter the code we sent to ${hint ?? "your inbox"}. It works for 10 minutes.`}
-          </p>
-          {msg && <p className="text-[11px] text-rose-500 mt-1">{msg}</p>}
-        </div>
-      </div>
-      {step === "ask" ? (
-        <button type="button" onClick={send} disabled={busy} className="h-8 px-3 text-xs font-medium rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 hover:opacity-90 disabled:opacity-50 shrink-0">
-          {busy ? "Sending…" : "Email me a code"}
-        </button>
-      ) : (
-        <form className="flex items-center gap-2 shrink-0" onSubmit={(e) => { e.preventDefault(); verify(); }}>
-          <input
-            value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            placeholder="123456"
-            aria-label="6-digit code"
-            className="w-24 h-8 px-2 text-sm font-mono tracking-widest text-center rounded-md border border-zinc-200 dark:border-zinc-800 bg-transparent focus:outline-none focus:border-zinc-400"
-          />
-          <button type="submit" disabled={busy || code.length !== 6} className="h-8 px-3 text-xs font-medium rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 hover:opacity-90 disabled:opacity-50">
-            {busy ? "Checking…" : "Confirm"}
-          </button>
-          <button type="button" onClick={send} disabled={busy} className="text-[11px] text-zinc-500 hover:underline">Resend</button>
-        </form>
-      )}
-    </div>
-  );
 }
 
 /** A shortlist someone shared. No sign-in: the link is the permission. */
@@ -122,9 +39,8 @@ export default function SharedShortlist({ token }: { token: string }) {
   const [compareOpen, setCompareOpen] = useState(false);
 
   const load = useCallback(async () => {
-    const session = readSession(token);
     try {
-      const r = await call(`/api/share/${encodeURIComponent(token)}`, session ? { headers: { "X-Share-Session": session } } : undefined);
+      const r = await call(`/api/share/${encodeURIComponent(token)}`);
       if (r.ok) setData(r.body as Shared);
       else setError(typeof r.body?.detail === "string" ? r.body.detail : "This link can't be opened.");
     } catch {
@@ -202,9 +118,6 @@ export default function SharedShortlist({ token }: { token: string }) {
                 </div>
               </header>
 
-              {data.contacts.offered && !data.contacts.verified && (
-                <ContactsGate token={token} hint={data.contacts.email_hint} onVerified={load} />
-              )}
 
               {data.creators.length === 0 ? (
                 <p className="text-sm text-zinc-500 px-1">No creators in this shortlist.</p>
@@ -236,7 +149,6 @@ export default function SharedShortlist({ token }: { token: string }) {
                           <InfluencerDetailSheet
                             influencer={c}
                             readOnly
-                            showContacts={data.contacts.verified}
                             reviewSlot={data.can_review ? (
                               <ReviewBox value={data.my_feedback[c.id]} onSave={(v) => saveFeedback(c.id, v)} />
                             ) : undefined}
