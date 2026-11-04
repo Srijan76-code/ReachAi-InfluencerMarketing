@@ -44,9 +44,11 @@ import { OutreachDialog } from "@/components/OutreachDialog";
 export const InfluencerDetailSheet = ({
   influencer,
   campaignId,
+  readOnly = false,
 }: {
   influencer: Influencer;
   campaignId?: string;
+  readOnly?: boolean; // shared view: no contacts, no outreach
 }) => {
   const { metrics, socials, title, deal_status, score_breakdown } = influencer;
   // the creator's channel: stored URL (new engine) or built from the channel id (older results)
@@ -135,6 +137,7 @@ export const InfluencerDetailSheet = ({
             </div>
           </div>
 
+          {!readOnly && (
           <div className="flex items-center justify-between pt-1">
             <div className="flex items-center gap-2">
               <SocialLink href={socials.instagram} label="Instagram" className="w-8 h-8 rounded border border-zinc-200/60 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-900/50 flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors text-zinc-600 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"><Instagram size={14} /></SocialLink>
@@ -158,6 +161,7 @@ export const InfluencerDetailSheet = ({
               </a>
             )}
           </div>
+          )}
         </div>
 
         {/* --- MAIN SCROLLABLE CONTENT --- */}
@@ -300,7 +304,7 @@ export const InfluencerDetailSheet = ({
               />
                <MetricCell 
                 label="Fair Value" 
-                value={`$${influencer.valuation}`} 
+                value={influencer.valuation == null ? "—" : `$${influencer.valuation}`} 
                 icon={<DollarSign size={13}/>} 
                 info="The exact budget you need to set aside to sponsor 1 video."
                 valueColorClass="text-rose-500 dark:text-rose-400 font-mono text-[14px]"

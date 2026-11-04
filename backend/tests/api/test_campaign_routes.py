@@ -26,12 +26,13 @@ async def client(tmp_path, monkeypatch):
     from app.main import app
     from app.models.campaign import Campaign, CampaignStatus
     from app.models.discovery_run import RunCandidate  # noqa: F401  (registers the table)
+    from app.models.share_link import ShareLink  # noqa: F401
     from app.models.saved_lead import SavedLead
     from app.models.user import User
     from tests.discovery.conftest import create_tables, make_engine
 
     engine, is_pg = make_engine(tmp_path)
-    await create_tables(engine, is_pg, ["users", "campaigns", "saved_leads", "run_candidates"])
+    await create_tables(engine, is_pg, ["users", "campaigns", "saved_leads", "run_candidates", "share_links"])
     sf = sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
     async with sf() as s:
         s.add_all([User(user_id="u1", clerk_id="clerk-1"), User(user_id="u2", clerk_id="clerk-2")])
@@ -213,3 +214,118 @@ def test_name_from_brief():
     assert name_from_brief({"brand": {"name": " "}}) is None and name_from_brief(None) is None
     assert is_default(None) and is_default(" Untitled Campaign ") and not is_default("Launch")
     assert len(clean_name("a" * 200)) == 80
+
+
+# --- share links ------------------------------------------------------------------------------
+
+SECRET_LEAD = {**LEADS[0], "socials": {"email": "me@creator.com", "instagram": "https://instagram.com/c"},
+               "valuation": 500, "fair_low": 400, "fair_high": 600, "estimated_cpm": 12,
+               "description": "contact me@creator.com", "match_terms": ["brief topic"], "new_private_field": "x"}
+
+
+@needs_pg
+@pytest.mark.asyncio
+async def test_share_links_show_only_allowed_fields_and_respect_prices(client):
+    from sqlalchemy import update as sa_update
+
+    from app.models.campaign import Campaign
+
+    # put a lead with contacts and prices into c1 (the fixture's session factory is the app's)
+    from app.api.routes import share as share_routes  # noqa: F401
+    r = await client.post("/api/campaigns/c1/shares", json={"kind": "anyone"})
+    assert r.status_code == 200
+    link = r.json()
+    assert link["path"].startswith("/s/") and link["expires_at"] and link["show_prices"] is False
+
+    async def patch_leads(leads):
+        from app.db import database
+        gen = client._transport.app.dependency_overrides[database.get_db]()
+        db = await gen.__anext__()
+        await db.execute(sa_update(Campaign).where(Campaign.campaign_id == "c1").values(campaign_leads=leads))
+        await db.commit()
+        await gen.aclose()
+    await patch_leads([SECRET_LEAD, *LEADS[1:]])
+
+    pub = (await client.get("/api/share/" + link["path"][3:])).json()
+    assert pub["campaign_name"] == "Mine" and pub["shared_by"] == "B" and len(pub["creators"]) == 7
+    first = pub["creators"][0]
+    text = str(pub)
+    assert "me@creator.com" not in text and "instagram.com" not in text  # contacts never leave
+    assert "new_private_field" not in first and "match_terms" not in first and "description" not in first
+    assert first["valuation"] is None and first["estimated_cpm"] is None  # prices off
+    assert first["final_score"] == 50.5 and first["title"] == "Creator 0"
+
+    # prices on for this link only
+    assert (await client.patch(f"/api/shares/{link['id']}", json={"show_prices": True})).json()["show_prices"]
+    first = (await client.get("/api/share/" + link["path"][3:])).json()["creators"][0]
+    assert first["valuation"] == 500 and first["fair_high"] == 600
+
+    # a personal link for two creators
+    p = (await client.post("/api/campaigns/c1/shares",
+                           json={"kind": "person", "email": " Investor@Fund.com ", "creator_ids": ["UC1", "UC2", "nope"]})).json()
+    assert p["email"] == "investor@fund.com" and p["creator_ids"] == ["UC1", "UC2"] and p["expires_at"] is None
+    shared = (await client.get("/api/share/" + p["path"][3:])).json()
+    assert [c["id"] for c in shared["creators"]] == ["UC1", "UC2"]
+    # the same person and creators again: the same link
+    again = (await client.post("/api/campaigns/c1/shares",
+                               json={"kind": "person", "email": "investor@fund.com", "creator_ids": ["UC1", "UC2"]})).json()
+    assert again["id"] == p["id"]
+
+    listed = (await client.get("/api/campaigns/c1/shares")).json()
+    assert {l["id"] for l in listed} == {link["id"], p["id"]}
+    assert next(l for l in listed if l["id"] == link["id"])["view_count"] == 2
+
+    # revoke: gone at once
+    assert (await client.delete(f"/api/shares/{p['id']}")).status_code == 200
+    r = await client.get("/api/share/" + p["path"][3:])
+    assert r.status_code == 410 and r.headers["cache-control"] == "no-store" and "noindex" in r.headers["x-robots-tag"]
+    assert (await client.get("/api/share/not-a-token")).status_code == 404
+
+
+@needs_pg
+@pytest.mark.asyncio
+async def test_share_links_are_owner_only_and_validated(client):
+    assert (await client.post("/api/campaigns/c3/shares", json={"kind": "anyone"})).status_code == 404  # not mine
+    assert (await client.get("/api/campaigns/c3/shares")).status_code == 404
+    assert (await client.post("/api/campaigns/c2/shares", json={"kind": "anyone"})).status_code == 422  # no creators yet
+    assert (await client.post("/api/campaigns/c1/shares", json={"kind": "person", "email": "nope"})).status_code == 422
+    assert (await client.post("/api/campaigns/c1/shares", json={"kind": "anyone", "creator_ids": ["x"]})).status_code == 422
+    assert (await client.patch("/api/shares/missing", json={"show_prices": True})).status_code == 404
+
+
+@needs_pg
+@pytest.mark.asyncio
+async def test_expired_public_link_stops_working(client):
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import update as sa_update
+
+    from app.db import database
+    from app.models.share_link import ShareLink
+
+    link = (await client.post("/api/campaigns/c1/shares", json={"kind": "anyone"})).json()
+    gen = client._transport.app.dependency_overrides[database.get_db]()
+    db = await gen.__anext__()
+    await db.execute(sa_update(ShareLink).where(ShareLink.link_id == link["id"])
+                     .values(expires_at=datetime.now(timezone.utc) - timedelta(minutes=1)))
+    await db.commit()
+    await gen.aclose()
+    assert (await client.get("/api/share/" + link["path"][3:])).status_code == 410
+    assert (await client.get("/api/campaigns/c1/shares")).json() == []  # expired links drop off the list
+
+
+def test_shared_lead_allowlist_without_a_database():
+    from types import SimpleNamespace
+
+    from app.sharing.view import ANYONE_LINK_DAYS, anyone_link_expiry, clean_email, new_token, shared_view
+
+    link = SimpleNamespace(creator_ids=None, role="viewer", show_prices=False, expires_at=None)
+    v = shared_view("Camp", {"brand": {"name": "Acme"}}, [SECRET_LEAD, "junk", None], link)
+    c = v["creators"][0]
+    assert len(v["creators"]) == 1 and c["socials"] == {"email": None, "instagram": None, "twitter": None, "linkedin": None}
+    assert set(c["metrics"]) <= {"avg_views", "engagement_rate", "reliability", "trust_score", "forecast", "volatility",
+                                 "raw_engagement"}
+    assert clean_email("A@B.co ") == "a@b.co" and clean_email("a@b") is None
+    assert len(new_token()) >= 32 and new_token() != new_token()
+    from datetime import datetime, timezone
+    assert (anyone_link_expiry(datetime(2026, 1, 1, tzinfo=timezone.utc)) - datetime(2026, 1, 1, tzinfo=timezone.utc)).days == ANYONE_LINK_DAYS
