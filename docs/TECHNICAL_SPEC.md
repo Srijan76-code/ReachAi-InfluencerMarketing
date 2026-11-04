@@ -305,7 +305,7 @@ final = 100 · clamp(0.55·fit + 0.30·health + bonus − 0.40·risk, 0, 1)
         × 0.8 if the brief sets target countries and the creator lists none (flag "country_unknown", decided Nov 4)
 
 Hard drops: is_individual < 0.4 · language_match < 0.3 · (exclude_kids and kids_content > 0.6) · injection > 0.5 · anomaly_score > 0.8
-deal_status: ≥ 75 "Strong Buy" · ≥ 55 "Consider" · else "Avoid"
+deal_status: ≥ 60 "Strong Buy" · ≥ 45 "Consider" · else "Avoid"   (calibrated Nov 4; was 75/55, which no real creator reached)
 ```
 All weights and thresholds are **starting values**, to be tuned on the labelled set and later replaced by a learned ranker. Sort ties by `median_views`.
 

@@ -34,8 +34,11 @@ DROP_KIDS_ABOVE = 0.6  # only when the brief excludes kids content
 DROP_INJECTION_ABOVE = 0.5
 
 # --- Labels ----------------------------------------------------------------------------
-STRONG_BUY_FROM = 75
-CONSIDER_FROM = 55
+# Calibrated Nov 4 on 63 scored creators and 19 blind ratings (1-5): at 60/45, 13% of scored creators are
+# Strong Buy, no creator rated 1-2 is Strong Buy, and 4 of 10 rated 4-5 are. 75/55 gave no Strong Buy at
+# all (the best real creator scored 67). Starting values: re-tune with more labels (roadmap K6).
+STRONG_BUY_FROM = 60
+CONSIDER_FROM = 45
 
 # --- Platform choice (spec §4.9) ---------------------------------------------------------------
 PLATFORM_ADD_ABOVE = 0.7
