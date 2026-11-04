@@ -1,11 +1,12 @@
 <div align="center">
   <br>
   <h1>Reach AI</h1>
-  <p><strong>Creator marketing for founders without a marketing team.</strong><br>
-  Find the creators who will convert for your product, know what to pay them, and reach them, from one brief.</p>
+  <p><strong>Influencer marketing for founders without a marketing team.</strong><br>
+  Find the influencers who will sell your product, know what to pay them, and reach them, from one brief.</p>
   <p>
     <a href="#-what-you-can-do">Features</a> ·
-    <a href="#-pricing-and-roi">Pricing & ROI</a> ·
+    <a href="#-how-it-works">How it works</a> ·
+    <a href="#-pricing-and-roi">Pricing</a> ·
     <a href="#-proof">Proof</a> ·
     <a href="#-build-on-it">Build on it</a> ·
     <a href="https://reach-ai-influencer-marketing.vercel.app/docs">Docs</a> ·
@@ -13,107 +14,164 @@
   </p>
 </div>
 
-| ⏱ **10–30 s** per search | 💸 **< 1¢** AI cost per search | 🎯 **0** size/country limits broken in blind tests | ⚡ **7.7 → 0.6 s** cold load |
-|:-:|:-:|:-:|:-:|
+<table align="center">
+  <tr>
+    <td align="center" width="25%"><img src="docs/assets/icons/search.svg" width="28" alt=""><br><b>&lt; 30 seconds</b><br><sub>to a ranked shortlist</sub></td>
+    <td align="center" width="25%"><img src="docs/assets/icons/tag.svg" width="28" alt=""><br><b>Fair price</b><br><sub>for every influencer</sub></td>
+    <td align="center" width="25%"><img src="docs/assets/icons/message.svg" width="28" alt=""><br><b>$0 pitches</b><br><sub>personal, checked, unlimited</sub></td>
+    <td align="center" width="25%"><img src="docs/assets/icons/card.svg" width="28" alt=""><br><b>From $49/month</b><br><sub>vs $199–600 for databases</sub></td>
+  </tr>
+</table>
 
 ## ◈ The problem
 
-Creators sell to founders' customers better than ads do, but for a founder doing it alone:
+- **Finding the right influencers takes days**, and follower counts don't tell you if *your* buyers watch them.
+- **Nobody knows a fair price.** One sponsored post costs **$200–2,000**.
+- **The tools are built for marketing teams**: **$199–600 a month**, often yearly, and you still do the work.
 
-- **Finding the right creators takes days** of scrolling, and follower counts say nothing about whether *your* buyers watch them.
-- **Nobody knows a fair price.** One sponsored post costs **$200–2,000**; overpaying, or paying the wrong creator, burns the budget.
-- **The tools are built for marketing teams.** Creator databases cost **$199–600 a month**, often yearly, and still leave the founder doing the work.
-
-**Reach AI** turns one brief into a ranked shortlist of creators who fit, a fair price for each, and a personal pitch for each, in under a minute.
+**Reach AI** turns one brief into the influencers who fit, a fair price for each, and a message for each.
 
 ## ◈ What you can do
 
 ```mermaid
-graph LR
-  A[Brief] --> B[Discover] --> C[Price] --> D[Reach] --> E[Track] --> F[Pay]
+flowchart LR
+  B([Your brief]) --> D
+  subgraph D [1 · Discover]
+    d1[Ranked by fit<br/>with your product]
+  end
+  subgraph P [2 · Price]
+    p1[Fair price<br/>+ expected clicks]
+  end
+  subgraph R [3 · Reach]
+    r1[Personal pitch<br/>+ verified email]
+  end
+  subgraph T [4 · Track]
+    t1[Post checked live<br/>results vs forecast]
+  end
+  subgraph Y [5 · Pay]
+    y1[Pay after<br/>the post is verified]
+  end
+  D --> P --> R --> T --> Y
 ```
 
-| | |
-|---|---|
-| **Discover** | Creators ranked by how well their real content and audience fit your product, not by followers. YouTube, X and LinkedIn for B2B/AI founders; Instagram and YouTube for consumer apps. Rising creators and creators who already promoted a competitor are surfaced first. |
-| **Price** | Median views, reliability, engagement vs creators of the same size, fake-engagement detection, expected clicks, and a **fair price range** per post. |
-| **Reach** | One personal pitch per creator (email, Instagram, X, LinkedIn), every claim checked against their real content. The creator's verified business email. Sent from your own inbox, with follow-ups that stop when they reply. |
-| **Track** | Drafts and approvals on a creator page; automatic checks that the post went live with your link, code and #ad; views, clicks and signups vs the forecast. |
-| **Pay** | Pay once the post is verified. A budget planner picks the creators with the most expected clicks per dollar. |
-
-What's live today and what's next: **[roadmap](docs/ROADMAP.md)** · **[changelog](https://reach-ai-influencer-marketing.vercel.app/docs/changelog)**.
-
-## ◈ Pricing and ROI
-
-| Plan | Price | Credits / month | YouTube searches | Inboxes |
-|---|---|---|---|---|
-| Free | $0 | 15 (once) | 5 | — |
-| Starter | **$49** | 120 | 40 | 1 |
-| Growth | **$129** | 350 | 116 | 3 |
-| Agency | **$349** | 1,000 | 333 | 10 |
-
-Credits roll over (up to 2×). A YouTube search is 3 credits, X 10, Instagram 12, LinkedIn 20; **writing pitches is free**. You see a search's cost before it runs.
-
-**Why it pays for itself** (illustrative): a creator quotes **$800**; their real views put the fair range at **$450–600**; you pay ~$600, **~$200 saved on one deal, 4× the Starter plan.** Every creator also shows expected clicks, so you compare **clicks per dollar** before you commit.
-
-| | Creator databases (Modash, Upfluence) | Reach AI |
+| | You get | In numbers |
 |---|---|---|
-| Price | $199–600 / month, often yearly | **from $49 / month**, monthly |
-| Built for | Marketing teams | **Founders** |
-| From one brief you get | A database to search yourself | **A ranked shortlist, fair prices, personal pitches** |
+| <img src="docs/assets/icons/search.svg" width="18" alt=""> **Discover** | Influencers ranked by how well their content fits **your** product, not by followers | **< 30 s** · YouTube, X, LinkedIn, Instagram |
+| <img src="docs/assets/icons/tag.svg" width="18" alt=""> **Price** | A fair price range, typical views, engagement and expected clicks | Every influencer |
+| <img src="docs/assets/icons/message.svg" width="18" alt=""> **Reach** | One personal message each, sent from your own inbox, follow-ups that stop on reply | **$0** to write |
+| <img src="docs/assets/icons/chart.svg" width="18" alt=""> **Track** | Post goes live with your link, code and #ad; views, clicks, signups vs forecast | Automatic |
+| <img src="docs/assets/icons/shield.svg" width="18" alt=""> **Pay** | Payment only once the post is verified; a planner for the most clicks per dollar | After proof |
 
-## ◈ Proof
-
-Every number below is measured; method and raw data are linked.
-
-| What | Before | Now | How we know |
-|---|---|---|---|
-| AI cost per search | ~$5 (v1) | **< 1¢** | Every paid call logs a `cost_events` row |
-| Search time | 4+ min (v1) | **10–30 s** | Live runs |
-| First load after idle (production) | 7.7 s | **0.6 s** | Timed against the live app |
-| Campaign list, p50 / 10 users at once | 151 / 742 ms | **37 / 153 ms** | [Benchmark](backend/scripts/bench/), [raw results](docs/benchmarks/2026-11-04-read-endpoints/) |
-| Size & country limits broken (3 briefs, blind-rated) | 5 (old engine) | **0** | Blind 1–5 ratings; the rater didn't know the engine |
-| Pitch quality | — | **28-case eval suite** | [`OUTREACH_EVALUATION.md`](backend/OUTREACH_EVALUATION.md) |
-| Regressions caught | — | **233 tests**, no live API calls | `pytest`, on SQLite and real Postgres |
-
-How the speed-ups were found: `EXPLAIN ANALYZE` showed full-table scans (3.6 → 0.14 ms with indexes); a counter showed a new DB connection on every status call (now 0); the campaign list read 2.9 MB of JSON to count leads (now counted in Postgres); heavy AI libraries loaded on every cold start (now only when a run starts: 1.45 → 0.86 s). Tests also caught a crash on empty results before release.
+What's live today: **[roadmap](docs/ROADMAP.md)** · **[changelog](https://reach-ai-influencer-marketing.vercel.app/docs/changelog)**.
 
 ## ◈ How it works
 
-**Cheap work first, expensive work last.** Each step narrows the list before a costlier one runs.
+**Finding influencers.** Cheap checks run first; AI only writes for the influencers you'll contact.
 
 ```mermaid
-graph LR
-  S[Strategy<br/>LLM, once] --> P[Search every platform<br/>in parallel] --> C[Cheap checks<br/>code] --> M[Measure<br/>stats + ML] --> J[Judge fit & risk<br/>Jev] --> R[Score & fair price<br/>code] --> W[Reasons & pitches<br/>LLM, top picks only]
+flowchart TD
+  A([Your brief]) --> S[Plan the search<br/>AI, once per brief]
+  S --> Y[YouTube] & X[X] & L[LinkedIn] & I[Instagram]
+  Y & X & L & I --> C{Right size<br/>and country?}
+  C -- no --> Z[Skipped, costs nothing more]
+  C -- yes --> M[Measure views,<br/>engagement, activity]
+  M --> J[Judge fit and risk<br/>Jev]
+  J --> F[Score and fair price]
+  F --> W([Shortlist, with a reason for each])
 ```
 
-- **Numbers live in code** (views, engagement, fair price). **Judgments go to [Jev](https://docs.typesafe.ai/introduction)** (fit, safety, real person: fast, cheap, real probabilities). **LLMs only write** what people read.
-- Runs are **durable**: a crash or timeout resumes from the last finished step (LangGraph checkpoints + Inngest).
-- Nothing a model says can send a message or a payment on its own.
+**Reaching out.**
 
-Full design: [`docs/TECHNICAL_SPEC.md`](docs/TECHNICAL_SPEC.md).
+```mermaid
+flowchart LR
+  A([Pick influencers]) --> G[Write a personal pitch<br/>from their real content]
+  G --> V{Passes the<br/>quality checks?}
+  V -- no, rewrite once --> G
+  V -- yes --> U[You approve]
+  U --> S[Sent from your inbox]
+  S --> F[Follow-ups]
+  F -- they reply --> X([Follow-ups stop])
+```
+
+**After the deal.**
+
+```mermaid
+sequenceDiagram
+  participant F as You
+  participant R as Reach AI
+  participant I as Influencer
+  F->>I: Deal agreed
+  I->>R: Draft for approval
+  R->>F: Draft to approve
+  F->>I: Approved
+  I->>R: Post is live
+  R->>R: Check link, code and ad disclosure
+  R->>F: Verified, with views, clicks and signups vs forecast
+  F->>I: Pay
+```
+
+## ◈ Pricing and ROI
+
+| Plan | Price | YouTube searches / month | Inboxes |
+|---|---|---|---|
+| Free | $0 | 5 (once) | — |
+| Starter | **$49** | 40 | 1 |
+| Growth | **$129** | 116 | 3 |
+| Agency | **$349** | 333 | 10 |
+
+Credits roll over. X, Instagram and LinkedIn searches cost more credits because their data costs more. **Writing pitches is always free.**
+
+```mermaid
+xychart-beta
+  title "Monthly price (USD)"
+  x-axis ["Creator databases (low)", "Creator databases (high)", "Reach AI Starter"]
+  y-axis "USD" 0 --> 650
+  bar [199, 600, 49]
+```
+
+**One deal pays for the plan** (illustrative): an influencer quotes **$800**, Reach AI shows a fair range of **$450–600**, you pay ~**$600**: **~$200 saved, 4× the Starter price.**
+
+## ◈ Proof
+
+Every number is measured. Method and raw data are linked.
+
+| | Before | Now |
+|---|---|---|
+| AI cost per search | ~$5.00 | **< $0.01** |
+| Time to a shortlist | 4+ minutes | **10–30 seconds** |
+| First page load after idle | 7.7 s | **0.6 s** |
+| Campaign list with 10 users at once | 742 ms | **153 ms** |
+| Size or country limits broken (3 briefs, blind-rated) | 5 | **0** |
+| Automated tests (no live API calls) | — | **233** |
+
+```mermaid
+xychart-beta
+  title "First page load after idle (seconds)"
+  x-axis ["Before", "Now"]
+  y-axis "seconds" 0 --> 8
+  bar [7.7, 0.6]
+```
+
+How: costs are logged on every paid call; speed was found with `EXPLAIN ANALYZE` and connection counters, then re-measured with the same [benchmark](backend/scripts/bench/) ([raw results](docs/benchmarks/2026-11-04-read-endpoints/)); quality was rated blind. Pitch quality has a 28-case [eval suite](backend/OUTREACH_EVALUATION.md).
 
 ## ◈ Build on it
 
 `Next.js` · `FastAPI` · `LangGraph` · `Inngest` · `PostgreSQL + pgvector` · `Jev` · `Gemini / gpt-oss` · `Clerk` · `Vercel`
 
 ```bash
-# backend
 cd backend && python -m venv .venv && source .venv/bin/activate
 pip install -r requirements-dev.txt && cp .env.example .env   # add your keys
-make dev                                                       # migrations, API, Inngest dev server
+make dev                                                       # migrations, API, Inngest
 pytest tests -q                                                # no live API calls
 
-# frontend
 cd frontend && npm install && npm run dev
 ```
 
 | Start here | |
 |---|---|
-| [`CLAUDE.md`](CLAUDE.md) | Rules for anyone (or any agent) changing the code |
-| [`docs/ROADMAP.md`](docs/ROADMAP.md) | Every feature, its status, its spec and its files |
-| [`docs/TECHNICAL_SPEC.md`](docs/TECHNICAL_SPEC.md) | The full design and the decisions behind it |
-| [`backend/.env.example`](backend/.env.example) | Every environment variable, with what it's for |
+| [`CLAUDE.md`](CLAUDE.md) | Rules for changing the code |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | Every feature, its status and files |
+| [`docs/TECHNICAL_SPEC.md`](docs/TECHNICAL_SPEC.md) | The full design and decisions |
 
 <br>
 <div align="center"><sub>Built by <a href="https://github.com/Srijan76-code">Srijan Patel</a></sub></div>

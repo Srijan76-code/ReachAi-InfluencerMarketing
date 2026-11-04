@@ -18,6 +18,16 @@ description: Personal first messages for every creator, ready to send.
 3. Optionally add deliverables (for example "1× 60s integration"). These are kept for **your** deal setup and are **not** put in the first message.
 4. Generate. Pitches appear live as each one finishes.
 
+## How a pitch is made
+
+<Mermaid chart={`
+flowchart LR
+  A([Selected creators]) --> G[Write a pitch from<br/>their real content]
+  G --> V{Passes the<br/>quality checks?}
+  V -- no, rewrite once --> G
+  V -- yes --> R([Ready to copy or export])
+`} />
+
 ## What a ReachAI pitch looks like
 
 Every pitch is checked before you see it. Pitches:

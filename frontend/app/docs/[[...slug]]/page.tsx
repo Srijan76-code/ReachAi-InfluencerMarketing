@@ -6,6 +6,7 @@ import { Step, Steps } from "fumadocs-ui/components/steps";
 import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 import { Accordion, Accordions } from "fumadocs-ui/components/accordion";
 import { Features, Flow, Lead, Stats, Status } from "@/components/docs/DocsBlocks";
+import { Mermaid } from "@/components/docs/Mermaid";
 import { source } from "@/lib/source";
 
 type Props = { params: Promise<{ slug?: string[] }> };
@@ -21,7 +22,7 @@ export default async function Page({ params }: Props) {
       <DocsTitle>{page.data.title}</DocsTitle>
       <DocsDescription>{page.data.description}</DocsDescription>
       <DocsBody className="rd-docs">
-        <MDX components={{ ...defaultMdxComponents, Steps, Step, Tabs, Tab, Accordion, Accordions, Stats, Flow, Status, Features, Lead }} />
+        <MDX components={{ ...defaultMdxComponents, Steps, Step, Tabs, Tab, Accordion, Accordions, Stats, Flow, Status, Features, Lead, Mermaid }} />
       </DocsBody>
     </DocsPage>
   );

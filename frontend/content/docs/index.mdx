@@ -1,38 +1,39 @@
 ---
 title: ReachAI
-description: Creator marketing for founders. Find the creators who will convert, know what to pay them, and reach them.
+description: Influencer marketing for founders. Find the influencers who will sell your product, know what to pay them, and reach them.
 ---
 
 <Lead>
-  Founders know creators sell. What they don't know is **which** creators will convert for their product, and **what a fair price is**. ReachAI answers both, from one brief, in under a minute.
+  Influencers sell. The hard part is knowing **which** ones will sell **your** product, and **what to pay them**. ReachAI answers both from one brief, in under a minute.
 </Lead>
 
 <Stats items={[
-  { value: "10–30 s", label: "per search", note: "Measured on live runs" },
-  { value: "< 1¢", label: "AI cost per search", note: "Logged per call; YouTube data is free" },
-  { value: "0", label: "size or country limits broken", note: "Across 3 blind-tested briefs" },
-  { value: "4×", label: "faster campaign pages", note: "151 → 37 ms; see How it works" },
+  { value: "< 30 s", label: "to a ranked shortlist", note: "Measured on live runs" },
+  { value: "Fair price", label: "for every creator", note: "From their real views and your industry" },
+  { value: "$0", label: "to write pitches", note: "Personal and checked, unlimited" },
+  { value: "$49/mo", label: "planned starting price", note: "Creator databases: $199–600/mo" },
 ]} />
 
 ## How a campaign works
 
-<Flow steps={[
-  { title: "Brief", detail: "Your product, buyer, budget and limits." },
-  { title: "Discover", detail: "Platforms searched in parallel; creators measured and judged." },
-  { title: "Price", detail: "A fair price range for every creator." },
-  { title: "Reach", detail: "A personal pitch per creator, checked before you see it." },
-  { title: "Track & pay", detail: "Posts verified, results compared, creators paid." },
-]} />
+<Mermaid chart={`
+flowchart LR
+  B([Brief]) --> D[Discover<br/>by fit]
+  D --> P[Price<br/>fair range]
+  P --> R[Reach<br/>pitch]
+  R --> T[Track<br/>post live]
+  T --> Y[Pay<br/>when verified]
+`} />
 
 ## What you can do
 
 <Features items={[
-  { title: "Find creators who fit", text: "Ranked by how well their real content and audience match your product, not by follower count. Every creator comes with a one-line reason.", status: "live" },
-  { title: "Know the fair price", text: "Median views, reliability, engagement vs creators of the same size, expected clicks and a fair price range per post.", status: "live" },
-  { title: "Avoid bad deals", text: "Inactive channels, suspicious engagement, wrong size and wrong country are filtered out. Badges flag rising creators and risks.", status: "live" },
-  { title: "Pitch personally", text: "One message per creator, grounded in their videos, for email, Instagram, X and LinkedIn. Export to Instantly or Smartlead.", status: "live" },
-  { title: "X, Instagram and LinkedIn", text: "B2B and AI founders get YouTube, X and LinkedIn; consumer apps get Instagram and YouTube. Pick them or let ReachAI choose.", status: "soon" },
-  { title: "Send, follow up, track, pay", text: "Send from your own inbox, automatic follow-ups, post verification (link, code, #ad), results vs forecast, and payment once a post is live.", status: "soon" },
+  { title: "Find creators who fit", text: "Ranked by fit with your product, not followers. A reason for each.", status: "live" },
+  { title: "Know the fair price", text: "Typical views, engagement, expected clicks and a fair price range.", status: "live" },
+  { title: "Avoid bad deals", text: "Inactive, fake-looking, wrong-size and wrong-country creators filtered out.", status: "live" },
+  { title: "Pitch personally", text: "One message each, from their real videos. Export to Instantly or Smartlead.", status: "live" },
+  { title: "X, Instagram, LinkedIn", text: "The right platforms for your product, or pick them yourself.", status: "soon" },
+  { title: "Send, track and pay", text: "Send from your inbox, follow-ups, post checks, pay after the post is live.", status: "soon" },
 ]} />
 
 <Callout title="See it first">
