@@ -8,6 +8,8 @@ YouTube API policy: stored API data must be refreshed or deleted after 30 days. 
 3. Snapshots older than 30 days are deleted, and run records lose their copied metrics.
 4. Campaign results and saved leads older than 30 days are updated from the refreshed data; leads
    whose creator wasn't refreshed keep only name, link and our own scores, marked `data_expired`.
+5. LangGraph checkpoint threads untouched for 30 days are deleted (`purge_old_checkpoints`): they hold
+   copies of creator data and are only needed to resume a run in progress.
 """
 
 from __future__ import annotations
@@ -53,6 +55,7 @@ class RefreshReport:
     run_records_cleared: int = 0
     leads_updated: int = 0
     leads_expired: int = 0
+    checkpoint_threads_deleted: int = 0
     warnings: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
@@ -292,3 +295,21 @@ async def run_refresh(*, adapter_factory: Callable[[], Any], now: Optional[datet
     await _update_results(sf, now, refreshed, report)
     logger.info("youtube refresh: %s", report.to_dict())
     return report
+
+
+async def purge_old_checkpoints(saver, *, now: Optional[datetime] = None, limit: int = 1000) -> int:
+    """Delete LangGraph threads whose newest checkpoint is older than 30 days (any graph: discovery,
+    outreach, or the removed old pipeline). Uses the saver's own delete, so all checkpoint tables stay
+    consistent. Returns how many threads were deleted."""
+    now = _aware(now) or _now()
+    cutoff = (now - TTL).isoformat()
+    async with saver.conn.cursor() as cur:
+        await cur.execute(
+            "SELECT thread_id FROM checkpoints GROUP BY thread_id "
+            "HAVING max(checkpoint->>'ts') < %s LIMIT %s",
+            (cutoff, limit),
+        )
+        threads = [row["thread_id"] if isinstance(row, dict) else row[0] for row in await cur.fetchall()]
+    for thread_id in threads:
+        await saver.adelete_thread(thread_id)
+    return len(threads)

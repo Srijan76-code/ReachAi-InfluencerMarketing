@@ -235,6 +235,7 @@ creator_judgments(judgment_id PK, creator_id FK, campaign_id FK, jev_model, ques
 - Refresh = creators due within 2 days that are *useful* (scored in a run, or in a campaign's results or saved leads), plus creators in results over 30 days old that aren't stored (the old engine never stored them). Capped at 1,400 creators a night (~1,460 quota units).
 - Delete = due creators that weren't refreshed, once expired; and channels YouTube no longer returns (only when the fetch had no errors, so a quota or network failure never deletes useful creators).
 - Snapshots older than 30 days are deleted; `run_candidates.metrics` older than 30 days is cleared.
+- LangGraph checkpoint threads whose newest checkpoint is over 30 days old are deleted (any graph); checkpoints are only needed to resume a run in progress.
 - Results (`campaigns.campaign_leads`, `saved_leads.lead_data`) older than 30 days (`data_as_of`, else the campaign/saved date): YouTube fields are rebuilt from the refreshed data; if the creator couldn't be refreshed, only name, link and our scores/reason stay and the lead is marked `data_expired` (the UI hides its numbers).
 
 ### 4.5 Metrics: statistics and ML instead of hand formulas (`app/metrics/`)
