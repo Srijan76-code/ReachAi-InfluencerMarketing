@@ -4,6 +4,7 @@ import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { motion } from "motion/react";
 import {
   LayoutGrid,
   Users,
@@ -129,7 +130,7 @@ const CampaignTabs = ({ id }: PageProps) => {
                     key={item.name}
                     href={href}
                     className={cn(
-                      "group flex items-center gap-2 text-[13px] font-medium transition-colors whitespace-nowrap",
+                      "relative group flex items-center gap-2 text-[13px] font-medium transition-colors whitespace-nowrap",
                       isActive
                         ? "text-zinc-900 dark:text-zinc-100"
                         : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100",
@@ -143,6 +144,14 @@ const CampaignTabs = ({ id }: PageProps) => {
                       )}
                     />
                     <span>{item.name}</span>
+                    {isActive && (
+                      // slides between tabs instead of jumping
+                      <motion.span
+                        layoutId="campaign-tab-underline"
+                        className="absolute -bottom-[7px] left-0 right-0 h-[1.5px] rounded-full bg-zinc-900 dark:bg-zinc-100"
+                        aria-hidden
+                      />
+                    )}
                     {/* {isActive && (
                       <motion.div 
                         layoutId="active-underline"

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Check, Copy, Globe, Link2, Lock, Share2, Trash2, UserPlus } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { updatedLabel } from "@/types/campaign";
+import { Segmented } from "@/components/ui/segmented";
 
 /** Share a campaign's shortlist (roadmap F1.18). Like Drive: add people by email (each gets their own
  *  link) as a Viewer or a Reviewer (👍/👎 and comments), or turn on "anyone with the link" (view only).
@@ -67,12 +68,17 @@ function Toggle({ checked, onChange, disabled, label, title }: { checked: boolea
   );
 }
 
-export function ShareDialog({ campaignId, api, totalCount, selectedIds }: { campaignId: string; api: Api; totalCount: number; selectedIds: string[] }) {
+/** One "what to share" option. `ids: null` means the whole shortlist of the campaign, as it is now and later. */
+export type ShareScope = { key: string; label: string; ids: string[] | null; count?: number };
+
+export function ShareDialog({ campaignId, api, scopes }: { campaignId: string; api: Api; scopes: ShareScope[] }) {
   const [open, setOpen] = useState(false);
   const [links, setLinks] = useState<ShareLinkRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [scope, setScope] = useState<"all" | "selected">("all");
+  const usable = scopes.filter((sc) => sc.ids === null || sc.ids.length > 0);
+  const [scopeKey, setScopeKey] = useState<string>(scopes[0]?.key ?? "all");
+  const scope = usable.find((sc) => sc.key === scopeKey) ?? usable[0] ?? scopes[0];
   const [email, setEmail] = useState("");
   const [prices, setPrices] = useState(false);
   const [role, setRole] = useState<"viewer" | "reviewer">("viewer");
@@ -82,7 +88,9 @@ export function ShareDialog({ campaignId, api, totalCount, selectedIds }: { camp
 
   useEffect(() => {
     if (!open) return;
-    setScope(selectedIds.length ? "selected" : "all");
+    // open on the selection if there is one, else on the view you're in (All or Shortlist)
+    const sel = scopes.find((sc) => sc.key === "selected" && sc.ids && sc.ids.length);
+    setScopeKey(sel ? sel.key : scopes[0]?.key ?? "all");
     setError(null);
     setLoading(true);
     api(`/api/campaigns/${campaignId}/shares`)
@@ -96,7 +104,7 @@ export function ShareDialog({ campaignId, api, totalCount, selectedIds }: { camp
     // eslint-disable-next-line react-hooks/exhaustive-deps -- api changes every render
   }, [open, campaignId]);
 
-  const creatorIds = scope === "selected" && selectedIds.length ? selectedIds : null;
+  const creatorIds = scope?.ids ?? null;
   const sameScope = (l: ShareLinkRow) => JSON.stringify(l.creator_ids ?? null) === JSON.stringify(creatorIds);
   const anyone = links.find((l) => l.kind === "anyone" && sameScope(l));
   const people = links.filter((l) => l.kind === "person");
@@ -159,19 +167,21 @@ export function ShareDialog({ campaignId, api, totalCount, selectedIds }: { camp
         </DialogHeader>
 
         {/* what to share */}
-        <div className="flex items-center gap-1 p-0.5 rounded-md bg-zinc-100 dark:bg-zinc-900/60 border border-zinc-200/60 dark:border-zinc-800/60 w-fit text-[11px]">
-          {(["all", "selected"] as const).map((s) => (
-            <button
-              key={s}
-              type="button"
-              disabled={s === "selected" && !selectedIds.length}
-              onClick={() => setScope(s)}
-              className={`px-2.5 py-1 rounded font-medium disabled:opacity-40 ${scope === s ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-sm" : "text-zinc-500"}`}
-            >
-              {s === "all" ? `All ${totalCount} creators` : `Selected (${selectedIds.length})`}
-            </button>
-          ))}
-        </div>
+        <Segmented
+          label="What to share"
+          size="sm"
+          value={scope?.key ?? ""}
+          onChange={setScopeKey}
+          options={scopes.map((sc) => ({
+            value: sc.key,
+            label: sc.label,
+            count: sc.ids ? sc.ids.length : sc.count,
+            disabled: sc.ids !== null && sc.ids.length === 0,
+          }))}
+        />
+        {scope?.key === "shortlist" && (
+          <p className="-mt-2 text-[11px] text-zinc-500">The link shows the creators on your shortlist now. Creators you shortlist later aren&apos;t added.</p>
+        )}
 
         {/* add a person */}
         <form

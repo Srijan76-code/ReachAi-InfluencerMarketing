@@ -36,6 +36,7 @@ import { Sheet } from "@/components/ui/sheet";
 import { LeadListSkeleton } from "@/components/LeadListSkeleton";
 import { SkippedNote } from "@/components/SkippedNote";
 import { ShareDialog } from "@/components/ShareDialog";
+import { Segmented } from "@/components/ui/segmented";
 import { CompareTray, MAX_COMPARE } from "@/components/CompareTray";
 import type { FeedbackItem } from "@/data/influencerList";
 import {
@@ -392,20 +393,15 @@ const InfluencerPage = ({ campaignId }: InfluencerPageProps) => {
                   ) : (
                     <h1 className="text-[14px] font-medium text-zinc-900 dark:text-zinc-100 tracking-tight">Creators</h1>
                   )}
-                  <div role="tablist" aria-label="Which creators" className="flex items-center h-[30px] p-[3px] gap-0.5 rounded-md border border-zinc-200 dark:border-zinc-800 text-xs">
-                    {([false, true] as const).map((only) => (
-                      <button
-                        key={String(only)}
-                        role="tab"
-                        type="button"
-                        aria-selected={view.savedOnly === only}
-                        onClick={() => set("savedOnly", only)}
-                        className={`h-full px-2.5 rounded-[4px] font-medium whitespace-nowrap transition-colors ${view.savedOnly === only ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100" : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100"}`}
-                      >
-                        {only ? "Shortlist" : "All"} <span className="font-mono opacity-60">{only ? shortlistCount : final_ranked_leads.length}</span>
-                      </button>
-                    ))}
-                  </div>
+                  <Segmented
+                    label="Which creators"
+                    value={view.savedOnly ? "shortlist" : "all"}
+                    onChange={(v) => set("savedOnly", v === "shortlist")}
+                    options={[
+                      { value: "all", label: "All", count: final_ranked_leads.length },
+                      { value: "shortlist", label: "Shortlist", count: shortlistCount },
+                    ]}
+                  />
                   {campaignId && (
                     <span className="hidden lg:inline-flex">
                       <SkippedNote campaignId={campaignId} api={api} ready={status === "COMPLETED" || status === "completed"} />
@@ -516,8 +512,13 @@ const InfluencerPage = ({ campaignId }: InfluencerPageProps) => {
                   <ShareDialog
                     campaignId={campaignId}
                     api={api}
-                    totalCount={final_ranked_leads.length}
-                    selectedIds={[...selectedIds]}
+                    scopes={[
+                      // what "everyone" means follows the view you're in: the shortlist, or the whole list
+                      view.savedOnly
+                        ? { key: "shortlist", label: "Shortlist", ids: final_ranked_leads.filter((l) => savedLeadsMap[l.id]).map((l) => l.id) }
+                        : { key: "all", label: "All creators", ids: null, count: final_ranked_leads.length },
+                      { key: "selected", label: "Selected", ids: [...selectedIds] },
+                    ]}
                   />
                 )}
 
