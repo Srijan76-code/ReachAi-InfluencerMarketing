@@ -12,7 +12,7 @@ class SavedLead(Base):
 
     lead_id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
 
-    campaign_id = Column(String, ForeignKey("campaigns.campaign_id", ondelete="CASCADE"))
+    campaign_id = Column(String, ForeignKey("campaigns.campaign_id", ondelete="CASCADE"), index=True)
 
     name = Column(String, nullable=True)
     lead_data = Column(JSONB, nullable=False)

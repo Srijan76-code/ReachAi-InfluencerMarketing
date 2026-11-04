@@ -21,7 +21,7 @@ async def create_saved_lead(
     db: AsyncSession = Depends(get_db)
 ):
     result = await db.execute(
-        select(Campaign).where(
+        select(Campaign.campaign_id).where(
             Campaign.campaign_id == campaign_id,
             Campaign.user_id == user.user_id
         )
@@ -61,8 +61,9 @@ async def get_saved_leads(
     user: User = Depends(get_db_user),
     db: AsyncSession = Depends(get_db)
 ):
+    # ownership check only: don't load the campaign's results JSON
     result = await db.execute(
-        select(Campaign).where(
+        select(Campaign.campaign_id).where(
             Campaign.campaign_id == campaign_id,
             Campaign.user_id == user.user_id
         )
@@ -97,7 +98,7 @@ async def delete_saved_lead(
     db: AsyncSession = Depends(get_db)
 ):
     camp_result = await db.execute(
-        select(Campaign).where(
+        select(Campaign.campaign_id).where(
             Campaign.campaign_id == campaign_id,
             Campaign.user_id == user.user_id
         )

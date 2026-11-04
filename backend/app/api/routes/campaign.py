@@ -3,15 +3,15 @@ import json
 import logging
 from uuid import uuid4
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, desc
+from sqlalchemy import Text, case, cast, desc, func, select, update
+from sqlalchemy.orm import load_only
 
 from app.db.database import get_db, AsyncSessionLocal
 from app.models.user import User
 from app.models.campaign import Campaign, CampaignStatus
 from app.auth.user import get_db_user
-from app.workflow.runtime import get_durable_checkpoint_status
 from app.inngest.client import inngest_client
 import inngest
 
@@ -26,12 +26,17 @@ async def get_campaigns(
     user: User = Depends(get_db_user),
     db: AsyncSession = Depends(get_db)
 ):
+    # Only the columns the list shows; leads are counted inside Postgres, so a campaign's full results
+    # (often 50-100 KB of JSON each) are never transferred or parsed just to show a number.
+    # campaign_leads can be SQL NULL or JSON null (a campaign with no results yet): count arrays only.
+    leads_count = case((func.jsonb_typeof(Campaign.campaign_leads) == "array",
+                        func.jsonb_array_length(Campaign.campaign_leads)), else_=0).label("leads_count")
     result = await db.execute(
-        select(Campaign)
+        select(Campaign.campaign_id, Campaign.name, Campaign.status, Campaign.current_stage, Campaign.stage_index,
+               Campaign.campaign_details, Campaign.created_at, Campaign.updated_at, leads_count)
         .where(Campaign.user_id == user.user_id)
         .order_by(desc(Campaign.created_at))
     )
-    campaigns = result.scalars().all()
     return [
         {
             "id": c.campaign_id,
@@ -40,11 +45,11 @@ async def get_campaigns(
             "current_stage": c.current_stage,
             "stage_index": c.stage_index,
             "campaign_details": c.campaign_details,
-            "leads_count": len(c.campaign_leads) if c.campaign_leads else 0,
+            "leads_count": c.leads_count,
             "createdAt": c.created_at.isoformat() if c.created_at else None,
             "updatedAt": c.updated_at.isoformat() if c.updated_at else None,
         }
-        for c in campaigns
+        for c in result.all()
     ]
 
 
@@ -83,7 +88,9 @@ async def get_campaign_details(
         select(Campaign).where(
             Campaign.campaign_id == campaign_id,
             Campaign.user_id == user.user_id
-        )
+        ).options(load_only(Campaign.campaign_id, Campaign.name, Campaign.status, Campaign.current_stage,
+                            Campaign.stage_index, Campaign.campaign_details, Campaign.created_at, Campaign.run_id,
+                            Campaign.thread_id, Campaign.workflow_status))
     )
     campaign = result.scalar_one_or_none()
 
@@ -179,7 +186,9 @@ async def get_campaign_status(
         select(Campaign).where(
             Campaign.campaign_id == campaign_id,
             Campaign.user_id == user.user_id
-        )
+        ).options(load_only(Campaign.campaign_id, Campaign.name, Campaign.status, Campaign.current_stage,
+                            Campaign.stage_index, Campaign.campaign_details, Campaign.created_at, Campaign.run_id,
+                            Campaign.thread_id, Campaign.workflow_status))
     )
     campaign = result.scalar_one_or_none()
 
@@ -190,7 +199,6 @@ async def get_campaign_status(
         "status": campaign.status.value if hasattr(campaign.status, "value") else str(campaign.status),
         "stage": None,
     }
-    checkpoint = await get_durable_checkpoint_status(campaign.thread_id)
     return {
         "campaign_id": campaign_id,
         "run_id": campaign.run_id,
@@ -198,7 +206,6 @@ async def get_campaign_status(
         "status": campaign.status.value if hasattr(campaign.status, "value") else str(campaign.status),
         "current_stage": state.get("stage"),
         "workflow_status": state,
-        "durable_checkpoint": checkpoint,
     }
 
 
@@ -209,26 +216,28 @@ async def get_campaign_leads(
     user: User = Depends(get_db_user),
     db: AsyncSession = Depends(get_db)
 ):
+    # The leads list is the biggest payload in the app. Postgres returns it as JSON text and it goes
+    # straight into the response: no decode into Python objects and re-encode on every page load.
     result = await db.execute(
-        select(Campaign).where(
-            Campaign.campaign_id == campaign_id,
-            Campaign.user_id == user.user_id
-        )
+        select(Campaign.status, Campaign.current_stage, Campaign.stage_index, Campaign.campaign_details,
+               Campaign.name, cast(Campaign.campaign_leads, Text).label("leads_json"))
+        .where(Campaign.campaign_id == campaign_id, Campaign.user_id == user.user_id)
     )
-    campaign = result.scalar_one_or_none()
+    row = result.one_or_none()
 
-    if not campaign:
+    if not row:
         raise HTTPException(404, "Campaign not found")
 
-    return {
-        "status": campaign.status.value if hasattr(campaign.status, "value") else str(campaign.status),
-        "current_stage": campaign.current_stage,
-        "stage_index": campaign.stage_index,
-        "result": campaign.campaign_leads,
-        "campaign_details": campaign.campaign_details,
-        "name": campaign.name,
-        "error": None
-    }
+    head = json.dumps({
+        "status": row.status.value if hasattr(row.status, "value") else str(row.status),
+        "current_stage": row.current_stage,
+        "stage_index": row.stage_index,
+        "campaign_details": row.campaign_details,
+        "name": row.name,
+        "error": None,
+    }, default=str)
+    body = head[:-1] + ', "result": ' + (row.leads_json or "null") + "}"
+    return Response(content=body, media_type="application/json")
 
 
 # GET /api/campaigns/{campaign_id}/stream

@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, DateTime, ForeignKey, Enum
+from sqlalchemy import Column, String, DateTime, ForeignKey, Enum, Index
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
@@ -16,6 +16,9 @@ class CampaignStatus(enum.Enum):
 
 class Campaign(Base):
     __tablename__ = "campaigns"
+
+    # campaign list: WHERE user_id = ? ORDER BY created_at DESC
+    __table_args__ = (Index("ix_campaigns_user_created", "user_id", "created_at"),)
 
     campaign_id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     run_id = Column(String, nullable=True, unique=True, index=True)

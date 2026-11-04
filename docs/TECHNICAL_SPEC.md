@@ -447,6 +447,8 @@ Node settings: `retry_policy` on every node that calls an API. A failed search b
 
 **Caching:** a LangGraph node cache backed by `cache_entries` (Postgres) replaces `InMemoryCache`, plus the creator-database caches (profiles, Jev answers, embeddings), the search cache, and strategy reuse for an identical brief.
 
+**Request speed (Nov 4):** read endpoints select only the columns they show; the campaign list counts leads in Postgres; the leads endpoint passes the stored JSON through as text; ownership checks select ids only; no endpoint opens extra DB connections; heavy modules (LangGraph, outreach graph) are imported only inside the runs that need them; Fluid compute plus a 5-minute keep-warm Inngest cron avoid most cold starts.
+
 **Concurrency and batching** (all limits in `app/discovery/limits.py`)
 | Resource | Limit |
 |---|---|

@@ -6,9 +6,12 @@ import inngest
 from app.creators import constants as CREATOR
 from app.discovery import limits as L
 from app.inngest.client import inngest_client
-from app.outreach.runtime import run_outreach_graph
 
 logger = logging.getLogger(__name__)
+
+# Cold starts measured at ~7.7 s in production vs ~0.3 s warm (Nov 4). Every 5 minutes keeps one
+# instance warm; ~8,640 runs a month.
+WARM_CRON = "*/5 * * * *"
 
 async def _campaign_run_failed(ctx: inngest.Context):
     """Runs once, after the last retry of run_campaign: mark the campaign failed."""
@@ -58,6 +61,8 @@ async def run_campaign(ctx: inngest.Context):
 )
 async def run_outreach(ctx: inngest.Context):
     data = ctx.event.data
+    from app.outreach.runtime import run_outreach_graph  # loaded only when an outreach run starts
+
     return await run_outreach_graph(
         outreach_job_id=data["outreach_job_id"],
         run_id=data["run_id"],
@@ -92,3 +97,14 @@ async def refresh_youtube_data(ctx: inngest.Context):
         await saver.setup()
         report.checkpoint_threads_deleted = await purge_old_checkpoints(saver)
     return report.to_dict()
+
+
+@inngest_client.create_function(
+    fn_id="keep_backend_warm",
+    trigger=inngest.TriggerCron(cron=WARM_CRON),
+    retries=0,
+)
+async def keep_backend_warm(ctx: inngest.Context):
+    """A no-op on a schedule: Inngest calls the backend, which keeps one instance loaded so the next
+    page load skips the cold start. Touches no database, so Neon can still scale to zero."""
+    return {"ok": True}
