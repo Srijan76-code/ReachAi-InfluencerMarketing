@@ -1,3 +1,4 @@
+import { CreatorBadges } from "@/components/CreatorBadges";
 import { 
   SheetContent, 
   SheetTitle,
@@ -75,13 +76,14 @@ export const InfluencerDetailSheet = ({
                     {deal_status}
                   </span>
                 </div>
+                <CreatorBadges flags={influencer.flags} size="md" />
                 
                 <div className="flex items-center gap-2.5 text-[12px] text-zinc-500">
                   <span className="flex items-center gap-1.5 font-medium">
-                    <Globe size={13} className="text-zinc-500" /> Youtube Creator
+                    <Globe size={13} className="text-zinc-500" /> {influencer.platform === "youtube" || !influencer.platform ? "YouTube" : influencer.platform} creator
                   </span>
                   <span className="w-1 h-1 rounded-full bg-zinc-200 dark:bg-zinc-700" />
-                  <span className="font-medium text-zinc-600 dark:text-zinc-400 tracking-wide">{influencer.country.toUpperCase()}</span>
+                  <span className="font-medium text-zinc-600 dark:text-zinc-400 tracking-wide">{influencer.country ? influencer.country.toUpperCase() : "Country unknown"}</span>
                 </div>
               </div>
             </div>

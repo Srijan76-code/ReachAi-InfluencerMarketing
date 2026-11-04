@@ -1,4 +1,6 @@
 import { create } from "zustand";
+import { countryName } from "@/lib/countries";
+import { subscribersToStep } from "@/lib/creatorSize";
 
 export interface CachedCampaign {
   id: string;
@@ -119,7 +121,12 @@ export const useCampaignStore = create<CampaignState>((set, get) => ({
       productPriceRange: priceRangeReverseMap[brand.product_price_range] || "1",
       pitch: brand.core_outcome || "",
       targetAudience: audience.target_persona || "",
-      audienceLocation: Array.isArray(audience.locations) && audience.locations[0] ? audience.locations[0] : "",
+      // Briefs store a country code ("US"); the picker shows names ("United States").
+      audienceLocation: countryName(
+        (Array.isArray(constraints.target_countries) && constraints.target_countries[0]) ||
+          (Array.isArray(audience.locations) && audience.locations[0]) || "",
+      ),
+      creatorSize: [subscribersToStep(constraints.min_subscribers, 3), subscribersToStep(constraints.max_subscribers, 8)],
       campaignGoal: goalReverseMap[campaign.goal] || "1",
       creatorAuthority: authorityReverseMap[campaign.creator_authority_level] || "1",
       platforms: [platformReverseMap[campaign.platform] || "1"],
