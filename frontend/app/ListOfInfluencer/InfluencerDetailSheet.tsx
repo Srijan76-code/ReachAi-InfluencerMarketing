@@ -25,7 +25,13 @@ import {
   Users,
   Eye,
   Send,
+  BadgeCheck,
+  TrendingDown,
+  Minus,
 } from "lucide-react";
+import { ScoreParts } from "@/components/ScoreParts";
+import { PostTabs } from "@/components/PostTabs";
+import { freshness, trendLabel } from "@/lib/posts";
 import { 
   Tooltip, 
   TooltipContent, 
@@ -45,6 +51,10 @@ export const InfluencerDetailSheet = ({
   const { metrics, socials, title, deal_status, score_breakdown } = influencer;
   // the creator's channel: stored URL (new engine) or built from the channel id (older results)
   const channelUrl = influencer.url || `https://www.youtube.com/channel/${influencer.id}`;
+  const fresh = influencer.data_expired ? null : freshness(influencer.data_as_of);
+  const trend = influencer.data_expired ? null : trendLabel(influencer.trend);
+  const parts = influencer.score_parts && typeof influencer.score_parts.fit === "number" ? influencer.score_parts : null;
+  const posts = influencer.data_expired ? [] : influencer.posts ?? [];
 
   // Status Color Logic
   const statusStyles = {
@@ -79,6 +89,16 @@ export const InfluencerDetailSheet = ({
                       {title}
                     </a>
                   </SheetTitle>
+                  {influencer.verified && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <BadgeCheck size={16} className="text-blue-500 shrink-0 -ml-1.5" aria-label="Verified" />
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="bg-zinc-100 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700 text-xs text-zinc-700 dark:text-zinc-300">
+                        Verified by the platform
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
                   <span className={`px-2 py-0.5 rounded border text-[10px] font-medium ${statusStyles[deal_status]}`}>
                     {deal_status}
                   </span>
@@ -96,6 +116,12 @@ export const InfluencerDetailSheet = ({
                   </span>
                   <span className="w-1 h-1 rounded-full bg-zinc-200 dark:bg-zinc-700" />
                   <span className="font-medium text-zinc-600 dark:text-zinc-400 tracking-wide">{influencer.country ? influencer.country.toUpperCase() : "Country unknown"}</span>
+                  {fresh && (
+                    <>
+                      <span className="w-1 h-1 rounded-full bg-zinc-200 dark:bg-zinc-700" />
+                      <span title={influencer.data_as_of ? new Date(influencer.data_as_of).toLocaleString() : undefined}>{fresh}</span>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -179,6 +205,12 @@ export const InfluencerDetailSheet = ({
               <Target size={14} className="text-blue-500" />
               Intelligence Diagnostics
             </h3>
+            {parts && (
+              <div className="space-y-2">
+                <p className="text-[12px] text-zinc-500">Why this score</p>
+                <ScoreParts parts={parts} finalScore={influencer.final_score} />
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-4">
               
               <div className="space-y-2.5 bg-zinc-100 dark:bg-[#121314] p-3.5 rounded border border-zinc-200/60 dark:border-zinc-800/60">
@@ -221,6 +253,15 @@ export const InfluencerDetailSheet = ({
             <h3 className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-2">
               <BarChart2 size={14} className="text-indigo-400" />
               Performance Metrics
+              {trend && (
+                <span
+                  title="Views on their newest posts compared with the ones before"
+                  className={`ml-auto normal-case tracking-normal font-medium text-[11px] flex items-center gap-1 ${trend.tone === "up" ? "text-emerald-600 dark:text-emerald-400" : trend.tone === "down" ? "text-rose-500" : "text-zinc-500"}`}
+                >
+                  {trend.tone === "up" ? <TrendingUp size={12} /> : trend.tone === "down" ? <TrendingDown size={12} /> : <Minus size={12} />}
+                  Views {trend.text.toLowerCase()}
+                </span>
+              )}
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-3 rounded border border-zinc-200/80 dark:border-zinc-800/80 bg-zinc-100 dark:bg-[#121314] overflow-hidden">
                <MetricCell 
@@ -275,26 +316,30 @@ export const InfluencerDetailSheet = ({
             <div className="flex items-center justify-between">
               <h3 className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-2">
                 <PlayCircle size={14} className="text-amber-500" />
-                Recent Content
+                {posts.length > 0 ? "Posts" : "Recent Content"}
               </h3>
               <a href={`${channelUrl}/videos`} target="_blank" rel="noopener noreferrer" className="text-[11px] font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors flex items-center gap-1 group">
                 Full Analytics <ExternalLink size={11} className="group-hover:translate-x-0.5 transition-transform" />
               </a>
             </div>
             
-            <div className="rounded border border-zinc-200/60 dark:border-zinc-800/60 bg-zinc-100 dark:bg-[#121314] overflow-hidden divide-y divide-zinc-800/60">
-              {influencer.recent_videos.slice(0, 5).map((video, i) => (
-                <a key={i} href={video.url || `${channelUrl}/videos`} target="_blank" rel="noopener noreferrer" title={video.url ? "Watch on YouTube" : "Open the channel's videos"} className="flex items-center justify-between p-3 hover:bg-zinc-100/30 dark:hover:bg-zinc-800/30 transition-colors group cursor-pointer">
-                  <div className="flex items-center gap-3 overflow-hidden">
-                    <PlayCircle size={14} className="text-zinc-400 dark:text-zinc-600 group-hover:text-zinc-600 dark:group-hover:text-zinc-400 shrink-0 transition-colors" />
-                    <span className="text-[12px] text-zinc-700 dark:text-zinc-300 truncate group-hover:text-zinc-900 dark:group-hover:text-zinc-100 transition-colors">{video.title}</span>
-                  </div>
-                  <span className="font-mono text-[11px] text-zinc-500 shrink-0 ml-4 group-hover:text-zinc-600 dark:group-hover:text-zinc-400 transition-colors">
-                    {(video.views / 1000).toFixed(1)}k
-                  </span>
-                </a>
-              ))}
-            </div>
+            {posts.length > 0 ? (
+              <PostTabs posts={posts} signals={influencer.signals} fallbackUrl={`${channelUrl}/videos`} />
+            ) : (
+              <div className="rounded border border-zinc-200/60 dark:border-zinc-800/60 bg-zinc-100 dark:bg-[#121314] overflow-hidden divide-y divide-zinc-800/60">
+                {influencer.recent_videos.slice(0, 5).map((video, i) => (
+                  <a key={i} href={video.url || `${channelUrl}/videos`} target="_blank" rel="noopener noreferrer" title={video.url ? "Watch on YouTube" : "Open the channel's videos"} className="flex items-center justify-between p-3 hover:bg-zinc-100/30 dark:hover:bg-zinc-800/30 transition-colors group cursor-pointer">
+                    <div className="flex items-center gap-3 overflow-hidden">
+                      <PlayCircle size={14} className="text-zinc-400 dark:text-zinc-600 group-hover:text-zinc-600 dark:group-hover:text-zinc-400 shrink-0 transition-colors" />
+                      <span className="text-[12px] text-zinc-700 dark:text-zinc-300 truncate group-hover:text-zinc-900 dark:group-hover:text-zinc-100 transition-colors">{video.title}</span>
+                    </div>
+                    <span className="font-mono text-[11px] text-zinc-500 shrink-0 ml-4 group-hover:text-zinc-600 dark:group-hover:text-zinc-400 transition-colors">
+                      {(video.views / 1000).toFixed(1)}k
+                    </span>
+                  </a>
+                ))}
+              </div>
+            )}
           </section>
 
         </div>

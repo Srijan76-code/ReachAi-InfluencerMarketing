@@ -91,6 +91,8 @@ FAIR_RANGE = {"High": (0.85, 1.2), "Medium": (0.75, 1.3), "Low": (0.6, 1.5)}
 POSTS_IN_LEAD = 12  # posts sent to the UI per creator (tabs: best match, above usual, latest)
 MATCH_MIN_TERM_SHARE = 0.6  # a topic matches a post if this share of its meaningful words appear in it
 ABOVE_USUAL_FROM = 1.5  # "above their usual": reach at least 1.5x the creator's median
+DESCRIPTION_SUMMARY_CHARS = 1000  # the opening paragraph (cut at the first blank line or link), at most this long
+YOUNG_POST_DAYS = 7  # newer posts are still collecting views: shown as "new" and left out of the usual
 # Phrases that mark a paid promotion in a title, caption or description (lower-case)
 SPONSOR_PHRASES = ("sponsored by", "for sponsoring", "use code", "use my code", "promo code", "paid partnership",
                    "#ad", "#sponsored", "in partnership with", "brought to you by", "affiliate link")

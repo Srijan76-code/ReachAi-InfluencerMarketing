@@ -268,4 +268,5 @@ def test_refreshed_lead_keeps_brief_topics_and_our_score_parts():
     out = _refreshed_lead(lead, yt("UC1"), "other", BriefContext(), NOW)
     assert out["match_terms"] == ["UC1 video"] and out["score_parts"] == {"fit": 40.0} and out["final_score"] == 70
     assert out["signals"]["posts_checked"] == 10 and out["signals"]["fit_posts"] == 10
-    assert out["posts"][0]["matched_topics"] == ["UC1 video"] and out["posts"][0]["x_usual"] == 1.0
+    assert out["posts"][0]["matched_topics"] == ["UC1 video"] and out["posts"][2]["x_usual"] == 1.0
+    assert out["posts"][0]["is_new"] and out["posts"][0]["x_usual"] is None  # 2 days old: still collecting views

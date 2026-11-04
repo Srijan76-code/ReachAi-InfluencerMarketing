@@ -3,6 +3,7 @@ saved leads, outreach and export keep working. New fields are added alongside.""
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Optional
 
 from app.metrics.posts import analyse_posts
@@ -33,7 +34,13 @@ def to_legacy_lead(profile: dict, metrics: dict, record: dict, reason: Optional[
     engagement = m.get("engagement_rate")
     clicks = m.get("expected_clicks")
     posts = profile.get("recent_posts") or []
-    post_cards, post_signals = analyse_posts(posts, topics or [])
+    fetched = profile.get("fetched_at")
+    if isinstance(fetched, str):
+        try:
+            fetched = datetime.fromisoformat(fetched)
+        except ValueError:
+            fetched = None
+    post_cards, post_signals = analyse_posts(posts, topics or [], as_of=fetched)
     return {
         # --- fields the current UI reads -------------------------------------------------
         "id": profile.get("platform_id"),
