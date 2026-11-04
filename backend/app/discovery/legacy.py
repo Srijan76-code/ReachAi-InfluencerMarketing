@@ -41,16 +41,19 @@ def to_legacy_lead(profile: dict, metrics: dict, record: dict, reason: Optional[
         except ValueError:
             fetched = None
     post_cards, post_signals = analyse_posts(posts, topics or [], as_of=fetched)
+    # the platform's own country, else Jev's judgment of the audience's country (marked as such)
+    country = profile.get("country") or record.get("country_judged") or None
+    country_source = "platform" if profile.get("country") else "jev" if country else None
     return {
         # --- fields the current UI reads -------------------------------------------------
         "id": profile.get("platform_id"),
         "title": profile.get("display_name") or "",
         "description": profile.get("bio") or "",
-        "country": profile.get("country") or "",
+        "country": country or "",
         "uploads_id": stats.get("uploads_playlist"),
         "subscribers": profile.get("followers") or 0,
         "video_count": stats.get("video_count") or len(posts),
-        "estimated_cpm": cpm(profile.get("platform", "youtube"), industry, profile.get("country")),
+        "estimated_cpm": cpm(profile.get("platform", "youtube"), industry, country),
         "lifetime_health": (stats.get("lifetime_views") or 0) / max(1, stats.get("video_count") or 1),
         "metrics": {
             "avg_views": int(m.get("median_views") or 0),  # median: robust to one viral video
@@ -100,4 +103,5 @@ def to_legacy_lead(profile: dict, metrics: dict, record: dict, reason: Optional[
         "verified": profile.get("verified"),
         "person_id": profile.get("person_id"),
         "match_terms": topics or [],
+        "country_source": country_source,  # platform | jev (judged from their posts) | None
     }

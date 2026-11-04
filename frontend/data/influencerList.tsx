@@ -80,6 +80,7 @@ export interface Influencer {
   verified?: boolean | null;
   person_id?: string | null; // same person on other platforms
   match_terms?: string[]; // the brief topics posts were matched against
+  country_source?: "platform" | "jev" | null; // jev = judged from their posts (the platform lists no country)
 }
 
 export interface PostCard {

@@ -270,3 +270,17 @@ def test_refreshed_lead_keeps_brief_topics_and_our_score_parts():
     assert out["signals"]["posts_checked"] == 10 and out["signals"]["fit_posts"] == 10
     assert out["posts"][0]["matched_topics"] == ["UC1 video"] and out["posts"][2]["x_usual"] == 1.0
     assert out["posts"][0]["is_new"] and out["posts"][0]["x_usual"] is None  # 2 days old: still collecting views
+
+
+def test_refresh_keeps_jevs_country_while_youtube_lists_none():
+    from app.creators.refresh import _refreshed_lead
+    from app.metrics.compute import BriefContext
+
+    p = yt("UC1")
+    p["country"] = None
+    lead = {"id": "UC1", "country": "IN", "country_source": "jev"}
+    out = _refreshed_lead(lead, p, "other", BriefContext(), NOW)
+    assert out["country"] == "IN" and out["country_source"] == "jev"
+    p["country"] = "AE"  # the channel now lists a country: that wins
+    out = _refreshed_lead(lead, p, "other", BriefContext(), NOW)
+    assert out["country"] == "AE" and out["country_source"] == "platform"

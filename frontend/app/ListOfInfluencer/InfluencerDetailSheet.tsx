@@ -115,7 +115,15 @@ export const InfluencerDetailSheet = ({
                     <Globe size={13} className="text-zinc-500" /> {influencer.platform === "youtube" || !influencer.platform ? "YouTube" : influencer.platform} creator
                   </span>
                   <span className="w-1 h-1 rounded-full bg-zinc-200 dark:bg-zinc-700" />
-                  <span className="font-medium text-zinc-600 dark:text-zinc-400 tracking-wide">{influencer.country ? influencer.country.toUpperCase() : "Country unknown"}</span>
+                  <span
+                    className="font-medium text-zinc-600 dark:text-zinc-400 tracking-wide"
+                    title={influencer.country_source === "jev" ? "YouTube doesn't list a country for this channel, so Jev judged its audience's country from the posts" : undefined}
+                  >
+                    {influencer.country ? influencer.country.toUpperCase() : "Country unknown"}
+                    {influencer.country && influencer.country_source === "jev" && (
+                      <span className="ml-1 font-normal tracking-normal text-zinc-500">· judged from their posts</span>
+                    )}
+                  </span>
                   {fresh && (
                     <>
                       <span className="w-1 h-1 rounded-full bg-zinc-200 dark:bg-zinc-700" />

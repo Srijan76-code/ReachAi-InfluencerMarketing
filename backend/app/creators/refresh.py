@@ -163,9 +163,11 @@ def _refreshed_lead(lead: dict, profile: dict, industry: str, ctx: BriefContext,
     from app.discovery.legacy import to_legacy_lead
 
     metrics = compute_metrics(profile, ctx, now=now).to_dict()
-    fresh = to_legacy_lead(profile, metrics, {}, None, industry, topics=lead.get("match_terms") or [])
+    # Jev's country judgment is ours, not YouTube's: keep it while the channel still lists no country
+    judged = lead.get("country") if lead.get("country_source") == "jev" else None
+    fresh = to_legacy_lead(profile, metrics, {"country_judged": judged}, None, industry, topics=lead.get("match_terms") or [])
     out = dict(lead)
-    for k in API_FIELDS:
+    for k in (*API_FIELDS, "country_source"):
         if k in STATS_FIELDS and not (profile.get("platform_stats") or {}) and k in lead:
             continue  # stored profiles don't keep these; keep the last known value
         if k in fresh:

@@ -29,7 +29,7 @@ export const BADGES: Record<string, { label: string; help: string; icon: typeof 
   },
   country_unknown: {
     label: "Country unknown",
-    help: "This channel doesn't list a country, so we can't confirm its audience is in your market. It's ranked a little lower.",
+    help: "This channel doesn't list a country and its posts give no clear clue, so we can't confirm its audience is in your market. It's ranked a little lower.",
     icon: Globe,
     className: "text-zinc-600 dark:text-zinc-400 bg-zinc-500/10 border-zinc-500/20",
   },
