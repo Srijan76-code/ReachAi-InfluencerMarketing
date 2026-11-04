@@ -134,7 +134,7 @@ Known gaps in what's built:
 | K14 | No result reached "Strong Buy" in the first live runs (top 63.9, "Consider"). Check the label thresholds as part of K6 | next |
 | K15 | Neon branches renamed (Nov 4): the live branch is now `production` (default, endpoint `ep-calm-sky`). The old root branch can't be deleted (Neon never deletes a project's root branch), so it's renamed `old-production-unused`; its data (April) is all in `production` | done |
 | K16 | YouTube sends `rateLimitExceeded` (not `quotaExceeded`) once the daily search allowance is used up; the adapter kept trying every search and the run finished with 0 leads and one warning per search. Fixed: treated as out of quota, one clear warning. YouTube's day resets at midnight Pacific time (`discovery-recall`) | done |
-| K17 | Creators with no country on YouTube are kept even when the brief sets target countries (3 of 5 new-engine results for the US brief, one clearly not US). Decide: keep, rank lower, or drop | next (user) |
+| K17 | Creators with no country on YouTube, when the brief sets target countries: kept, score × 0.8 (`COUNTRY_UNKNOWN_FACTOR`), flagged `country_unknown` (decided Nov 4, `discovery-recall`). The results screen should show the flag as a badge (F1.12) | done |
 | K3 | Route models for `strategy`, `pitch`, `reply` are placeholders (current Gemini first); pick them with the LangSmith evals | next |
 
 ## Open questions waiting on the user

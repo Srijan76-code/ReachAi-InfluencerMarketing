@@ -296,6 +296,7 @@ risk  = max(norm(safety_risk), 0.5·promo_heavy, metrics.anomaly_flag)          
 health= 0.4·er_percentile + 0.3·reliability_score + 0.3·cadence_score
 bonus = 0.10 if rising else 0;  +0.05 if posts_on_trend > 0.6
 final = 100 · clamp(0.55·fit + 0.30·health + bonus − 0.40·risk, 0, 1)
+        × 0.8 if the brief sets target countries and the creator lists none (flag "country_unknown", decided Nov 4)
 
 Hard drops: is_individual < 0.4 · language_match < 0.3 · (exclude_kids and kids_content > 0.6) · injection > 0.5 · anomaly_score > 0.8
 deal_status: ≥ 75 "Strong Buy" · ≥ 55 "Consider" · else "Avoid"
@@ -309,7 +310,9 @@ All weights and thresholds are **starting values**, to be tuned on the labelled 
 - Replace the in-memory `checkpointer` in `my_agent/agent.py` (unused in production; the runtime already uses Postgres) when the module is removed.
 
 ### 4.8b YouTube adapter as built
-- **Unknown country is kept, not dropped.** The old pipeline dropped channels with no country set; many real channels leave it blank, so a target-country filter now only drops channels that *state* a different country.
+- **Unknown country is kept, not dropped.** The old pipeline dropped channels with no country set; many real channels leave it blank, so a target-country filter now only drops channels that *state* a different country. They are ranked lower and labelled instead (§4.7).
+- **Searches (revised Nov 4 after the old-vs-new comparison):** short 2-5 word niche phrases; a quarter of the budget (at least one) on recent-video trend search, the rest on channel search; the top-up round is an all-time video search by relevance. Long sentence-like phrases and `order=viewCount` returned 0-17 results for niche B2B topics.
+- **Rate limits:** `rateLimitExceeded` is treated like `quotaExceeded` (YouTube sends it once the daily search allowance is gone): stop calling YouTube for the run, one warning. YouTube's day resets at midnight Pacific time.
 - **Search results are taken round-robin across searches** before the candidate cap, so trend (recent-video) results aren't crowded out by the first channel search.
 - **Video details are batched across creators** (50 ids per call), not one call per creator.
 - **Shorts** = duration ≤ 180 s (YouTube Shorts can be up to 3 minutes).

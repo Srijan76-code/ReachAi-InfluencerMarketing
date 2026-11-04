@@ -352,3 +352,30 @@ async def test_reason_prompt_gets_our_verdict(sf, monkeypatch, cost_log):
     labels = {l["deal_status"] for l in state["final_leads"] if l["llm_reasoning"]}
     assert prompts and all("Our verdict:" in p for p in prompts)
     assert any(f"Our verdict: {lab}." in p for p in prompts for lab in labels)
+
+
+@pytest.mark.asyncio
+async def test_creators_without_a_country_are_flagged_when_the_brief_sets_countries(sf, monkeypatch, cost_log):
+    """The recording has a country for every channel, so blank one (as YouTube does for many)."""
+    use_recorded_limits(monkeypatch)
+    deps, _ = make_deps(sf)
+    factory = deps.adapters["youtube"]
+
+    def blanking():
+        a = factory()
+        real = a.fetch_profiles
+
+        async def fetch(refs, constraints=None):
+            profiles = await real(refs, constraints)
+            for p in profiles:
+                if p["display_name"].lower().startswith("campusx"):
+                    p["country"] = None
+            return profiles
+        a.fetch_profiles = fetch
+        return a
+    deps.adapters = {"youtube": blanking}
+    _, _, state, _ = await run(sf, deps)
+    blank = [l for l in state["final_leads"] if not l["country"]]
+    assert blank, "expected the blanked creator in the results"
+    for l in state["final_leads"]:
+        assert ("country_unknown" in l["flags"]) == (not l["country"]), l["title"]

@@ -434,7 +434,8 @@ async def judge_score(state: BranchState, runtime: Runtime[Deps]) -> dict:
     results = []
     for cid, j in judgments.items():
         p = profiles[cid]
-        s = score_creator(j, Metrics(**(p.get("metrics") or {})), exclude_kids_content=brief.exclude_kids_content)
+        s = score_creator(j, Metrics(**(p.get("metrics") or {})), exclude_kids_content=brief.exclude_kids_content,
+                          country_unknown=bool(brief.target_countries) and not p.get("country"))
         results.append({
             "creator_id": cid, "platform": platform, "platform_id": p["platform_id"],
             "display_name": p.get("display_name", ""), "found_via": via.get(p["platform_id"]), "mode": state["mode"],

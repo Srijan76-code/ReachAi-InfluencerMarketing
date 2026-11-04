@@ -21,6 +21,7 @@ FIT_WEIGHTS = {"topic_fit": 0.5, "audience_stage": 0.3, "pain_point": 0.2}
 FINAL_WEIGHTS = {"fit": 0.55, "health": 0.30}
 RISK_WEIGHT = 0.40
 RISING_BONUS = 0.10
+COUNTRY_UNKNOWN_FACTOR = 0.8  # brief sets target countries but the creator lists none: score x 0.8, flagged
 TREND_BONUS = 0.05
 TREND_THRESHOLD = 0.6
 PROMO_RISK_FACTOR = 0.5  # "mostly ads" counts half as much as a safety problem
