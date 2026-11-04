@@ -5,21 +5,14 @@ from __future__ import annotations
 
 from typing import Optional
 
+from app.core.countries import COUNTRY_NAMES
+
 DEFAULT_NAME = "Untitled Campaign"
 MAX_NAME_LENGTH = 80
 EMPTY_DRAFT_HIDDEN_AFTER_DAYS = 1  # drafts never run (no brief saved) drop off the campaigns list
 
 GOALS = {"awareness": "Awareness", "signups": "Signups", "sales": "Sales"}
 
-# Names for the countries briefs use most; anything else shows its ISO code.
-COUNTRY_NAMES = {
-    "IN": "India", "US": "United States", "GB": "UK", "CA": "Canada", "AU": "Australia", "AE": "UAE",
-    "SG": "Singapore", "DE": "Germany", "FR": "France", "ES": "Spain", "IT": "Italy", "NL": "Netherlands",
-    "IE": "Ireland", "NZ": "New Zealand", "BR": "Brazil", "MX": "Mexico", "ID": "Indonesia", "PH": "Philippines",
-    "MY": "Malaysia", "PK": "Pakistan", "BD": "Bangladesh", "NG": "Nigeria", "KE": "Kenya", "ZA": "South Africa",
-    "EG": "Egypt", "SA": "Saudi Arabia", "JP": "Japan", "KR": "South Korea", "VN": "Vietnam", "TH": "Thailand",
-    "TR": "Turkey", "PL": "Poland", "SE": "Sweden", "CH": "Switzerland", "LK": "Sri Lanka", "NP": "Nepal",
-}
 
 
 def is_default(name: Optional[str]) -> bool:

@@ -26,6 +26,7 @@ class CreatorScore:
     drop_reasons: list[str] = field(default_factory=list)
     flags: list[str] = field(default_factory=list)  # shown as badges: rising, trend, suspicious
     parts: dict = field(default_factory=dict)  # "why this score": points from fit, health, bonus, risk
+    country: Optional[str] = None  # set when Jev judged the audience country (the platform listed none)
 
     def legacy_fields(self, metrics: Metrics) -> dict:
         """Fields the existing results UI reads."""
@@ -62,10 +63,31 @@ def label(final_score: float) -> str:
     return "Avoid"
 
 
+def judged_country(j: Judgment) -> tuple[str, Optional[str]]:
+    """Jev's answer to the country question, with the thresholds applied:
+    ("in_target", code) | ("outside", None) | ("unknown", None). Unasked counts as unknown."""
+    a = j.answers.get("country")
+    if a is None:
+        return "unknown", None
+    choice, conf = str(a.value), (a.confidence if a.confidence is not None else 0.0)
+    if choice == "other":
+        return ("outside", None) if conf >= K.COUNTRY_JEV_DROP_FROM else ("unknown", None)
+    if choice != "not_stated" and conf >= K.COUNTRY_JEV_ACCEPT_FROM:
+        return "in_target", choice
+    return "unknown", None
+
+
 def score_creator(j: Judgment, metrics: Metrics, *, exclude_kids_content: bool = False,
                   country_unknown: bool = False) -> CreatorScore:
-    """`country_unknown`: the brief sets target countries and the creator lists no country.
-    Kept (many good creators list none) but ranked lower and flagged."""
+    """`country_unknown`: the brief sets target countries and the platform lists no country for this
+    creator. Jev's country answer then decides: a target country (kept, no penalty), another country
+    (dropped), or no clue (kept, ranked lower and flagged)."""
+    country = None
+    outside = False
+    if country_unknown:
+        verdict, country = judged_country(j)
+        outside = verdict == "outside"
+        country_unknown = verdict == "unknown"
     w = K.FIT_WEIGHTS
     topic = _score(j, "topic_fit")
     stage = _score(j, "audience_stage")
@@ -93,6 +115,8 @@ def score_creator(j: Judgment, metrics: Metrics, *, exclude_kids_content: bool =
     final = round(100 * max(0.0, min(1.0, raw)), 1)
 
     drops: list[str] = []
+    if outside:
+        drops.append("outside the target countries (judged from their posts)")
     if _noul(j, "is_individual", 1.0) < K.DROP_NOT_INDIVIDUAL_BELOW:
         drops.append("not an individual creator")
     if _noul(j, "language_match", 1.0) < K.DROP_LANGUAGE_BELOW:
@@ -111,6 +135,8 @@ def score_creator(j: Judgment, metrics: Metrics, *, exclude_kids_content: bool =
         flags.append("suspicious")
     if country_unknown:
         flags.append("country_unknown")
+    if country:
+        flags.append("country_by_jev")
 
     return CreatorScore(
         fit=round(fit, 4),
@@ -123,6 +149,7 @@ def score_creator(j: Judgment, metrics: Metrics, *, exclude_kids_content: bool =
         drop_reasons=drops,
         flags=flags,
         parts=parts,
+        country=country,
     )
 
 

@@ -410,7 +410,6 @@ async def judge_score(state: BranchState, runtime: Runtime[Deps]) -> dict:
     strategy = state["strategy"]
     jb = brief.judge_brief(pain_points=strategy.get("pain_points"), trend_topics=strategy.get("trend_topics"),
                            safety_level=strategy.get("safety_level", "medium"))
-    questions = creator_questions(jb, platform)
     bh = repo.brief_hash(jb)
     profiles = await repo.get_creators(ids, session_factory=sf)
     via = {r["platform_id"]: r["found_via"] for r in state.get("refs") or []}
@@ -428,9 +427,15 @@ async def judge_score(state: BranchState, runtime: Runtime[Deps]) -> dict:
             judgments[cid] = Judgment.from_dict(cached)
 
     # 2. Jev for the rest, in parallel (the client caps how many run at once)
+    def no_country(p: dict) -> bool:
+        return bool(brief.target_countries) and not p.get("country")
+
     async def ask(cid: str):
+        # the country question only goes to creators whose platform lists no country (same request, no extra call)
+        p = profiles[cid]
         try:
-            return cid, await _judge(runtime, build_state(jb, profiles[cid]), questions, ctx)
+            return cid, await _judge(runtime, build_state(jb, p, with_summaries=no_country(p)),
+                                     creator_questions(jb, platform, ask_country=no_country(p)), ctx)
         except Exception as exc:
             logger.warning("judging failed for %s: %s", cid, exc)
             return cid, None
@@ -447,13 +452,14 @@ async def judge_score(state: BranchState, runtime: Runtime[Deps]) -> dict:
     for cid, j in judgments.items():
         p = profiles[cid]
         s = score_creator(j, Metrics(**(p.get("metrics") or {})), exclude_kids_content=brief.exclude_kids_content,
-                          country_unknown=bool(brief.target_countries) and not p.get("country"))
+                          country_unknown=no_country(p))
         results.append({
             "creator_id": cid, "platform": platform, "platform_id": p["platform_id"],
             "display_name": p.get("display_name", ""), "found_via": via.get(p["platform_id"]), "mode": state["mode"],
             "final_score": s.final_score, "fit": s.fit, "health": s.health, "risk": s.risk,
             "deal_status": s.deal_status, "flags": s.flags, "dropped": s.dropped, "drop_reasons": s.drop_reasons,
             "parts": s.parts,
+            "country_judged": s.country,  # Jev's answer when the platform listed no country
             "signals": _signals(j),
         })
     if ids and not results:

@@ -4,7 +4,7 @@ Bump QUESTIONS_VERSION whenever a question's wording changes: saved Jev answers 
 so changed questions are never mixed with old answers.
 """
 
-QUESTIONS_VERSION = "creator-v1"
+QUESTIONS_VERSION = "creator-v2"  # v2: audience-country question for creators with no listed country
 
 # How much creator text goes into one Jev request (keeps requests small and cheap).
 MAX_POSTS_IN_STATE = 12
@@ -21,7 +21,12 @@ FIT_WEIGHTS = {"topic_fit": 0.5, "audience_stage": 0.3, "pain_point": 0.2}
 FINAL_WEIGHTS = {"fit": 0.55, "health": 0.30}
 RISK_WEIGHT = 0.40
 RISING_BONUS = 0.10
-COUNTRY_UNKNOWN_FACTOR = 0.8  # brief sets target countries but the creator lists none: score x 0.8, flagged
+COUNTRY_UNKNOWN_FACTOR = 0.8  # brief sets target countries, no country listed and Jev can't tell: score x 0.8, flagged
+# Country by Jev (decided Nov 4: Jev only, no estimating in code). Asked only when the platform lists no country.
+COUNTRY_JEV_ACCEPT_FROM = 0.6  # Jev names a target country with at least this confidence: treated as that country
+COUNTRY_JEV_DROP_FROM = 0.75  # Jev says "another country" with at least this confidence: dropped like a wrong country
+MAX_SUMMARIES_IN_STATE = 5  # post descriptions' opening lines sent with the country question
+MAX_SUMMARY_CHARS = 200
 TREND_BONUS = 0.05
 TREND_THRESHOLD = 0.6
 PROMO_RISK_FACTOR = 0.5  # "mostly ads" counts half as much as a safety problem

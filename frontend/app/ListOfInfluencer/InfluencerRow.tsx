@@ -72,7 +72,15 @@ export const InfluencerRow = ({
               {title}
             </span>
             <span className="text-zinc-600 dark:text-zinc-400 font-bold  text-[10px] tracking-widest flex-shrink-0">
-              {influencer.country || ""}
+              {influencer.country ? (
+                influencer.country_source === "jev" ? (
+                  <span title="Judged by Jev from their posts: YouTube doesn't list a country for this channel" className="underline decoration-dotted underline-offset-2 cursor-help">
+                    {influencer.country}
+                  </span>
+                ) : (
+                  influencer.country
+                )
+              ) : ""}
             </span>
           </div>
           <div className="leading-none flex flex-wrap items-center gap-1">

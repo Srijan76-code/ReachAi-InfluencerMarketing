@@ -13,6 +13,7 @@ from typing import Optional
 
 from typesafe_sdk import Choice, Noul, Score
 
+from app.core.countries import COUNTRY_NAMES
 from app.judge import constants as K
 from app.platforms.base import CreatorProfile
 
@@ -35,9 +36,11 @@ def _clip(text: Optional[str], limit: int) -> str:
     return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
-def build_state(brief: JudgeBrief, profile: CreatorProfile) -> dict:
+def build_state(brief: JudgeBrief, profile: CreatorProfile, with_summaries: bool = False) -> dict:
+    """`with_summaries`: also send the opening lines of post descriptions (for the country question:
+    language, places and prices often only show up there)."""
     posts = [_clip(p.get("text"), K.MAX_POST_CHARS) for p in (profile.get("recent_posts") or [])]
-    return {
+    state = {
         "brief": {
             "product": brief.product,
             "category": brief.category,
@@ -54,9 +57,16 @@ def build_state(brief: JudgeBrief, profile: CreatorProfile) -> dict:
             "recent_posts": [p for p in posts if p][: K.MAX_POSTS_IN_STATE],
         },
     }
+    if with_summaries:
+        from app.metrics.posts import summary
+
+        lines = [_clip(summary(p.get("description") or ""), K.MAX_SUMMARY_CHARS) for p in (profile.get("recent_posts") or [])]
+        state["creator"]["post_summaries"] = [l for l in lines if l][: K.MAX_SUMMARIES_IN_STATE]
+    return state
 
 
-def creator_questions(brief: JudgeBrief, platform: str) -> dict:
+def creator_questions(brief: JudgeBrief, platform: str, ask_country: bool = False) -> dict:
+    """`ask_country`: the platform lists no country for this creator (Instagram and LinkedIn never do)."""
     q: dict = {
         "topic_fit": Score(
             instructions="How closely do `creator.recent_posts` match the subject of `brief.product`?",
@@ -127,13 +137,18 @@ def creator_questions(brief: JudgeBrief, platform: str) -> dict:
             instructions="Who is the main audience of `creator.recent_posts`?",
             criteria={**{r: None for r in K.AUDIENCE_ROLES}, "other": None},
         )
-    if platform in ("instagram", "linkedin") and brief.target_countries:
+    if brief.target_countries and (ask_country or platform in ("instagram", "linkedin")):
         q["country"] = Choice(
             instructions=(
-                "Which country is `creator` most likely based in, judging only from `creator.bio` and "
-                "`creator.recent_posts`?"
+                "Which country is most of `creator`'s audience in? Judge from the language, places, currencies, "
+                "prices, exams, events and other local references in `creator.bio`, `creator.recent_posts` and "
+                "`creator.post_summaries`. Answer not_stated if they give no real clue."
             ),
-            criteria={**{c.upper(): None for c in brief.target_countries}, "other": None, "not_stated": None},
+            criteria={
+                **{c.upper(): COUNTRY_NAMES.get(c.upper(), c.upper()) for c in brief.target_countries},
+                "other": "A country not in this list",
+                "not_stated": "No real clue in the text",
+            },
         )
     return q
 

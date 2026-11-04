@@ -92,3 +92,13 @@ def test_new_posts_are_not_judged_and_link_lists_are_not_matched():
     # topics: the opening summary counts, link lists further down don't
     p = _post(4, "Weekly vlog", description="We talk about AI agents today.\n\nPlaylists:\nMachine learning interviews https://x")
     assert analyse_posts([p], ["AI agents", "machine learning interviews"])[0][0]["matched_topics"] == ["AI agents"]
+
+
+def test_lead_shows_where_the_country_came_from():
+    base = {"platform_id": "UC1", "display_name": "A", "recent_posts": [], "platform_stats": {}}
+    listed = to_legacy_lead({**base, "country": "US"}, {}, {"country_judged": "IN"}, None, "saas")
+    assert listed["country"] == "US" and listed["country_source"] == "platform"  # the platform wins
+    judged = to_legacy_lead(base, {}, {"country_judged": "IN"}, None, "saas")
+    assert judged["country"] == "IN" and judged["country_source"] == "jev"
+    none = to_legacy_lead(base, {}, {}, None, "saas")
+    assert none["country"] == "" and none["country_source"] is None
