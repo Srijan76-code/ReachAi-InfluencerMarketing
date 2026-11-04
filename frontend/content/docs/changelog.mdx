@@ -5,6 +5,10 @@ description: What's new in ReachAI. Updated every time we ship.
 
 ## November 5, 2026
 
+**Fixed: "Token has expired"**
+- Actions could fail with "Token has expired" when ReachAI took a few seconds to respond (for example when adding a creator by link). Sign-in tokens now refresh by themselves and the request goes through.
+
+
 **A negotiation agent replaces the fixed formula**
 - When a creator replies, ReachAI reads what they asked for, decides your move (accept, counter, change the deal type, hold, or walk away), picks the commission and how far to move, and writes a reply to what they actually said. You approve it in To do.
 - It weighs their views, recent sponsors, your goal and budget, every message so far, and what similar creators agreed.
