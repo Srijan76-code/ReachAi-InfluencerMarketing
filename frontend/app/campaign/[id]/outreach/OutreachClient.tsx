@@ -1,4 +1,5 @@
 "use client";
+import { CreatorAvatar } from "@/components/CreatorAvatar";
 
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import Link from "next/link";
@@ -513,9 +514,11 @@ export default function OutreachClient({
                       {String(index + 1).padStart(2, "0")}
                     </span>
 
-                    <div className="w-8 h-8 rounded-[6px] border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/50 flex items-center justify-center font-medium text-xs text-zinc-900 dark:text-zinc-100">
-                      {title.charAt(0).toUpperCase()}
-                    </div>
+                    <CreatorAvatar
+                      name={title}
+                      src={lead?.avatar_url}
+                      className="w-8 h-8 rounded-[6px] border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/50 flex items-center justify-center font-medium text-xs text-zinc-900 dark:text-zinc-100 shrink-0"
+                    />
 
                     <div className="space-y-0.5">
                       <div className="flex items-center gap-2">
@@ -632,9 +635,11 @@ export default function OutreachClient({
                   <div className="shrink-0 space-y-5 border-b border-zinc-200/60 bg-zinc-50 p-6 dark:border-zinc-800/60 dark:bg-[#08090a]">
                     <div className="flex items-start justify-between pr-8">
                       <div className="flex items-start gap-4">
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded border border-zinc-300 bg-zinc-100 text-lg font-medium text-zinc-600 dark:border-zinc-700/50 dark:bg-zinc-800/50 dark:text-zinc-400">
-                          {(lead?.title || activePitch.creator_id).charAt(0).toUpperCase()}
-                        </div>
+                        <CreatorAvatar
+                          name={lead?.title || activePitch.creator_id}
+                          src={lead?.avatar_url}
+                          className="flex h-12 w-12 shrink-0 items-center justify-center rounded border border-zinc-300 bg-zinc-100 text-lg font-medium text-zinc-600 dark:border-zinc-700/50 dark:bg-zinc-800/50 dark:text-zinc-400"
+                        />
                         <div className="space-y-1.5 pt-0.5">
                           <div className="flex flex-wrap items-center gap-2.5">
                           <SheetTitle className="text-lg font-semibold leading-none text-zinc-900 dark:text-zinc-100">

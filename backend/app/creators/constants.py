@@ -28,3 +28,6 @@ REFRESH_AHEAD = timedelta(days=2)
 REFRESH_MAX_CREATORS = 1400
 REFRESH_SCAN_LIMIT = 5000
 REFRESH_CRON = "17 9 * * *"  # daily, 09:17 UTC: after YouTube's quota day starts (midnight Pacific)
+
+# Older results saved without profile photos get them added by the nightly job (1 quota unit per 50).
+AVATAR_BACKFILL_MAX = 2000

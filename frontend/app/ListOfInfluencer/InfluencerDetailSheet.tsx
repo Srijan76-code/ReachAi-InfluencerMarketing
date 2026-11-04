@@ -1,3 +1,4 @@
+import { CreatorAvatar } from "@/components/CreatorAvatar";
 import { CreatorBadges, badgeFlags } from "@/components/CreatorBadges";
 import { 
   SheetContent, 
@@ -42,6 +43,8 @@ export const InfluencerDetailSheet = ({
   campaignId?: string;
 }) => {
   const { metrics, socials, title, deal_status, score_breakdown } = influencer;
+  // the creator's channel: stored URL (new engine) or built from the channel id (older results)
+  const channelUrl = influencer.url || `https://www.youtube.com/channel/${influencer.id}`;
 
   // Status Color Logic
   const statusStyles = {
@@ -63,14 +66,18 @@ export const InfluencerDetailSheet = ({
 
           <div className="flex items-start justify-between pr-8">
             <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded bg-zinc-100 dark:bg-zinc-800/50 border border-zinc-300 dark:border-zinc-700/50 flex items-center justify-center text-lg font-medium text-zinc-600 dark:text-zinc-400 shrink-0">
-                {title[0].toUpperCase()}
-              </div>
+              <CreatorAvatar
+                name={title}
+                src={influencer.avatar_url}
+                className="w-12 h-12 rounded bg-zinc-100 dark:bg-zinc-800/50 border border-zinc-300 dark:border-zinc-700/50 flex items-center justify-center text-lg font-medium text-zinc-600 dark:text-zinc-400 shrink-0"
+              />
               
               <div className="flex flex-col gap-2 pt-0.5">
                 <div className="flex items-center gap-3">
                   <SheetTitle className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 leading-none">
-                    {title}
+                    <a href={channelUrl} target="_blank" rel="noopener noreferrer" className="hover:underline underline-offset-4 decoration-zinc-300 dark:decoration-zinc-600" title="Open channel">
+                      {title}
+                    </a>
                   </SheetTitle>
                   <span className={`px-2 py-0.5 rounded border text-[10px] font-medium ${statusStyles[deal_status]}`}>
                     {deal_status}
@@ -96,9 +103,9 @@ export const InfluencerDetailSheet = ({
 
           <div className="flex items-center justify-between pt-1">
             <div className="flex items-center gap-2">
-              <a href={socials.instagram || "#"} className="w-8 h-8 rounded border border-zinc-200/60 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-900/50 flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors text-zinc-600 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"><Instagram size={14} /></a>
-              <a href={socials.twitter || "#"} className="w-8 h-8 rounded border border-zinc-200/60 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-900/50 flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors text-zinc-600 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"><Twitter size={14} /></a>
-              <a href={`mailto:${socials.email || ""}`} className="w-8 h-8 rounded border border-zinc-200/60 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-900/50 flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors text-zinc-600 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"><Mail size={14} /></a>
+              <SocialLink href={socials.instagram} label="Instagram" className="w-8 h-8 rounded border border-zinc-200/60 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-900/50 flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors text-zinc-600 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"><Instagram size={14} /></SocialLink>
+              <SocialLink href={socials.twitter} label="X" className="w-8 h-8 rounded border border-zinc-200/60 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-900/50 flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors text-zinc-600 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"><Twitter size={14} /></SocialLink>
+              <SocialLink href={socials.email ? `mailto:${socials.email}` : null} label="Email" external={false} className="w-8 h-8 rounded border border-zinc-200/60 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-900/50 flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors text-zinc-600 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"><Mail size={14} /></SocialLink>
             </div>
             {campaignId ? (
               <OutreachDialog
@@ -112,9 +119,9 @@ export const InfluencerDetailSheet = ({
                 }
               />
             ) : (
-              <button className="bg-zinc-100 hover:bg-zinc-900 dark:hover:bg-white text-zinc-900 text-[12px] font-semibold px-4 py-2 rounded transition-colors shadow-sm active:scale-95">
+              <a href="/sign-in" title="Sign in to contact creators" className="bg-zinc-100 hover:bg-zinc-900 hover:text-white dark:hover:bg-white dark:hover:text-zinc-900 text-zinc-900 text-[12px] font-semibold px-4 py-2 rounded transition-colors shadow-sm active:scale-95">
                 Start Outreach
-              </button>
+              </a>
             )}
           </div>
         </div>
@@ -270,14 +277,14 @@ export const InfluencerDetailSheet = ({
                 <PlayCircle size={14} className="text-amber-500" />
                 Recent Content
               </h3>
-              <a href="#" className="text-[11px] font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors flex items-center gap-1 group">
+              <a href={`${channelUrl}/videos`} target="_blank" rel="noopener noreferrer" className="text-[11px] font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors flex items-center gap-1 group">
                 Full Analytics <ExternalLink size={11} className="group-hover:translate-x-0.5 transition-transform" />
               </a>
             </div>
             
             <div className="rounded border border-zinc-200/60 dark:border-zinc-800/60 bg-zinc-100 dark:bg-[#121314] overflow-hidden divide-y divide-zinc-800/60">
               {influencer.recent_videos.slice(0, 5).map((video, i) => (
-                <div key={i} className="flex items-center justify-between p-3 hover:bg-zinc-100/30 dark:hover:bg-zinc-800/30 transition-colors group cursor-pointer">
+                <a key={i} href={video.url || `${channelUrl}/videos`} target="_blank" rel="noopener noreferrer" title={video.url ? "Watch on YouTube" : "Open the channel's videos"} className="flex items-center justify-between p-3 hover:bg-zinc-100/30 dark:hover:bg-zinc-800/30 transition-colors group cursor-pointer">
                   <div className="flex items-center gap-3 overflow-hidden">
                     <PlayCircle size={14} className="text-zinc-400 dark:text-zinc-600 group-hover:text-zinc-600 dark:group-hover:text-zinc-400 shrink-0 transition-colors" />
                     <span className="text-[12px] text-zinc-700 dark:text-zinc-300 truncate group-hover:text-zinc-900 dark:group-hover:text-zinc-100 transition-colors">{video.title}</span>
@@ -285,7 +292,7 @@ export const InfluencerDetailSheet = ({
                   <span className="font-mono text-[11px] text-zinc-500 shrink-0 ml-4 group-hover:text-zinc-600 dark:group-hover:text-zinc-400 transition-colors">
                     {(video.views / 1000).toFixed(1)}k
                   </span>
-                </div>
+                </a>
               ))}
             </div>
           </section>
@@ -295,6 +302,20 @@ export const InfluencerDetailSheet = ({
     </TooltipProvider>
   );
 };
+
+// --- A social icon: a real link when we have it, a dimmed "not found" icon when we don't ---
+const SocialLink = ({ href, label, className, children, external = true }: {
+  href?: string | null; label: string; className: string; children: React.ReactNode; external?: boolean;
+}) =>
+  href ? (
+    <a href={href} aria-label={label} title={label} className={className} {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}>
+      {children}
+    </a>
+  ) : (
+    <span aria-disabled="true" title={`No ${label} found`} className={`${className} opacity-40 cursor-not-allowed pointer-events-auto`}>
+      {children}
+    </span>
+  );
 
 // --- HELPER COMPONENT FOR METRICS GRID ---
 const MetricCell = ({ label, value, icon, info, borderTop, removeBorderRight, valueColorClass }: any) => (

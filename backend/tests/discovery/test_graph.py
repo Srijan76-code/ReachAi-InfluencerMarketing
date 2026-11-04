@@ -43,6 +43,8 @@ async def test_full_run_produces_ranked_leads_in_the_legacy_shape(sf, monkeypatc
         assert key in lead, key
     assert lead["id"].startswith("UC") and lead["platform"] == "youtube"
     assert set(lead["metrics"]) >= {"avg_views", "reliability", "engagement_rate", "trust_score", "forecast"}
+    assert "avatar_url" in lead  # None for the recording (photos weren't recorded), the photo URL live
+    assert lead["recent_videos"] and all(v["url"].startswith("https://www.youtube.com/watch?v=") for v in lead["recent_videos"])
     # reasons only for the top N
     n = parse_brief(BRIEF).creator_count
     assert sum(1 for l in leads if l["llm_reasoning"]) == min(n, len(leads))

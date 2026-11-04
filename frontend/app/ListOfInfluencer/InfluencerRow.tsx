@@ -1,3 +1,4 @@
+import { CreatorAvatar } from "@/components/CreatorAvatar";
 import type { Influencer } from "@/data/influencerList";
 import { CreatorBadges, badgeFlags } from "@/components/CreatorBadges";
 import {
@@ -58,11 +59,12 @@ export const InfluencerRow = ({
 
       {/* --- ZONE 1: IDENTITY --- */}
       <div className="flex items-center gap-3 min-w-[240px] flex-1">
-        <div className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-[6px] border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/50 shadow-sm">
-          <span className="text-[12px] font-medium text-zinc-900 dark:text-[#ededed]">
-            {title.charAt(0).toUpperCase()}
-          </span>
-        </div>
+        <CreatorAvatar
+          name={title}
+          src={influencer.avatar_url}
+          className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-[6px] border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/50 shadow-sm"
+          textClassName="text-[12px] font-medium text-zinc-900 dark:text-[#ededed]"
+        />
 
         <div className="flex flex-col gap-1 leading-none">
           <div className="flex items-center gap-2">
