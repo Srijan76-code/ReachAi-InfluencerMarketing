@@ -63,6 +63,6 @@ AUDIENCE_ROLES = [
 ]
 
 # --- A creator's reply to a deal offer (app/deals/reply.py) ----------------------------------------
-REPLY_QUESTIONS_VERSION = "reply-v1"
+REPLY_QUESTIONS_VERSION = "reply-v2"  # v2: declined, agrees, gives_price (the "Needs you" queue)
 REPLY_SIGNAL_FROM = 0.6  # a reply signal (open to negotiate, wants commission…) counts from this probability
 REPLY_INJECTION_ABOVE = 0.5  # the reply is ignored if it looks aimed at an AI

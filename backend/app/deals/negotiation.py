@@ -85,6 +85,26 @@ USAGE_WORDS = {
 }
 
 
+# Words that mark a channel name rather than a person's ("The CRM Guy", "Sales Systems India").
+_NOT_A_NAME = {
+    "the", "a", "an", "and", "with", "of", "by", "for", "my", "our", "your", "tech", "data", "sales", "marketing", "growth",
+    "money", "finance", "business", "startup", "startups", "founder", "founders", "analytics", "simplified", "systems",
+    "india", "official", "channel", "tv", "media", "studio", "studios", "academy", "school", "labs", "lab", "hq", "hub",
+    "daily", "weekly", "show", "podcast", "news", "world", "guy", "girl", "guru", "pro", "tips", "learn", "learning",
+    "code", "coding", "dev", "ai", "crm", "saas", "notes", "talks", "life", "vlogs", "reviews", "explained", "team",
+}
+
+
+def greeting_name(name: Optional[str]) -> str:
+    """The name to greet: a person's first name when the channel name looks like one ("Krish Naik" → Krish),
+    else "there". Real first-name resolution (Jev, spec §7.1) comes with the outreach work (F6.1)."""
+    words = (name or "").split()
+    if 1 <= len(words) <= 3 and all(w.isalpha() and w[:1].isupper() and w[1:].islower() and w.lower() not in _NOT_A_NAME for w in words) \
+            and len(words[0]) >= 2:
+        return words[0]
+    return "there"
+
+
 def suggest_deal_type(goal: Optional[str]) -> str:
     return "base_plus_commission" if (goal or "").lower() in ("signups", "sales") else "flat"
 
@@ -120,7 +140,7 @@ def amounts_for(advice: Advice, angle: str, quote: Optional[float]) -> dict:
 
 def template(*, name: str, advice: Advice, angle: str, amounts: dict, deliverable: str, usage_rights: str,
              post_by: Optional[str], typical_views: Optional[float]) -> str:
-    first = (name or "there").split()[0]
+    first = greeting_name(name)
     what = DELIVERABLE_WORDS.get(deliverable, "the collaboration")
     usage = USAGE_WORDS.get(usage_rights, "")
     when = f" going live by {post_by}" if post_by else ""

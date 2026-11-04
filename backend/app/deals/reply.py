@@ -79,7 +79,7 @@ async def rewrite(*, name: str, angle: str, amounts: dict, deliverable: str, usa
     from app.llm.client import LLMUnavailableError, achat
 
     facts = {
-        "creator_first_name": (name or "there").split()[0],
+        "creator_first_name": N.greeting_name(name),
         "angle": {"accept": "accept their price", "budget": "counter with our budget",
                   "performance": "offer a lower fee plus commission on sales",
                   "scope": "keep their price but drop paid-ads use and exclusivity, or pay the counter for the full package"}[angle],

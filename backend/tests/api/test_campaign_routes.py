@@ -33,7 +33,7 @@ async def client(tmp_path, monkeypatch):
     from tests.discovery.conftest import create_tables, make_engine
 
     engine, is_pg = make_engine(tmp_path)
-    await create_tables(engine, is_pg, ["users", "campaigns", "saved_leads", "run_candidates", "share_links", "share_feedback", "creator_deals", "deal_events", "share_events"])
+    await create_tables(engine, is_pg, ["users", "campaigns", "saved_leads", "run_candidates", "share_links", "share_feedback", "creator_deals", "deal_events", "share_events", "agent_proposals"])
     sf = sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
     async with sf() as s:
         s.add_all([User(user_id="u1", clerk_id="clerk-1"), User(user_id="u2", clerk_id="clerk-2")])
@@ -473,6 +473,70 @@ async def test_counter_message_endpoint(client, monkeypatch):
     d6 = (await client.post("/api/campaigns/c1/deals", json={"creator_ids": ["UC6"]})).json()["created"][0]
     assert (await client.post(f"/api/deals/{d6['id']}/counter", json={})).status_code == 422
     assert no_fair["advice"]["fair_high"] == 210
+
+
+@needs_pg
+@pytest.mark.asyncio
+async def test_needs_you_queue_from_reply_to_agreed(client, monkeypatch):
+    """Paste a reply → Jev reads it → code suggests → the founder approves; every step is on the timeline."""
+    from app.judge import client as jc
+    from app.judge.client import Answer, Judgment
+    from app.llm import client as llm
+
+    await _set_leads(client, DEAL_LEADS)
+    d = (await client.post("/api/campaigns/c1/deals", json={"creator_ids": ["UC1"]})).json()["created"][0]
+    assert (await client.get("/api/campaigns/c1/deals")).json()["proposals"] == []  # just contacted: nothing yet
+
+    said = {}
+
+    async def fake_judge(state, questions, context=None, **k):
+        return Judgment({q: Answer("noul", said.get(q, 0.05)) for q in questions}, "jev", "jev")
+    monkeypatch.setattr(jc, "judge", fake_judge)
+
+    said.update(gives_price=0.9)
+    assert (await client.post(f"/api/deals/{d['id']}/reply", json={"text": "  "})).status_code == 422
+    r = (await client.post(f"/api/deals/{d['id']}/reply", json={"text": "Hey! My rate is $300 for a segment."})).json()
+    [p] = r["proposals"]
+    assert p["kind"] == "record_quote" and p["name"] == "Creator 1" and not p["is_message"]
+
+    a = (await client.post(f"/api/proposals/{p['id']}/approve", json={})).json()
+    assert a["deal"]["quoted_rate"] == 300 and a["deal"]["stage"] == "negotiating"
+    [c] = a["proposals"]
+    assert c["kind"] == "send_counter" and "$180" in c["message"] and c["is_message"] and c["can_reword"]
+    assert (await client.post(f"/api/proposals/{p['id']}/approve", json={})).status_code == 409  # handled already
+
+    # AI rewording keeps our numbers or is refused
+    async def bad_llm(route, messages, schema=None, **k):
+        assert "My rate is" not in str(messages)  # the creator's text never reaches the LLM
+        return "Hi Creator, how about $250?"
+    monkeypatch.setattr(llm, "achat", bad_llm)
+    rw = (await client.post(f"/api/proposals/{c['id']}/reword")).json()
+    assert rw["source"] == "template" and "$180" in rw["message"]
+
+    edited = c["message"].replace("Would that work for you?", "Would that work? We loved your last video.")
+    a = (await client.post(f"/api/proposals/{c['id']}/approve", json={"message": edited})).json()
+    assert a["proposals"] == []  # waiting for their answer
+
+    said.clear()
+    said.update(agrees=0.95)
+    r = (await client.post(f"/api/deals/{d['id']}/reply", json={"text": "Sounds good, $180 works."})).json()
+    [ag] = r["proposals"]
+    assert ag["kind"] == "agree" and ag["title"] == "Agree at $180"
+    a = (await client.post(f"/api/proposals/{ag['id']}/approve", json={})).json()
+    assert a["deal"]["stage"] == "agreed" and a["deal"]["agreed_rate"] == 180
+
+    events = (await client.get(f"/api/deals/{d['id']}/events")).json()
+    sent = [e for e in events if e["type"] == "message_sent"]
+    assert len(sent) == 1 and sent[0]["payload"]["edited"] is True and sent[0]["payload"]["amounts"] == {"counter": 180}
+    assert [e["payload"]["decision"] for e in events if e["type"] == "proposal"] == ["approved"] * 3
+
+    # skipped suggestions don't come back; another user can't touch them
+    await client.patch(f"/api/deals/{d['id']}", json={"post_url": "https://youtube.com/watch?v=x"})
+    [live] = (await client.get("/api/campaigns/c1/deals")).json()["proposals"]
+    assert live["kind"] == "mark_live"
+    assert (await client.post(f"/api/proposals/{live['id']}/skip")).json()["proposals"] == []
+    assert (await client.get("/api/campaigns/c1/deals")).json()["proposals"] == []
+    assert (await client.post("/api/proposals/nope/approve", json={})).status_code == 404
 
 
 @needs_pg

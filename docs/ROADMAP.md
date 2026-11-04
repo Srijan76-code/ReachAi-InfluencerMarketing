@@ -115,7 +115,9 @@ Known gaps in what's built:
 | F6.5 | Connect Gmail (Google OAuth, send + read, test mode up to 100 users) + sending guardrails; approve-everything rule. Needs `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` in Vercel (step 3 of the agent plan) | next | §7.5 |
 | F6.6 | Claim check | later | §7.6 |
 | F6.7 | Follow-up sequences (Inngest) | later | §7.7 |
-| F6.8 | "Needs you" queue for outreach and deals: the agent proposes (first message, follow-up, counter, stage change, chase a late post) with reason and evidence; Approve / Edit / Skip; every decision logged. Pasted replies until Gmail is connected (step 2 of the agent plan) | next | §7.8 |
+| F6.8 | "Needs you" queue (`needs-you`), deals part: `agent_proposals` (migration `a3b9d5e1c7f2`); code suggests one next step per deal (follow-up ×2, record quote from a pasted reply, counter / accept with a ready message, agree when they accept our offer, mark lost, chase a late post ×3, move to Live, mark paid), with the reason; Approve (messages: copy and mark sent) / Edit / Reword with AI / Skip, all logged on the timeline; skipped ones never return; pasted reply read by Jev (new `declined`, `agrees`, `gives_price` questions, `reply-v2`); greeting uses a first name only when the channel name looks like a person's. Outreach first messages join the queue with Gmail (F6.5) | done | §7.8 | `backend/app/agent/`, `backend/app/deals/changes.py`, `backend/app/api/routes/deals.py`, `frontend/components/deals/NeedsYou.tsx`, `DealPanel.tsx`, `tests/agent/` |
+| F6.8b | Needs-you count on the Deals tab and in the navbar (across campaigns); a cron so time-based suggestions (follow-ups, late posts) can notify without opening the page | later | §7.8 | `CampaignTabs.tsx`, `app/inngest/functions.py` |
+| F6.1b | Creator first name for greetings (Jev picks it from the channel's about text; today a cautious code rule) | later | §7.1 | `app/deals/negotiation.py` (`greeting_name`) |
 | F6.9 | Inbox + reply classification | later | §7.9 |
 | F6.10 | Assisted DMs | later | §7.10 |
 | F6.11 | Reply-rate analytics | later | §7.11 |

@@ -111,3 +111,30 @@ export type CounterOut = {
 
 export const money = (n: number | null | undefined) =>
   n === null || n === undefined ? "—" : `$${Math.round(n).toLocaleString()}`;
+
+/** A next step the agent suggests (the "Needs you" queue): nothing happens until you approve it. */
+export type Proposal = {
+  id: string;
+  deal_id: string;
+  kind: "record_quote" | "send_counter" | "agree" | "follow_up" | "chase_post" | "mark_live" | "mark_paid" | "mark_lost";
+  title: string;
+  reason: string | null;
+  message: string | null;
+  source: "ai" | "template";
+  can_reword: boolean;
+  is_message: boolean;
+  name: string;
+  avatar_url: string | null;
+  created_at: string | null;
+};
+
+export const PROPOSAL_ACTION: Record<Proposal["kind"], string> = {
+  record_quote: "Write it down",
+  send_counter: "Copy and mark sent",
+  agree: "Agree",
+  follow_up: "Copy and mark sent",
+  chase_post: "Copy and mark sent",
+  mark_live: "Move to Live",
+  mark_paid: "Mark paid",
+  mark_lost: "Mark lost",
+};

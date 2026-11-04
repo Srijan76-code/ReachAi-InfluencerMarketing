@@ -10,7 +10,8 @@ import { StatStrip, StatTile } from "@/components/ui/stat";
 import { AddCreatorsDialog } from "@/components/deals/AddCreatorsDialog";
 import { DealCard } from "@/components/deals/DealCard";
 import { DealPanel } from "@/components/deals/DealPanel";
-import { BOARD_STAGES, type Deal, type DealsSummary, STAGE_HINT, STAGE_LABEL, type Stage, money } from "@/data/deals";
+import { NeedsYou } from "@/components/deals/NeedsYou";
+import { BOARD_STAGES, type Deal, type DealsSummary, type Proposal, STAGE_HINT, STAGE_LABEL, type Stage, money } from "@/data/deals";
 
 /** The Deals tab (spec §8.1, §8.5): one column per stage, drag cards to move them, click to open. */
 export default function DealsBoard({ campaignId, apiOverride }: {
@@ -21,6 +22,7 @@ export default function DealsBoard({ campaignId, apiOverride }: {
   const api = apiOverride ?? signedInApi;
   const [deals, setDeals] = useState<Deal[] | null>(null);
   const [summary, setSummary] = useState<DealsSummary | null>(null);
+  const [proposals, setProposals] = useState<Proposal[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [showLost, setShowLost] = useState(false);
@@ -30,9 +32,10 @@ export default function DealsBoard({ campaignId, apiOverride }: {
   const load = () =>
     api(`/api/campaigns/${campaignId}/deals`)
       .then((r) => {
-        const d = r.data as { deals: Deal[]; summary: DealsSummary };
+        const d = r.data as { deals: Deal[]; summary: DealsSummary; proposals?: Proposal[] };
         setDeals(d.deals);
         setSummary(d.summary);
+        setProposals(d.proposals ?? []);
       })
       .catch(() => setError("Couldn't load deals. Refresh to try again."));
 
@@ -70,6 +73,12 @@ export default function DealsBoard({ campaignId, apiOverride }: {
     }
   };
 
+  // a suggestion was approved or skipped (or a reply was read): show the new list, then reload the deals it changed
+  const onProposals = (data: { proposals?: Proposal[] }) => {
+    if (data.proposals) setProposals(data.proposals);
+    load();
+  };
+
   const existing = useMemo(() => new Set((deals ?? []).map((d) => d.creator_id)), [deals]);
   const columns: Stage[] = showLost ? [...BOARD_STAGES, "lost"] : BOARD_STAGES;
   const lostCount = deals?.filter((d) => d.stage === "lost").length ?? 0;
@@ -105,6 +114,8 @@ export default function DealsBoard({ campaignId, apiOverride }: {
             <StatTile label="Paid" value={<span className="font-mono">{money(summary.paid)}</span>} sub={summary.committed ? `${money(Math.max(0, summary.committed - summary.paid))} still to pay` : undefined} />
           </StatStrip>
         )}
+
+        {deals && deals.length > 0 && <NeedsYou proposals={proposals} api={api} onDone={onProposals} onOpen={setOpenId} />}
 
         {deals === null ? (
           <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
@@ -159,7 +170,7 @@ export default function DealsBoard({ campaignId, apiOverride }: {
         )}
 
         <Sheet open={!!open} onOpenChange={(o) => !o && setOpenId(null)}>
-          {open && <DealPanel deal={open} api={api} onChange={replace} onRemove={() => remove(open)} />}
+          {open && <DealPanel deal={open} api={api} onChange={replace} onRemove={() => remove(open)} proposals={proposals.filter((p) => p.deal_id === open.id)} onProposals={onProposals} />}
         </Sheet>
       </div>
     </TooltipProvider>
