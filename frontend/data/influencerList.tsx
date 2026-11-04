@@ -64,6 +64,7 @@ export interface Influencer {
   url?: string;
   avatar_url?: string | null; // profile photo from the platform
   found_via?: string | null;
+  rising?: boolean;
   flags?: string[]; // rising | trend | suspicious | country_unknown
   fair_low?: number | null;
   fair_high?: number | null;
