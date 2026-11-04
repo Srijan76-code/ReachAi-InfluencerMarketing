@@ -4,6 +4,7 @@ Needs real Postgres (jsonb functions): runs when PG_TEST_URL is set."""
 
 import os
 import uuid
+from datetime import datetime, timedelta, timezone
 
 import httpx
 import pytest
@@ -40,6 +41,14 @@ async def client(tmp_path, monkeypatch):
                      campaign_leads=LEADS, status=CampaignStatus.COMPLETED, thread_id="discovery-r1", run_id="r1"),
             Campaign(campaign_id="c2", user_id="u1", name=None, campaign_leads=None, status=CampaignStatus.CREATED),
             Campaign(campaign_id="c3", user_id="u2", name="Theirs", campaign_leads=LEADS, status=CampaignStatus.COMPLETED),
+            # a draft left 3 days ago without a brief: hidden from the list
+            Campaign(campaign_id="c4", user_id="u1", name="Untitled Campaign", status=CampaignStatus.CREATED,
+                     created_at=datetime.now(timezone.utc) - timedelta(days=3)),
+            # an older campaign that kept the placeholder name: listed under its brief's name
+            Campaign(campaign_id="c5", user_id="u1", name="Untitled Campaign", status=CampaignStatus.PENDING,
+                     campaign_details={"brand": {"name": "DataLaunch"}, "campaign": {"goal": "sales"},
+                                       "constraints": {"target_countries": ["IN"]}},
+                     workflow_status={"status": "running"}, created_at=datetime.now(timezone.utc) - timedelta(days=30)),
         ])
         await s.flush()
         s.add(SavedLead(lead_id=str(uuid.uuid4()), campaign_id="c1", name="Creator 1", lead_data=LEADS[1]))
@@ -80,7 +89,8 @@ async def test_list_counts_leads_in_the_database_without_loading_them(client):
     r = await client.get("/api/campaigns/")
     assert r.status_code == 200
     rows = {c["id"]: c for c in r.json()}
-    assert set(rows) == {"c1", "c2"}  # only my campaigns
+    assert set(rows) == {"c1", "c2", "c5"}  # only mine, and not the abandoned empty draft (c4)
+    assert rows["c5"]["name"] == "DataLaunch · Sales · India" and rows["c5"]["run_status"] == "running"
     assert rows["c1"]["leads_count"] == 7 and rows["c2"]["leads_count"] == 0
     assert rows["c2"]["name"] == "Untitled Campaign" and rows["c1"]["status"] == "completed"
     listing = [q for q in client.stats["sql"] if "FROM campaigns" in q]
@@ -160,3 +170,46 @@ async def test_skipped_summary_groups_reasons_for_my_run_only(client):
     assert body["reasons"][0] == {"reason": "inactive", "count": 2}  # most common first
     assert (await client.get("/api/campaigns/c2/skipped")).json() == {"looked_at": 0, "skipped": 0, "reasons": []}
     assert (await client.get("/api/campaigns/c3/skipped")).status_code == 404  # someone else's campaign
+
+
+@needs_pg
+@pytest.mark.asyncio
+async def test_rename_and_delete_are_owner_only_and_delete_cascades(client, monkeypatch):
+    r = await client.patch("/api/campaigns/c1", json={"name": "  Launch\n week  "})
+    assert r.status_code == 200 and r.json()["name"] == "Launch week"
+    assert (await client.patch("/api/campaigns/c1", json={"name": "   "})).status_code == 422
+    assert (await client.patch("/api/campaigns/c3", json={"name": "mine now"})).status_code == 404
+    assert (await client.delete("/api/campaigns/c3")).status_code == 404  # someone else's
+    assert (await client.delete("/api/campaigns/c5")).status_code == 409  # search still running
+    assert (await client.delete("/api/campaigns/c1")).status_code == 200
+    assert (await client.get("/api/campaigns/c1/leads")).status_code == 404
+    assert (await client.get("/api/saved/?campaign_id=c1")).status_code == 404  # its saved creators went too
+
+
+@needs_pg
+@pytest.mark.asyncio
+async def test_running_a_campaign_names_it_from_the_brief_unless_the_user_named_it(client, monkeypatch):
+    from app.api.routes import campaign as routes
+
+    sent = []
+
+    async def fake_send(event):
+        sent.append(event)
+    monkeypatch.setattr(routes.inngest_client, "send", fake_send)
+    brief = {"brand": {"name": "Acme"}, "campaign": {"goal": "signups"}, "audience": {"locations": ["US", "GB"]}}
+    assert (await client.post("/api/campaigns/c2/generate", json=brief)).status_code == 200
+    assert (await client.get("/api/campaigns/c2/details")).json()["name"] == "Acme · Signups · United States +1"
+    await client.patch("/api/campaigns/c2", json={"name": "My name"})
+    await client.post("/api/campaigns/c2/generate", json={**brief, "brand": {"name": "Other"}})
+    assert (await client.get("/api/campaigns/c2/details")).json()["name"] == "My name" and len(sent) == 2
+
+
+def test_name_from_brief():
+    from app.api.campaign_names import clean_name, is_default, name_from_brief
+
+    assert name_from_brief({"brand": {"name": "DataLaunch"}, "campaign": {"goal": "sales"},
+                            "constraints": {"target_countries": ["AE"]}}) == "DataLaunch · Sales · UAE"
+    assert name_from_brief({"brand": {"name": "X"}, "audience": {"locations": ["ZW"]}}) == "X · ZW"  # unknown code
+    assert name_from_brief({"brand": {"name": " "}}) is None and name_from_brief(None) is None
+    assert is_default(None) and is_default(" Untitled Campaign ") and not is_default("Launch")
+    assert len(clean_name("a" * 200)) == 80
