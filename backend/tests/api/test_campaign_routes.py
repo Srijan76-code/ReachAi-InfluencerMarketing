@@ -33,7 +33,7 @@ async def client(tmp_path, monkeypatch):
     from tests.discovery.conftest import create_tables, make_engine
 
     engine, is_pg = make_engine(tmp_path)
-    await create_tables(engine, is_pg, ["users", "campaigns", "saved_leads", "run_candidates", "share_links", "share_feedback", "creator_deals", "deal_events", "share_events", "agent_proposals"])
+    await create_tables(engine, is_pg, ["users", "campaigns", "saved_leads", "run_candidates", "share_links", "share_feedback", "creator_deals", "deal_events", "share_events", "agent_proposals", "connected_accounts"])
     sf = sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
     async with sf() as s:
         s.add_all([User(user_id="u1", clerk_id="clerk-1"), User(user_id="u2", clerk_id="clerk-2")])
@@ -562,6 +562,104 @@ async def test_quote_typos_merge_and_jev_sees_the_negotiation_so_far(client, mon
     monkeypatch.setattr(jc, "judge", fake_judge)
     await client.post(f"/api/deals/{d['id']}/reply", json={"text": "Can you do a bit more?"})
     assert seen["thread"] == {"round": 2, "our_last_offer": "$180", "their_last_ask": "$300"}
+
+
+@needs_pg
+@pytest.mark.asyncio
+async def test_gmail_connect_send_and_replies_flow(client, monkeypatch):
+    """Connect Gmail → send the first pitch → their reply comes in → approve the counter → it's sent in the thread."""
+    import base64
+    from urllib.parse import parse_qs, urlparse
+
+    from sqlalchemy import select as sa_select
+
+    from app.db import database
+    from app.gmail import client as GC
+    from app.judge import client as jc
+    from app.judge.client import Answer, Judgment
+    from app.models.deal import ConnectedAccount
+
+    monkeypatch.setenv("GOOGLE_OAUTH_CLIENT_ID", "cid.apps.googleusercontent.com")
+    monkeypatch.setenv("GOOGLE_OAUTH_CLIENT_SECRET", "test-secret")
+    await _set_leads(client, [{**l, "socials": {"email": "creator@x.io"}} for l in DEAL_LEADS])
+
+    assert (await client.get("/api/gmail")).json()["connected"] is False
+    url = (await client.post("/api/gmail/connect", json={"return_to": "/campaign/c1/deals"})).json()["url"]
+    q = parse_qs(urlparse(url).query)
+    assert q["client_id"] == ["cid.apps.googleusercontent.com"] and "gmail.send" in q["scope"][0] and q["access_type"] == ["offline"]
+
+    async def exchange(code, redirect_uri):
+        assert code == "abc" and redirect_uri.endswith("/api/gmail/callback")
+        return {"access_token": "at", "refresh_token": "rt-secret", "scope": " ".join(GC.G.SCOPES)}
+    sent = []
+
+    async def send(token, raw, thread_id=None):
+        sent.append((base64.urlsafe_b64decode(raw).decode(), thread_id))
+        return {"id": f"g{len(sent)}", "threadId": "t1"}
+
+    async def message(token, mid):
+        return {"payload": {"headers": [{"name": "Message-ID", "value": f"<{mid}@mail.gmail.com>"}]}}
+
+    reply_data = base64.urlsafe_b64encode(b"Hi! My rate is $300 for a segment.\n\nOn Mon, X wrote:\n> earlier").decode()
+
+    async def thread(token, tid):
+        return {"messages": [
+            {"id": "g1", "labelIds": ["SENT"], "payload": {"headers": [{"name": "From", "value": "me@gmail.com"},
+                                                                     {"name": "Message-ID", "value": "<g1@mail.gmail.com>"}]}},
+            {"id": "r1", "labelIds": ["INBOX"], "payload": {"mimeType": "text/plain", "body": {"data": reply_data},
+                                                          "headers": [{"name": "From", "value": "Creator <creator@x.io>"},
+                                                                      {"name": "Message-ID", "value": "<r1@x.io>"}]}}]}
+
+    async def judge(state, questions, context=None, **k):
+        assert "earlier" not in state["reply"]["text"]  # quoted history stripped
+        return Judgment({q: Answer("noul", 0.9 if q == "gives_price" else 0.05) for q in questions}, "jev", "jev")
+
+    for name, fn in (("exchange_code", exchange), ("send", send), ("message", message), ("thread", thread)):
+        monkeypatch.setattr(GC, name, fn)
+    monkeypatch.setattr(GC, "profile", lambda token: _async({"emailAddress": "Me@gmail.com"}))
+    monkeypatch.setattr(GC, "access_token", lambda rt: _async("at"))
+    monkeypatch.setattr(jc, "judge", judge)
+
+    bad = await client.get("/api/gmail/callback", params={"state": "forged.x", "code": "abc"}, follow_redirects=False)
+    assert bad.status_code == 302 and "gmail=expired" in bad.headers["location"]
+    r = await client.get("/api/gmail/callback", params={"state": q["state"][0], "code": "abc"}, follow_redirects=False)
+    assert r.headers["location"] == "/campaign/c1/deals?gmail=connected"
+    st = (await client.get("/api/gmail")).json()
+    assert st["connected"] and st["email"] == "me@gmail.com"
+    gen = client._transport.app.dependency_overrides[database.get_db]()
+    db = await gen.__anext__()
+    stored = (await db.execute(sa_select(ConnectedAccount))).scalar_one()
+    assert "rt-secret" not in stored.refresh_token  # encrypted at rest
+    await gen.aclose()
+
+    # first pitch from Outreach: creates the deal and the thread
+    out = (await client.post("/api/campaigns/c1/outreach/send", json={"creator_id": "UC1", "subject": "Collab?", "body": "Hi, want to work together?"})).json()
+    d = out["deal"]
+    assert d["stage"] == "contacted" and d["contact_email"] == "creator@x.io" and d["emailing"] is True
+    assert "To: creator@x.io" in sent[0][0] and "Subject: Collab?" in sent[0][0] and sent[0][1] is None
+    again = await client.post("/api/campaigns/c1/outreach/send", json={"creator_id": "UC1", "subject": "x", "body": "y"})
+    assert again.status_code == 409
+
+    # their reply comes in; Jev reads it once; the next step is to write down the quote
+    assert (await client.post("/api/campaigns/c1/gmail/sync", params={"force": True})).json()["new"] == 1
+    assert (await client.post("/api/campaigns/c1/gmail/sync", params={"force": True})).json()["new"] == 0
+    [p] = (await client.get("/api/campaigns/c1/deals")).json()["proposals"]
+    assert p["kind"] == "record_quote" and p["can_send"] is False
+    [c] = (await client.post(f"/api/proposals/{p['id']}/approve", json={})).json()["proposals"]
+    assert c["kind"] == "send_counter" and c["can_send"] is True
+
+    a = (await client.post(f"/api/proposals/{c['id']}/approve", json={})).json()
+    assert a["sent"] is True and len(sent) == 2
+    body, tid = sent[1]
+    assert tid == "t1" and "Subject: Re: Collab?" in body and "In-Reply-To: <r1@x.io>" in body and "$180" in body
+
+    # copy instead of sending, and disconnecting
+    assert (await client.delete("/api/gmail")).json()["connected"] is False
+    assert (await client.post("/api/campaigns/c1/outreach/send", json={"creator_id": "UC2", "subject": "a", "body": "b"})).status_code == 409
+
+
+async def _async(v):
+    return v
 
 
 @needs_pg

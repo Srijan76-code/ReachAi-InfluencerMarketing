@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 # Cold starts measured at ~7.7 s in production vs ~0.3 s warm (Nov 4). Every 5 minutes keeps one
 # instance warm; ~8,640 runs a month.
 WARM_CRON = "*/5 * * * *"
+from app.gmail import constants as GMAIL  # noqa: E402
 
 async def _campaign_run_failed(ctx: inngest.Context):
     """Runs once, after the last retry of run_campaign: mark the campaign failed."""
@@ -108,3 +109,31 @@ async def keep_backend_warm(ctx: inngest.Context):
     """A no-op on a schedule: Inngest calls the backend, which keeps one instance loaded so the next
     page load skips the cold start. Touches no database, so Neon can still scale to zero."""
     return {"ok": True}
+
+
+@inngest_client.create_function(
+    fn_id="sync_gmail_replies",
+    trigger=inngest.TriggerCron(cron=GMAIL.SYNC_CRON),
+    concurrency=[inngest.Concurrency(limit=1)],
+    retries=1,
+)
+async def sync_gmail_replies(ctx: inngest.Context):
+    """Brings creators' email replies into their deals for every connected Gmail (spec §7.5). Only threads
+    ReachAI started are read; Jev reads each new reply once."""
+    from sqlalchemy import select
+
+    from app.db.database import AsyncSessionLocal
+    from app.gmail.service import sync_deals
+    from app.models.campaign import Campaign
+    from app.models.deal import ConnectedAccount, CreatorDeal
+
+    total = 0
+    async with AsyncSessionLocal() as db:
+        accounts = (await db.execute(select(ConnectedAccount).where(ConnectedAccount.status == "active"))).scalars().all()
+        for a in accounts:
+            deals = list((await db.execute(
+                select(CreatorDeal).join(Campaign, Campaign.campaign_id == CreatorDeal.campaign_id)
+                .where(Campaign.user_id == a.user_id, CreatorDeal.gmail_thread_id.is_not(None))
+            )).scalars())
+            total += await sync_deals(db, a, deals, user_id=a.user_id)
+    return {"accounts": len(accounts), "new_replies": total}

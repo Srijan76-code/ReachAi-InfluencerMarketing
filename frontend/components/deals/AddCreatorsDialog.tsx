@@ -5,7 +5,8 @@ import { Plus } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { CreatorAvatar } from "@/components/CreatorAvatar";
 import { Segmented } from "@/components/ui/segmented";
-import { btnPrimary } from "@/lib/ui";
+import { btn, btnPrimary, control } from "@/lib/ui";
+import { Loader2 } from "lucide-react";
 import type { Influencer } from "@/data/influencerList";
 
 type Api = (url: string, options?: Record<string, unknown>) => Promise<{ data: unknown }>;
@@ -25,6 +26,28 @@ export function AddCreatorsDialog({ campaignId, api, existing, onAdded, trigger 
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [link, setLink] = useState("");
+  const [linkEmail, setLinkEmail] = useState("");
+  const [adding, setAdding] = useState(false);
+
+  // a creator you already know: measured from their channel (no search needed), then added to deals
+  const addByLink = async () => {
+    setAdding(true);
+    setError(null);
+    try {
+      const r = (await api(`/api/campaigns/${campaignId}/creators/by-link`, { method: "POST", data: { link, email: linkEmail || null } })).data as { lead: { id: string } };
+      const d = await api(`/api/campaigns/${campaignId}/deals`, { method: "POST", data: { creator_ids: [r.lead.id] } });
+      onAdded(((d.data as { created?: unknown[] })?.created) ?? []);
+      setLink("");
+      setLinkEmail("");
+      setOpen(false);
+    } catch (e) {
+      const detail = (e as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
+      setError(typeof detail === "string" ? detail : "Couldn't add that creator. Check the link and try again.");
+    } finally {
+      setAdding(false);
+    }
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -112,6 +135,16 @@ export function AddCreatorsDialog({ campaignId, api, existing, onAdded, trigger 
             ))
           )}
         </ul>
+        <div className="space-y-2 border-t border-zinc-200/70 dark:border-zinc-800/70 pt-3">
+          <p className="text-[12px] font-medium text-zinc-900 dark:text-zinc-100">Or add by channel link</p>
+          <input value={link} onChange={(e) => setLink(e.target.value)} placeholder="youtube.com/@name or channel link" aria-label="Channel link" className={control} />
+          <div className="flex gap-2">
+            <input value={linkEmail} onChange={(e) => setLinkEmail(e.target.value.trim())} placeholder="Their email (optional)" aria-label="Their email" className={control} />
+            <button type="button" onClick={addByLink} disabled={adding || !link.trim()} className={btn}>
+              {adding && <Loader2 size={13} className="animate-spin" />} {adding ? "Adding" : "Add"}
+            </button>
+          </div>
+        </div>
         {error && <p className="text-xs text-rose-500">{error}</p>}
         <div className="flex justify-end">
           <button type="button" onClick={add} disabled={busy || !picked.size} className={btnPrimary}>

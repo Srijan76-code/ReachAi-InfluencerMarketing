@@ -85,6 +85,7 @@ export const InfluencerDetailSheet = ({
     "Strong Buy": "text-emerald-500 border-emerald-500/20 bg-emerald-500/10",
     "Consider": "text-amber-500 border-amber-500/20 bg-amber-500/10",
     "Avoid": "text-rose-500 border-rose-500/20 bg-rose-500/10",
+    "Added by you": "text-zinc-600 dark:text-zinc-400 border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800/50",
   };
 
   return (

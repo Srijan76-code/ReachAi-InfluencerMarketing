@@ -3,6 +3,7 @@ approves a suggestion from the "Needs you" queue."""
 
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
@@ -15,7 +16,11 @@ from app.models.deal import CreatorDeal, DealEvent
 PLATFORM_HOSTS = {"youtube": ("youtube.com", "youtu.be"), "instagram": ("instagram.com",), "x": ("x.com", "twitter.com"),
                   "linkedin": ("linkedin.com",)}
 EDITABLE = ("stage", "deliverable", "post_by", "deal_type", "commission_pct", "usage_rights", "exclusivity_days",
-            "disclosure", "quoted_rate", "agreed_rate", "post_url", "paid_amount", "paid_at", "payment_ref", "notes", "position")
+            "disclosure", "quoted_rate", "agreed_rate", "post_url", "paid_amount", "paid_at", "payment_ref", "notes", "position",
+            "contact_email")
+
+
+_EMAIL = re.compile(r"[^@\s<>]+@[^@\s<>]+\.[a-z]{2,}")
 
 
 def _now() -> datetime:
@@ -43,6 +48,11 @@ def validate(d: CreatorDeal, ch: dict) -> None:
         bad("Exclusivity must be 0–365 days.")
     if ch.get("notes") and len(ch["notes"]) > C.MAX_NOTES_CHARS:
         bad("Notes are too long.")
+    if "contact_email" in ch:
+        e = (ch["contact_email"] or "").strip().lower() or None
+        if e and not _EMAIL.fullmatch(e):
+            bad("That doesn't look like an email address.")
+        ch["contact_email"] = e
     if ch.get("post_url"):
         u = urlparse(ch["post_url"].strip())
         hosts = PLATFORM_HOSTS.get(d.platform, ())
