@@ -5,7 +5,6 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 from typing import Optional
-from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -17,17 +16,12 @@ from app.billing.costs import CostContext
 from app.db.database import get_db
 from app.deals import constants as C
 from app.deals import negotiation as N
+from app.deals.changes import apply_change
 from app.models.campaign import Campaign
 from app.models.deal import CreatorDeal, DealEvent
 from app.models.user import User
 
 router = APIRouter()
-
-PLATFORM_HOSTS = {"youtube": ("youtube.com", "youtu.be"), "instagram": ("instagram.com",), "x": ("x.com", "twitter.com"),
-                  "linkedin": ("linkedin.com",)}
-EDITABLE = ("stage", "deliverable", "post_by", "deal_type", "commission_pct", "usage_rights", "exclusivity_days",
-            "disclosure", "quoted_rate", "agreed_rate", "post_url", "paid_amount", "paid_at", "payment_ref", "notes", "position")
-
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
@@ -91,6 +85,23 @@ def _out(d: CreatorDeal, lead: Optional[dict], today: date) -> dict:
     }
 
 
+async def _proposals(db: AsyncSession, deals: list[CreatorDeal], camp) -> list[dict]:
+    """The campaign's "Needs you" list, brought up to date (spec §7.8)."""
+    from app.agent import queue as Q
+
+    leads = _leads_by_id(camp.campaign_leads)
+    lead = {d.deal_id: leads.get(d.creator_id) or {} for d in deals}
+    names = {i: l.get("title") for i, l in lead.items()}
+    pending = await Q.refresh(db, deals, names=names, goal=_goal(camp.campaign_details))
+    by_id = {d.deal_id: d for d in deals}
+    return [Q.out(p, names.get(p.deal_id) or by_id[p.deal_id].creator_name or "", lead[p.deal_id].get("avatar_url")) for p in pending]
+
+
+async def _campaign_proposals(db: AsyncSession, campaign_id: str, camp) -> list[dict]:
+    deals = list((await db.execute(select(CreatorDeal).where(CreatorDeal.campaign_id == campaign_id))).scalars())
+    return await _proposals(db, deals, camp)
+
+
 def _summary(deals: list[CreatorDeal], details) -> dict:
     active = [d for d in deals if d.stage != "lost"]
     committed = sum((d.agreed_rate or 0) for d in active if d.stage in C.COMMITTED_STAGES)
@@ -114,8 +125,10 @@ async def list_deals(campaign_id: str, user: User = Depends(get_db_user), db: As
         select(CreatorDeal).where(CreatorDeal.campaign_id == campaign_id).order_by(CreatorDeal.position, CreatorDeal.created_at)
     )).scalars().all()
     leads, today = _leads_by_id(camp.campaign_leads), date.today()
-    return {"deals": [_out(d, leads.get(d.creator_id), today) for d in deals], "summary": _summary(list(deals), camp.campaign_details),
+    body = {"deals": [_out(d, leads.get(d.creator_id), today) for d in deals], "summary": _summary(list(deals), camp.campaign_details),
             "goal": _goal(camp.campaign_details), "suggested_deal_type": N.suggest_deal_type(_goal(camp.campaign_details))}
+    body["proposals"] = await _proposals(db, list(deals), camp)
+    return body
 
 
 class NewDeals(BaseModel):
@@ -177,63 +190,10 @@ class DealChange(BaseModel):
     notes: Optional[str] = None
 
 
-def _validate(d: CreatorDeal, ch: dict) -> None:
-    def bad(msg: str):
-        raise HTTPException(422, msg)
-
-    if "stage" in ch and ch["stage"] not in C.STAGES:
-        bad("Unknown stage.")
-    if "deliverable" in ch and ch["deliverable"] not in C.DELIVERABLE_MULTIPLIER:
-        bad("Unknown deliverable.")
-    if "deal_type" in ch and ch["deal_type"] not in C.DEAL_TYPES:
-        bad("Unknown deal type.")
-    if "usage_rights" in ch and ch["usage_rights"] not in C.USAGE_UPLIFT:
-        bad("Unknown usage rights.")
-    for k in ("quoted_rate", "agreed_rate", "paid_amount"):
-        if ch.get(k) is not None and not (0 <= ch[k] <= C.MAX_RATE):
-            bad("Prices must be between $0 and $10M.")
-    if ch.get("commission_pct") is not None and not (0 <= ch["commission_pct"] <= 100):
-        bad("Commission must be 0–100%.")
-    if ch.get("exclusivity_days") is not None and not (0 <= ch["exclusivity_days"] <= 365):
-        bad("Exclusivity must be 0–365 days.")
-    if ch.get("notes") and len(ch["notes"]) > C.MAX_NOTES_CHARS:
-        bad("Notes are too long.")
-    if ch.get("post_url"):
-        u = urlparse(ch["post_url"].strip())
-        hosts = PLATFORM_HOSTS.get(d.platform, ())
-        host = (u.hostname or "").lower()
-        if u.scheme not in ("http", "https") or (hosts and not any(host == h or host.endswith("." + h) for h in hosts)):
-            bad(f"That doesn't look like a {d.platform.title()} link.")
-
-
 @router.patch("/api/deals/{deal_id}")
 async def change_deal(deal_id: str, body: DealChange, user: User = Depends(get_db_user), db: AsyncSession = Depends(get_db)):
     d, row = await _deal(db, deal_id, user)
-    ch = body.model_dump(exclude_unset=True)
-    _validate(d, ch)
-    events = []
-    if "stage" in ch and ch["stage"] != d.stage:
-        events.append(("stage", {"from": d.stage, "to": ch["stage"]}))
-        if ch["stage"] == "live" and not d.live_at:
-            d.live_at = _now()
-        if ch["stage"] == "paid" and not d.paid_at and "paid_at" not in ch:
-            d.paid_at = _now()
-            if d.paid_amount is None and "paid_amount" not in ch:
-                d.paid_amount = d.agreed_rate
-    for k in ("quoted_rate", "agreed_rate"):
-        if k in ch and ch[k] != getattr(d, k):
-            events.append((k, {"from": getattr(d, k), "to": ch[k]}))
-    if ch.get("post_url") and ch["post_url"] != d.post_url:
-        events.append(("post_url", {"to": ch["post_url"].strip()}))
-        ch["post_url"] = ch["post_url"].strip()
-    if "paid_at" in ch and ch["paid_at"] and not d.paid_at:
-        events.append(("paid", {"amount": ch.get("paid_amount", d.paid_amount or d.agreed_rate)}))
-    for k in EDITABLE:
-        if k in ch:
-            setattr(d, k, ch[k])
-    d.updated_at = _now()
-    for t, payload in events:
-        db.add(DealEvent(deal_id=d.deal_id, type=t, payload=payload))
+    apply_change(db, d, body.model_dump(exclude_unset=True))
     await db.commit()
     await db.refresh(d)
     return _out(d, _leads_by_id(row.campaign_leads).get(d.creator_id), date.today())
@@ -288,3 +248,95 @@ async def counter_message(deal_id: str, body: CounterIn, user: User = Depends(ge
                                      usage_rights=d.usage_rights, exclusivity_days=d.exclusivity_days or 0,
                                      post_by=post_by, typical_views=d.typical_views, goal=goal, fallback=text, context=ctx)
     return {"advice": advice.to_dict(), "angle": angle, "signals": signals, "amounts": amounts, "message": text, "source": source}
+
+
+# --- the "Needs you" queue (spec §7.8, roadmap F6.8) ---------------------------------------------
+
+class ReplyIn(BaseModel):
+    text: str  # the creator's reply, pasted by the founder: untrusted, read by Jev only, never sent to an LLM
+
+
+@router.post("/api/deals/{deal_id}/reply")
+async def paste_reply(deal_id: str, body: ReplyIn, user: User = Depends(get_db_user), db: AsyncSession = Depends(get_db)):
+    """Jev reads the creator's reply (one request); the next step is then suggested in code."""
+    from app.agent import constants as A
+    from app.agent.proposals import money_in
+    from app.deals.reply import read_reply
+
+    text = (body.text or "").strip()[: A.MAX_REPLY_EVENT_CHARS]
+    if not text:
+        raise HTTPException(422, "Paste their reply first.")
+    d, row = await _deal(db, deal_id, user)
+    signals = await read_reply(text, CostContext(user_id=user.user_id, campaign_id=d.campaign_id))
+    db.add(DealEvent(deal_id=d.deal_id, type="creator_reply", payload={"text": text, "signals": signals, "amounts": money_in(text)}))
+    await db.commit()
+    return {"signals": signals, "proposals": await _campaign_proposals(db, d.campaign_id, row)}
+
+
+async def _proposal(db: AsyncSession, proposal_id: str, user: User):
+    from app.models.deal import AgentProposal
+
+    row = (await db.execute(
+        select(AgentProposal, CreatorDeal, Campaign.campaign_leads, Campaign.campaign_details)
+        .join(CreatorDeal, CreatorDeal.deal_id == AgentProposal.deal_id)
+        .join(Campaign, Campaign.campaign_id == CreatorDeal.campaign_id)
+        .where(AgentProposal.proposal_id == proposal_id, Campaign.user_id == user.user_id)
+    )).one_or_none()
+    if row is None:
+        raise HTTPException(404, "Suggestion not found")
+    if row[0].status != "pending":
+        raise HTTPException(409, "This suggestion was already handled.")
+    return row
+
+
+class ApproveIn(BaseModel):
+    message: Optional[str] = None  # the founder's edited message, if they changed it
+
+
+@router.post("/api/proposals/{proposal_id}/approve")
+async def approve_proposal(proposal_id: str, body: ApproveIn, user: User = Depends(get_db_user), db: AsyncSession = Depends(get_db)):
+    from app.agent import queue as Q
+    from app.deals.reply import MAX_MESSAGE_CHARS
+
+    row = await _proposal(db, proposal_id, user)
+    p, d = row[0], row[1]
+    if body.message and len(body.message) > MAX_MESSAGE_CHARS * 3:
+        raise HTTPException(422, "That message is too long.")
+    Q.approve(db, p, d, body.message)
+    await db.commit()
+    await db.refresh(d)
+    deal = _out(d, _leads_by_id(row.campaign_leads).get(d.creator_id), date.today())
+    return {"deal": deal, "proposals": await _campaign_proposals(db, d.campaign_id, row)}
+
+
+@router.post("/api/proposals/{proposal_id}/skip")
+async def skip_proposal(proposal_id: str, user: User = Depends(get_db_user), db: AsyncSession = Depends(get_db)):
+    from app.agent import queue as Q
+
+    row = await _proposal(db, proposal_id, user)
+    Q.skip(db, row[0])
+    await db.commit()
+    return {"proposals": await _campaign_proposals(db, row[1].campaign_id, row)}
+
+
+@router.post("/api/proposals/{proposal_id}/reword")
+async def reword_proposal(proposal_id: str, user: User = Depends(get_db_user), db: AsyncSession = Depends(get_db)):
+    """The LLM rewords the suggested message from our facts only; code checks it keeps exactly our numbers."""
+    from app.deals.reply import rewrite
+
+    row = await _proposal(db, proposal_id, user)
+    p, d = row[0], row[1]
+    pl = dict(p.payload or {})
+    if not (pl.get("message") and pl.get("angle") and pl.get("amounts")):
+        raise HTTPException(422, "This suggestion has no message to reword.")
+    lead = _leads_by_id(row.campaign_leads).get(d.creator_id) or {}
+    text, source = await rewrite(
+        name=lead.get("title") or d.creator_name or "", angle=pl["angle"], amounts=pl["amounts"], deliverable=d.deliverable,
+        usage_rights=d.usage_rights, exclusivity_days=d.exclusivity_days or 0,
+        post_by=d.post_by.strftime("%B %-d") if d.post_by else None, typical_views=d.typical_views,
+        goal=_goal(row.campaign_details), fallback=pl["message"], context=CostContext(user_id=user.user_id, campaign_id=d.campaign_id))
+    if source == "ai":
+        pl["message"], pl["source"] = text, "ai"
+        p.payload = pl
+        await db.commit()
+    return {"message": pl["message"], "source": source}

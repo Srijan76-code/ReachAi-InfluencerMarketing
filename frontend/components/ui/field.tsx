@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { control } from "@/lib/ui";
+import { control, textarea } from "@/lib/ui";
 
 /** A labelled form field (docs/UI_GUIDE.md): sentence-case 11px label above the control. */
 export function Field({ label, hint, children, className = "" }: { label: string; hint?: string; children: React.ReactNode; className?: string }) {
@@ -85,7 +85,7 @@ export function TextArea({ value, onSave, placeholder, rows = 3, maxLength = 400
       placeholder={placeholder}
       onChange={(e) => setV(e.target.value.slice(0, maxLength))}
       onBlur={() => (v || null) !== (value ?? null) && onSave(v || null)}
-      className="w-full px-2.5 py-2 text-xs rounded-md border border-zinc-200 dark:border-zinc-800 bg-transparent text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-600 resize-none leading-relaxed"
+      className={textarea}
     />
   );
 }

@@ -1,21 +1,22 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, CircleDollarSign, Copy, ExternalLink, FileText, Handshake, History, MessageSquareReply, NotebookPen, Sparkles, Trash2 } from "lucide-react";
+import { CircleDollarSign, ExternalLink, Handshake, History, ListChecks, NotebookPen, Trash2 } from "lucide-react";
 import { SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { CreatorAvatar } from "@/components/CreatorAvatar";
 import { Field, Input, NumberInput, TextArea } from "@/components/ui/field";
 import { Select } from "@/components/ui/select";
 import { SectionHeader, StatStrip, StatTile } from "@/components/ui/stat";
-import { btn, btnPrimary } from "@/lib/ui";
+import { btn, btnPrimary, textarea } from "@/lib/ui";
+import { ProposalCard } from "@/components/deals/NeedsYou";
 import {
-  type CounterOut,
   type Deal,
   type DealEvent,
   DEAL_TYPES,
   DELIVERABLES,
   STAGES,
   STAGE_LABEL,
+  type Proposal,
   type Stage,
   USAGE,
   money,
@@ -29,12 +30,6 @@ const VERDICT: Record<string, { label: string; tone: "good" | "warn" | "bad" }> 
   accept: { label: "Fair, accept", tone: "good" },
   counter: { label: "Counter", tone: "warn" },
   walk_away: { label: "Too high", tone: "bad" },
-};
-const ANGLE: Record<string, string> = {
-  accept: "Accept their price",
-  budget: "Counter with your budget",
-  performance: "Lower fee + commission",
-  scope: "Their price, smaller scope",
 };
 
 const opts = <T extends string>(list: readonly (readonly [T, string])[]) => list.map(([value, label]) => ({ value, label }));
@@ -54,32 +49,37 @@ function eventText(e: DealEvent): string {
       return "Live post link added";
     case "paid":
       return `Marked paid${p.amount ? ` (${money(p.amount as number)})` : ""}`;
+    case "creator_reply":
+      return "Their reply pasted";
+    case "message_sent":
+      return `Message sent${p.edited ? " (you edited it)" : ""}`;
+    case "proposal":
+      return `${p.decision === "skipped" ? "Skipped" : "Approved"}: ${p.title}`;
     default:
       return e.type;
   }
 }
 
-export function DealPanel({ deal, api, onChange, onRemove }: {
+export function DealPanel({ deal, api, onChange, onRemove, proposals, onProposals }: {
   deal: Deal;
   api: Api;
   onChange: (d: Deal) => void;
   onRemove: () => void;
+  proposals: Proposal[];
+  onProposals: (data: { proposals?: Proposal[] }) => void;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [events, setEvents] = useState<DealEvent[]>([]);
   const [reply, setReply] = useState("");
-  const [counter, setCounter] = useState<CounterOut | null>(null);
-  const [busy, setBusy] = useState<"template" | "ai" | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [reading, setReading] = useState(false);
+  const [read, setRead] = useState<string[] | null>(null);
 
   const loadEvents = () =>
     api(`/api/deals/${deal.id}/events`).then((r) => Array.isArray(r.data) && setEvents(r.data as DealEvent[])).catch(() => {});
   useEffect(() => {
     loadEvents();
-    setCounter(null);
-    setReply("");
     // eslint-disable-next-line react-hooks/exhaustive-deps -- api changes every render
-  }, [deal.id]);
+  }, [deal.id, deal.updated_at, proposals.length]);
 
   const save = async (patch: Record<string, unknown>) => {
     setError(null);
@@ -87,38 +87,48 @@ export function DealPanel({ deal, api, onChange, onRemove }: {
       const r = await api(`/api/deals/${deal.id}`, { method: "PATCH", data: patch });
       onChange(r.data as Deal);
       loadEvents();
-      setCounter(null);
     } catch (e) {
       const d = (e as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
       setError(typeof d === "string" ? d : "Couldn't save that. Try again.");
     }
   };
 
-  const getMessage = async (rewrite: boolean) => {
-    setBusy(rewrite ? "ai" : "template");
+  const readReply = async () => {
+    setReading(true);
     setError(null);
     try {
-      const r = await api(`/api/deals/${deal.id}/counter`, { method: "POST", data: { creator_reply: reply || null, rewrite } });
-      setCounter(r.data as CounterOut);
+      const r = (await api(`/api/deals/${deal.id}/reply`, { method: "POST", data: { text: reply } })).data as {
+        signals: Record<string, number | boolean>;
+        proposals: Proposal[];
+      };
+      const s = r.signals || {};
+      const F = 0.6;
+      setRead(
+        s.ignored
+          ? ["it looked aimed at an AI, so we ignored it"]
+          : [
+              (s.declined as number) >= F ? "they're turning it down" : null,
+              (s.agrees as number) >= F ? "they accept your offer" : null,
+              (s.gives_price as number) >= F ? "they give a price" : null,
+              (s.open_to_negotiate as number) >= F ? "open to negotiating" : null,
+              (s.firm_price as number) >= F ? "the price is firm" : null,
+              (s.wants_commission as number) >= F ? "open to commission" : null,
+              (s.mentions_usage as number) >= F ? "mentions usage or exclusivity" : null,
+            ].filter((x): x is string => !!x),
+      );
+      setReply("");
+      onProposals(r);
     } catch (e) {
       const d = (e as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
-      setError(typeof d === "string" ? d : "Couldn't write the message.");
+      setError(typeof d === "string" ? d : "Couldn't read their reply. Try again.");
     } finally {
-      setBusy(null);
+      setReading(false);
     }
   };
 
   const a = deal.advice;
   const verdict = a.verdict ? VERDICT[a.verdict] : null;
-  const negotiating = ["contacted", "negotiating"].includes(deal.stage);
-  const signals = counter?.signals || {};
-  const read = [
-    signals.ignored ? "their message looked odd, so it was ignored" : null,
-    (signals.open_to_negotiate as number) >= 0.6 ? "open to negotiating" : null,
-    (signals.firm_price as number) >= 0.6 ? "says the price is firm" : null,
-    (signals.wants_commission as number) >= 0.6 ? "open to commission" : null,
-    (signals.mentions_usage as number) >= 0.6 ? "mentions usage/exclusivity" : null,
-  ].filter(Boolean);
+  const talking = ["contacted", "negotiating"].includes(deal.stage);
   const views = deal.typical_views ? `Usually ${Math.round(deal.typical_views / 100) / 10}k views` : null;
 
   return (
@@ -172,57 +182,39 @@ export function DealPanel({ deal, api, onChange, onRemove }: {
           )}
         </section>
 
-        {/* reply helper */}
-        {negotiating && (
-          <section className="space-y-3">
-            <SectionHeader icon={<MessageSquareReply size={14} className="text-zinc-400" />}>Reply to them</SectionHeader>
-            {deal.quoted_rate == null || a.fair_high == null ? (
-              <p className="text-xs text-zinc-500 leading-relaxed">
-                {a.fair_high == null
-                  ? "We don't have their usual views yet, so we can't suggest a reply."
-                  : "Enter their quote under Price. We'll check it against the fair price and write a reply you can send."}
-              </p>
-            ) : (
-              <>
-                <TextArea value={reply} onSave={(v) => setReply(v ?? "")} rows={3} maxLength={3000} placeholder="Paste their message (optional). We read it to choose the best way to answer." />
-                <div className="flex flex-wrap gap-2">
-                  <button type="button" onClick={() => getMessage(false)} disabled={!!busy} className={btn}>
-                    <FileText size={13} /> {busy === "template" ? "Writing…" : "Write reply"}
-                  </button>
-                  <button type="button" onClick={() => getMessage(true)} disabled={!!busy} className={btn}>
-                    <Sparkles size={13} className="text-violet-500" /> {busy === "ai" ? "Rewriting…" : "Rewrite with AI"}
-                  </button>
-                </div>
-                {counter && (
-                  <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 overflow-hidden">
-                    <div className="flex items-center justify-between gap-2 px-3 py-1.5 bg-zinc-100 dark:bg-[#121314] border-b border-zinc-200 dark:border-zinc-800">
-                      <span className="text-[11px] text-zinc-500 truncate">
-                        {ANGLE[counter.angle]}{read.length ? ` · ${read.join(", ")}` : ""}{counter.source === "ai" ? " · AI wording" : ""}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          try {
-                            await navigator.clipboard.writeText(counter.message);
-                            setCopied(true);
-                            setTimeout(() => setCopied(false), 1500);
-                          } catch {}
-                        }}
-                        className="flex items-center gap-1 text-[11px] font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 shrink-0"
-                      >
-                        {copied ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />} {copied ? "Copied" : "Copy"}
-                      </button>
-                    </div>
-                    <p className="p-3 text-[13px] whitespace-pre-wrap leading-relaxed text-zinc-800 dark:text-zinc-200">{counter.message}</p>
-                  </div>
-                )}
-                <p className="text-[11px] text-zinc-500 leading-relaxed">
-                  The price in the reply is worked out in code. Jev reads their message; AI only changes the wording, and we check the numbers didn&apos;t change.
-                </p>
-              </>
-            )}
-          </section>
-        )}
+        {/* next step: the agent's suggestions for this deal, and pasting their reply */}
+        <section className="space-y-3">
+          <SectionHeader icon={<ListChecks size={14} className="text-zinc-400" />}>Next step</SectionHeader>
+          {proposals.map((p) => <ProposalCard key={`${p.id}:${p.message}`} p={p} api={api} onDone={onProposals} />)}
+          {proposals.length === 0 && (
+            <p className="text-xs text-zinc-500 leading-relaxed">
+              {talking
+                ? "Nothing to do yet. When they answer, paste their reply below and we'll suggest what to send back."
+                : "Nothing needs you on this deal right now."}
+            </p>
+          )}
+          {talking && (
+            <div className="space-y-2">
+              <textarea
+                value={reply}
+                onChange={(e) => setReply(e.target.value.slice(0, 3000))}
+                rows={3}
+                aria-label="Their reply"
+                placeholder="Paste their reply here"
+                className={textarea}
+              />
+              <div className="flex items-center gap-3">
+                <button type="button" onClick={readReply} disabled={reading || !reply.trim()} className={btn}>
+                  {reading ? "Reading…" : "Read their reply"}
+                </button>
+                {read && <span className="text-[11px] text-zinc-500 truncate">{read.length ? `Read: ${read.join(", ")}` : "Read: nothing that changes the next step"}</span>}
+              </div>
+            </div>
+          )}
+          <p className="text-[11px] text-zinc-500 leading-relaxed">
+            Prices are worked out in code. Jev reads their reply; AI only rewords messages when you ask, and we check the numbers didn&apos;t change. Nothing is sent or changed until you approve it.
+          </p>
+        </section>
 
         {/* terms */}
         <section className="space-y-3">

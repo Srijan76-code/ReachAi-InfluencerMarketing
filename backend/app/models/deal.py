@@ -61,3 +61,25 @@ class DealEvent(Base):
     type = Column(String, nullable=False)
     payload = Column(JSONB, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class AgentProposal(Base):
+    """A next step the agent suggests for a deal (spec §7.8, the "Needs you" queue). Nothing happens until the
+    founder approves it; numbers in `payload` come from code. `key` stops the same suggestion coming back after
+    it was approved or skipped."""
+
+    __tablename__ = "agent_proposals"
+    __table_args__ = (UniqueConstraint("deal_id", "key", name="uq_agent_proposals_deal_key"),)
+
+    proposal_id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    campaign_id = Column(String, ForeignKey("campaigns.campaign_id", ondelete="CASCADE"), nullable=False, index=True)
+    deal_id = Column(String, ForeignKey("creator_deals.deal_id", ondelete="CASCADE"), nullable=False, index=True)
+    key = Column(String, nullable=False)
+    kind = Column(String, nullable=False)  # see app/agent/constants.py KINDS
+    status = Column(String, nullable=False, default="pending")  # pending | approved | skipped | stale
+    title = Column(String, nullable=False)
+    reason = Column(Text, nullable=True)
+    payload = Column(JSONB, nullable=True)  # message, amounts, stage…
+    result = Column(JSONB, nullable=True)  # what was done: final message, edited or not
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    decided_at = Column(DateTime(timezone=True), nullable=True)

@@ -9,6 +9,9 @@ export const btnPrimary =
 export const control =
   "h-[30px] w-full px-2.5 text-xs rounded-md border border-zinc-200 dark:border-zinc-800 bg-transparent text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-600 transition-colors";
 
+export const textarea =
+  "w-full px-2.5 py-2 text-xs rounded-md border border-zinc-200 dark:border-zinc-800 bg-transparent text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-600 resize-none leading-relaxed";
+
 export const surface = "bg-white dark:bg-[#0c0d0e]";
 export const tile = "bg-zinc-100 dark:bg-[#121314]";
 export const border = "border-zinc-200 dark:border-zinc-800";

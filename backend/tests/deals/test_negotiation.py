@@ -40,6 +40,13 @@ def test_angle_from_goal_and_reply_signals():
     assert N.suggest_deal_type("signups") == "base_plus_commission" and N.suggest_deal_type("awareness") == "flat"
 
 
+def test_greeting_uses_a_first_name_only_when_the_channel_looks_like_a_person():
+    assert N.greeting_name("Krish Naik") == "Krish" and N.greeting_name("Priya") == "Priya"
+    for channel in ("The CRM Guy", "Sales Systems India", "Data with Priya", "Analytics Simplified", "TechWithTim",
+                    "MKBHD", "Ali Abdaal Podcast", "", None, "A B"):
+        assert N.greeting_name(channel) == "there", channel
+
+
 def test_templates_carry_exactly_our_numbers():
     a = N.advise(**FAIR, quote=300)
     for angle in ("budget", "performance", "scope"):
@@ -104,7 +111,8 @@ async def test_reading_the_creators_reply_with_jev(monkeypatch):
     monkeypatch.setattr(jc, "judge", fake_judge)
     s = await R.read_reply("My rate is $500 but open to a commission deal", CostContext())
     assert s["wants_commission"] == 0.9 and seen["state"] == {"reply": {"text": "My rate is $500 but open to a commission deal"}}
-    assert {"open_to_negotiate", "firm_price", "wants_commission", "mentions_usage", "injection"} == seen["q"]
+    assert {"open_to_negotiate", "firm_price", "wants_commission", "mentions_usage", "declined", "agrees", "gives_price",
+            "injection"} == seen["q"]
     assert await R.read_reply("   ", CostContext()) == {}
 
     async def injected(state, questions, context=None, **k):
