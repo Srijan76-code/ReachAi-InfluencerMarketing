@@ -6,7 +6,6 @@ import { Sheet } from "@/components/ui/sheet";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useApi } from "@/lib/api";
 import { btn } from "@/lib/ui";
-import { StatStrip, StatTile } from "@/components/ui/stat";
 import { AddCreatorsDialog } from "@/components/deals/AddCreatorsDialog";
 import { DealCard } from "@/components/deals/DealCard";
 import { DealPanel } from "@/components/deals/DealPanel";
@@ -124,17 +123,22 @@ export default function DealsBoard({ campaignId, apiOverride }: {
         {error && <p className="text-xs text-rose-500 px-1">{error}</p>}
 
         {summary && deals && deals.length > 0 && (
-          <StatStrip>
-            <StatTile label="Deals" value={<span className="font-mono">{summary.deals}</span>} sub={`${summary.agreed} agreed`} />
-            <StatTile
-              label="Committed"
-              value={<span className="font-mono">{money(summary.committed)}</span>}
-              sub={summary.budget ? `of ${money(summary.budget)} budget${summary.over_budget ? " · over budget" : ""}` : "agreed prices"}
-              tone={summary.over_budget ? "bad" : undefined}
-            />
-            <StatTile label="Posts live" value={<span className="font-mono">{summary.live} / {summary.agreed}</span>} sub="of agreed deals" />
-            <StatTile label="Paid" value={<span className="font-mono">{money(summary.paid)}</span>} sub={summary.committed ? `${money(Math.max(0, summary.committed - summary.paid))} still to pay` : undefined} />
-          </StatStrip>
+          <p className="px-1 text-xs text-zinc-500 flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span><span className="text-zinc-900 dark:text-zinc-100 font-medium">{summary.deals}</span> deals</span>
+            <span aria-hidden className="text-zinc-300 dark:text-zinc-700">·</span>
+            <span className={summary.over_budget ? "text-rose-500" : ""}>
+              <span className={`font-mono ${summary.over_budget ? "" : "text-zinc-900 dark:text-zinc-100"}`}>{money(summary.committed)}</span> committed
+              {summary.budget ? <> of <span className="font-mono">{money(summary.budget)}</span>{summary.over_budget ? " (over budget)" : ""}</> : null}
+            </span>
+            <span aria-hidden className="text-zinc-300 dark:text-zinc-700">·</span>
+            <span><span className="font-mono text-zinc-900 dark:text-zinc-100">{summary.live}</span> of {summary.agreed} posts live</span>
+            {summary.committed > 0 && (
+              <>
+                <span aria-hidden className="text-zinc-300 dark:text-zinc-700">·</span>
+                <span><span className="font-mono text-zinc-900 dark:text-zinc-100">{money(Math.max(0, summary.committed - summary.paid))}</span> to pay</span>
+              </>
+            )}
+          </p>
         )}
 
         {deals && deals.length > 0 && view === "todo" ? (

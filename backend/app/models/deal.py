@@ -32,7 +32,8 @@ class CreatorDeal(Base):
     exclusivity_days = Column(Integer, nullable=False, default=0)
     disclosure = Column(Boolean, nullable=False, default=True)  # #ad / "paid partnership" required
     currency = Column(String, nullable=False, default="USD")
-    quoted_rate = Column(Float, nullable=True)  # what the creator asked for
+    quoted_rate = Column(Float, nullable=True)  # what the creator asked for (fee)
+    quoted_commission_pct = Column(Float, nullable=True)  # …and the commission they asked for, if any
     agreed_rate = Column(Float, nullable=True)
 
     # our numbers when the deal was added (the panel compares the quote with these)

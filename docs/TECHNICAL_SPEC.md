@@ -17,6 +17,7 @@
 | Data sources | YouTube Data API · X through a third-party provider, with the official API behind a switch · Instagram through Apify · LinkedIn through **public, logged-out post search only** |
 | Judgment layer | **Jev (TypeSafe AI)** for every yes/no, label and scale judgment |
 | Numbers | **Code, statistics and ML**: metrics, anomaly detection, scoring, valuation. No LLM involved |
+| Negotiation | **An agent: Jev reads and decides, code guards, the LLM writes (decided Nov 5).** Jev picks the move, deal type, commission step (0–25%) and how far to concede from options code gives it; code turns those into exact amounts within the ceiling (fair top +15%, never over the budget left, never below our last offer) and never lets a model state a price. The writer sees the creator's own words (screened by Jev for injection) and every amount is checked. Default aim: good value while keeping the creator happy. Replaces the code formula and templates (§8.7) |
 | Text generation | LLM through the **LangSmith LLM Gateway**, behind our own thin wrapper |
 | Pricing | **Small plan + rollover credits**. Costly platforms use more credits |
 | Payments | **Cashfree** (Indian entity). Billing logic lives in our backend; Cashfree only collects money |
@@ -674,7 +675,7 @@ Default sequence (editable per campaign):
 ### 7.8 Review queue: "Needs you" (founder approval UX)
 - One queue for outreach and deals: the agent's proposals (send this first message, send this follow-up, reply with this counter, move this deal to Agreed at $X, chase this late post) each with the reason and the evidence. Approve / Edit / Skip; every decision goes into the deal or message log.
 - Numbers in a proposal (prices, dates) come from code; Jev reads the creator's message; the LLM only words the message, and code checks the numbers didn't change.
-- **Negotiation memory (Nov 4):** counters use the history of the deal: our offers (sent messages with checked amounts; a base + commission offer counts as its full-price counter) and their asks (quotes). Round 1 offers the middle of the fair range; each later round moves 40% of the gap toward their ask (`CONCESSION_SHARE`), never below our last offer and never above the top of the fair range; at the top or after 3 rounds it's the final offer; still too high after a final offer → suggest marking lost. Jev reads a pasted reply with the negotiation so far (`thread`: our last offer, their last ask, round, all written by code). The LLM never sees history it could misquote: a base + commission message may not mention the full counter (that let "lower than the $65 we discussed" through).
+- **Negotiation (Nov 5):** replies and prices are handled by the negotiation agent (§8.7, `app/negotiation/`); the queue only adds time-based nudges (follow-ups, late posts, live, paid). The Nov 4 code formula (40% steps, templates) was removed.
 - **Where it lives (Nov 4):** a Board | To do switch on the Deals tab (not a 6th campaign tab); board cards show a dot when they have a to-do; with Gmail, To do becomes a list + conversation view.
 - Built for deals (Nov 4): `agent_proposals(proposal_id, campaign_id, deal_id, key, kind, status[pending|approved|skipped|stale], title, reason, payload, result)`, unique `(deal_id, key)` so an approved or skipped suggestion never returns. Suggestions are recomputed in code whenever the Deals tab loads (`app/agent/proposals.py`, thresholds in `app/agent/constants.py`); approving runs the change from the stored payload through the same checks as a manual edit (`app/deals/changes.py`). Until Gmail is connected, approving a message copies it and records it as sent; a pasted reply is stored as a `creator_reply` event and read by Jev (`declined`, `agrees`, `gives_price` plus the negotiation signals). An edited message keeps its amounts only if it still says exactly our numbers, so "they accepted" can only agree at a price we computed.
 - One screen, one card per creator: the pitch, each claim with its evidence chip, contact source + verification status, variant, a send-time preview.
@@ -831,6 +832,19 @@ conversions(conversion_id, deal_id, link_id, type [signup, purchase], value, cur
   - US: a 1099 above the IRS threshold (verify).
   - Tax IDs (PAN / W-9) are collected in the contract step and encrypted at rest.
 - **Later (option, not now):** payments through a licensed payout partner (money held until verified, then paid out) for a ~3–5% fee, once volume justifies it.
+
+### 8.6b Negotiation agent (built Nov 5, roadmap F7.9)
+LangGraph graph in `app/negotiation/graph.py`, run whenever a creator's message arrives (Gmail sync, or pasted/typed by the founder):
+
+```
+judge (one Jev request) → guard (code) → write (LLM route "reply") → check (code + Jev) → [rewrite once] → suggestion
+```
+- **Context (code, free):** creator (views, steadiness, engagement, recent sponsored posts and sponsor brands, country), goal, product, deliverable, usage, fair range, budget and what's not yet committed, anonymous agreed prices for similar-size creators on ReachAI (shown only with ≥ 5 deals), round, our last offer, their previous ask, and the last 12 messages both ways.
+- **Jev reads:** `their_fee` / `their_commission` as Choices among the amounts code found in their message (so "7 + 20% commission" is $7 + 20%); `declined`, `agrees`, `firm`, `flexible`, `wants_commission`, `asks_question`, `injection` (Nouls).
+- **Jev decides:** `move` (accept, counter, restructure, hold, walk away), `structure` (flat, fee + commission, commission only, smaller scope), `commission` (0–25% in 5% steps), `concession` (Score, 5 levels), `extra` (repeat posts, free product, fast payment). Options live in `app/judge/constants.py`.
+- **Code guards** (`app/negotiation/decide.py`): ceiling = min(fair top × 1.15, budget left); opening fee halfway between the bottom and middle of the fair range; later rounds move `concession share` × (their ask − our last fee) and never below our last fee; commission takes 1.5% off the fee per point; accept only within the ceiling; reaching their ask becomes an agreement; final offer at the ceiling or after 4 rounds; injection → no suggestion, the founder reads it.
+- **Writer:** sees TERMS, the facts, the conversation and the creator's latest message as data; must use only the decided amounts. **Checks:** code allows only the decided fee and % (fee required); Jev flags extra promises. Fail → rewrite once with the reason → else a short standard message.
+- **Result:** one pending suggestion per deal (`agent_proposals.key = nego:<reply event>`, older ones marked stale) with the reasons in plain words; the reply event keeps `their_ask` and the agent's action; the deal's `quoted_rate` / `quoted_commission_pct` update.
 
 ### 8.7 Pricing a creator (fair range + deal design)
 - **Fair range** `fair_low…fair_high` (P25–P75):

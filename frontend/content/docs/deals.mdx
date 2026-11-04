@@ -30,9 +30,9 @@ Each card shows the price next to our fair range: **green** within it, **amber**
 
 The strip at the top adds it up: how many deals, how much you've **committed** against your budget, how many posts are **live**, and how much you've **paid**.
 
-## Negotiate a fair price
+## Fair price for each deal
 
-Open a deal and type **Their quote** under **Price**, then press **Save** (or Enter). ReachAI tells you whether it's fair, above fair or far too high, and suggests the next step. The fair price is adjusted for what you're asking for:
+Every deal shows a **fair price**: what a creator of that size usually earns for this kind of post. It's adjusted for what you're asking for:
 
 | What you ask for | Effect on the fair price |
 |---|---|
@@ -44,61 +44,51 @@ Open a deal and type **Their quote** under **Price**, then press **Save** (or En
 
 These are starting values from industry guides; they'll be tuned with real agreed prices.
 
-| Verdict | When |
-|---|---|
-| **Good price** | Below the fair range |
-| **Fair, accept** | Within the fair range |
-| **Counter** at $X | Above the range: offer the middle of it |
-| **Too high** | More than 2× the top: walk away, or offer the top at most |
+## Negotiating: the agent
 
-## Needs you: the next step for every deal
+When a creator answers, ReachAI's negotiation agent works out your reply:
 
-Switch the Deals tab from **Board** to **To do** to see what to do next on each deal. Cards on the board with something to do have a small blue dot. ReachAI suggests each step; **nothing is sent or changed until you approve it**.
+1. **It reads their message**: the fee and commission they ask for, whether they're firm or flexible, whether they accept or decline, and any questions they ask. "7 + 20% commission" means $7 plus 20%.
+2. **It decides your move**: accept, counter, change the kind of deal (fee + commission, commission only, or their price with a smaller scope), hold your last offer, or walk away. It also picks the commission % and how far to move. It takes everything into account: their usual views, their recent sponsors, your goal and budget, every message so far, and what similar creators agreed on ReachAI.
+3. **It writes the message**, answering what they actually said.
+4. **It checks itself**: the message may only contain the decided price and commission, and must not promise anything else. If a check fails it rewrites once, then falls back to a short standard message.
 
-| When | Suggestion |
-|---|---|
-| No answer 4 days after you reached out | **Send a follow-up** (and a polite last one 4 days later, then it stops) |
-| Their reply states one price | **Write down their quote** |
-| Their quote is above the fair price | **Counter** with a ready message (your budget, a lower fee + commission, or their price with a smaller scope) |
-| Their quote is fair | **Accept and agree** |
-| They accept the offer you sent | **Agree** at the price you offered |
-| They turn it down | **Mark as lost** |
-| The post-by date has passed with no link | **Ask about the late post** (up to 3 times, 3 days apart) |
-| The post link is in | **Move to Live** |
-| The post is live | **Mark paid** once you've paid them (ReachAI doesn't move money) |
+The suggestion lands in **To do** with the reasoning, for example "They asked $7 + 20% commission. That's within your limit, so accept it." Nothing is sent until you approve it.
 
-Each suggestion says why. You can:
-- **Approve**. For messages this is **Copy and mark sent**: the message is copied so you can paste it into your email or DMs, and it's saved on the deal's timeline.
-- **Edit** the message first.
-- **Reword with AI** for counters, to make the wording friendlier.
-- **Skip** it. A skipped suggestion doesn't come back.
-- **Select several** (or Select all), edit any of them, then **Approve** or **Skip** them together. Your edits are what gets approved.
+**Your limits always hold.** The agent never offers more than a little above the fair price (15%) or more than your remaining budget. It never offers less than you already offered, and it stops after four rounds with a final offer.
 
-### Paste their reply
-When a creator answers, open their deal and paste the reply under **Next step**, then press **Read reply**. Our judge (Jev) reads it (do they give a price, accept, decline, want commission, say the price is firm?) and the next step updates. If you're in Contacted or Negotiating and nothing is suggested yet, this is where to start.
-
-### Negotiating over several rounds
-ReachAI remembers what you offered and what they asked. The deal panel lists it ("You: Offered $180 · They: Asked $260").
-- The first counter is the middle of the fair range.
-- If they come back higher, the next offer moves part of the way toward their price. It's never less than you already offered, and never above the top of the fair range.
-- At the top of the range, or after three rounds, it becomes your **final offer**. If they're still above it, ReachAI suggests marking the deal lost.
-- Their reply is read in light of your last offer, so "sounds good" means agreeing to *that* price.
-
-Counters pick one of three approaches:
-- **Counter with your budget**
-- **Lower fee + commission** (also the default when your goal is signups or sales)
-- **Their price, smaller scope** (no paid-ads use or exclusivity)
+### Start it
+- **With Gmail connected**, their email replies come in by themselves and the agent runs on each one.
+- **Otherwise**, open their deal and paste their reply (or just type what they asked for, like "$7 + 20% commission") under **Next step**, then press **Suggest a reply**. It takes a few seconds.
 
 ### Who does what
 | Part | Done by |
 |---|---|
-| Fair price, verdict, counter amount, every number in a message | Code (worked out from their usual views and the deal terms) |
-| Reading their reply | Jev, our judge |
-| Which next step to suggest | Code, from the deal and what Jev read |
-| Wording the message | A template, or AI if you press **Reword with AI**; code checks the numbers didn't change, otherwise you keep the template |
-| Doing it | You, by approving |
+| Fair price, your limits, exact amounts | Code |
+| Reading their message, choosing the move, deal type, commission and how far to move | Jev, our judge |
+| Writing the message | An AI writer, checked by code and Jev |
+| Sending it | You, by approving |
 
-Their reply is never sent to the AI writer, and a reply that looks like it's trying to instruct an AI is ignored.
+A reply that looks like it's trying to instruct an AI is ignored, and the agent tells you to read it yourself.
+
+## To do: the next step for every deal
+
+Switch the Deals tab from **Board** to **To do** to see what to do next on each deal. Board cards with something to do have a small blue dot.
+
+| When | Suggestion |
+|---|---|
+| They replied | The negotiation agent's reply (offer, accept, or close politely) |
+| No answer 4 days after you reached out | **Send a follow-up** (and a polite last one 4 days later, then it stops) |
+| The post-by date has passed with no link | **Ask about the late post** (up to 3 times, 3 days apart) |
+| The post link is in | **Move to Live** |
+| The post is live | **Mark paid** once you've paid them (ReachAI doesn't move money) |
+
+You can:
+- **Approve.** With Gmail this **sends** the message; without it, **Copy and mark sent** copies it for you to send.
+- **Edit** the message first.
+- **Reword with AI** for a different wording with the same terms.
+- **Skip** it. A skipped suggestion doesn't come back.
+- **Select several** (or Select all), edit any, then **Approve** or **Skip** them together.
 
 Greetings use the creator's first name only when the channel name looks like a person's name ("Hi Krish,"); otherwise they say "Hi there,". Edit it if you know their name.
 

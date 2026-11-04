@@ -62,7 +62,35 @@ AUDIENCE_ROLES = [
     "founders", "developers", "marketers", "sales", "designers", "students", "job_seekers", "general_consumers",
 ]
 
-# --- A creator's reply to a deal offer (app/deals/reply.py) ----------------------------------------
-REPLY_QUESTIONS_VERSION = "reply-v3"  # v2: declined, agrees, gives_price; v3: read with the negotiation so far
-REPLY_SIGNAL_FROM = 0.6  # a reply signal (open to negotiate, wants commission…) counts from this probability
-REPLY_INJECTION_ABOVE = 0.5  # the reply is ignored if it looks aimed at an AI
+# --- the negotiation agent (app/negotiation/, spec §8.7) ---
+NEGOTIATION_QUESTIONS_VERSION = "negotiation-v1"  # replaces reply-v1..v3 (the code-formula helper)
+NEGOTIATION_SIGNAL_FROM = 0.6  # a yes/no about their reply (declined, agrees…) counts from this probability
+NEGOTIATION_INJECTION_ABOVE = 0.5  # the reply is ignored if it looks aimed at an AI
+DRAFT_EXTRA_PROMISE_ABOVE = 0.5  # a draft that promises undecided things is rewritten
+MOVES = {
+    "accept": "Agree to what they asked: it's fair for us",
+    "counter": "Offer different terms closer to our budget",
+    "restructure": "Change the kind of deal (for example less fee, more commission, or a smaller scope)",
+    "hold": "Repeat our last offer: they're asking too much and we've already moved",
+    "walk_away": "Politely end it: they're far above what the deal is worth and won't move",
+}
+STRUCTURES = {
+    "flat": "A fixed fee only",
+    "fee_plus_commission": "A smaller fixed fee plus commission on sales or signups from their link",
+    "commission_only": "Commission only, no fixed fee",
+    "smaller_scope": "Their price, but a smaller deliverable (no paid-ads use or exclusivity)",
+}
+COMMISSION_STEPS = ("0", "5", "10", "15", "20", "25")  # % on sales; Jev picks one
+CONCESSION_LEVELS = (  # Jev's Score: how far to move from our last offer toward their ask
+    "Hold firm: don't move",
+    "Move a little",
+    "Move a fair amount",
+    "Meet in the middle",
+    "Move most of the way",
+)
+EXTRAS = {
+    "none": "Nothing extra",
+    "repeat_posts": "Offer a follow-up post or a longer partnership if this one works",
+    "free_product": "Offer free access to the product",
+    "fast_payment": "Offer to pay quickly, as soon as the post is live",
+}

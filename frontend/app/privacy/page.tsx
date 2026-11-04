@@ -27,7 +27,8 @@ export default function Privacy() {
       <p>You can disconnect Gmail at any time in ReachAI (it revokes our access) or in your Google account settings.</p>
 
       <h2>How we use AI</h2>
-      <p>Numbers (scores, fair prices, offers) are worked out in our own code. A judging model (Jev, by TypeSafe AI) answers yes/no questions about public posts and about creator replies. Language models write text you review, such as pitches; they are never given the text of creators&apos; emails. These providers process data only to answer our requests.</p>
+      <p>Fair prices and your limits are worked out in our own code. A judging model (Jev, by TypeSafe AI) answers questions about public posts and about creators&apos; replies, such as what they&apos;re asking for and which next step fits. A language model writes the replies you review; to answer a creator properly it sees their latest messages in that deal&apos;s thread (including replies that came through Gmail), screened first for attempts to instruct an AI. Every amount in a draft is checked by code. These providers process data only to answer our requests and not to train their models.</p>
+      <p>To suggest fair prices we may use anonymous totals of the prices ReachAI users agreed with creators of a similar size. They never include who agreed them or which creator it was.</p>
 
       <h2>Who we share data with</h2>
       <p>Only the services that run ReachAI: hosting (Vercel), database (Neon), background jobs (Inngest), sign-in (Clerk), Google and YouTube APIs, and the AI providers above. We never sell your data. Share links you create show only what you choose to share and never include contact details.</p>

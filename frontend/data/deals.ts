@@ -74,6 +74,7 @@ export type Deal = {
   disclosure: boolean;
   currency: string;
   quoted_rate: number | null;
+  quoted_commission_pct?: number | null; // the commission they asked for, as the agent read it
   agreed_rate: number | null;
   typical_views: number | null;
   advice: Advice;
