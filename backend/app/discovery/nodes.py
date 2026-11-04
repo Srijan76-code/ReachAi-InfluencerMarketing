@@ -23,6 +23,7 @@ from app.creators import repository as repo
 from app.discovery import limits as L
 from app.discovery.brief import Brief
 from app.discovery.legacy import to_legacy_lead
+from app.metrics.posts import match_terms
 from app.discovery.prompts import (
     REASON_PROMPT_VERSION,
     STRATEGY_PROMPT_VERSION,
@@ -452,6 +453,7 @@ async def judge_score(state: BranchState, runtime: Runtime[Deps]) -> dict:
             "display_name": p.get("display_name", ""), "found_via": via.get(p["platform_id"]), "mode": state["mode"],
             "final_score": s.final_score, "fit": s.fit, "health": s.health, "risk": s.risk,
             "deal_status": s.deal_status, "flags": s.flags, "dropped": s.dropped, "drop_reasons": s.drop_reasons,
+            "parts": s.parts,
             "signals": _signals(j),
         })
     if ids and not results:
@@ -563,9 +565,11 @@ async def finalize(state: DiscoveryState, runtime: Runtime[Deps]) -> dict:
     ranked = _ranked(state)[: L.FINAL_LIST_MAX]
     profiles = await repo.get_creators([r["creator_id"] for r in ranked], session_factory=runtime.context.session_factory)
     reasons = state.get("reasons") or {}
+    strategy = state.get("strategy") or {}
+    topics = match_terms([*(strategy.get("topics") or []), *(strategy.get("youtube_queries") or [])])
     leads = [
         to_legacy_lead(profiles[r["creator_id"]], profiles[r["creator_id"]].get("metrics") or {}, r,
-                       reasons.get(r["creator_id"]), brief.industry)
+                       reasons.get(r["creator_id"]), brief.industry, topics=topics)
         for r in ranked if r["creator_id"] in profiles
     ]
     return {"final_leads": leads}

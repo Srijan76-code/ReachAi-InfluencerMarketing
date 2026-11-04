@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from typing import Optional
 
+from app.metrics.posts import analyse_posts
 from app.metrics.pricing import cpm
 
 
@@ -23,12 +24,16 @@ def _iso(value) -> Optional[str]:
     return value.isoformat() if hasattr(value, "isoformat") else value
 
 
-def to_legacy_lead(profile: dict, metrics: dict, record: dict, reason: Optional[str], industry: str) -> dict:
+def to_legacy_lead(profile: dict, metrics: dict, record: dict, reason: Optional[str], industry: str,
+                   topics: Optional[list[str]] = None) -> dict:
+    """`topics`: the brief's topics, for each post's "matches your brief" tags (kept on the lead as
+    `match_terms` so the nightly refresh can re-tag refreshed posts)."""
     stats = profile.get("platform_stats") or {}
     m = metrics or {}
     engagement = m.get("engagement_rate")
     clicks = m.get("expected_clicks")
     posts = profile.get("recent_posts") or []
+    post_cards, post_signals = analyse_posts(posts, topics or [])
     return {
         # --- fields the current UI reads -------------------------------------------------
         "id": profile.get("platform_id"),
@@ -80,4 +85,12 @@ def to_legacy_lead(profile: dict, metrics: dict, record: dict, reason: Optional[
         "niche": (record.get("signals") or {}).get("niche"),
         # when the YouTube numbers were fetched; the nightly refresh updates or expires them after 30 days
         "data_as_of": _iso(profile.get("fetched_at")),
+        # --- creator panel (same shape for every platform) --------------------------------------------
+        "posts": post_cards,  # newest first; the UI sorts them into best match / above usual / latest
+        "signals": post_signals,  # fit_posts, sponsored_posts, sponsor_brands, median_reach
+        "score_parts": record.get("parts") or {},
+        "trend": m.get("momentum"),  # recent vs older posts' reach (1.0 = steady)
+        "verified": profile.get("verified"),
+        "person_id": profile.get("person_id"),
+        "match_terms": topics or [],
     }

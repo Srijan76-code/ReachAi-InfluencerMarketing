@@ -168,3 +168,14 @@ def test_platform_selection_without_jev_uses_preset():
     out = select_platforms(K.PRESET_PLATFORMS["consumer"], None, ["youtube", "x", "instagram", "linkedin"])
     assert [p for p, v in out.items() if v["selected"]] == ["youtube", "instagram"]
     assert out["x"]["weight"] == 0.0
+
+
+def test_score_parts_add_up_to_the_score():
+    """The panel's "why this score" bars must add up to the number shown."""
+    for kw in ({}, {"country_unknown": True}):
+        s = score_creator(judgment(**{**GOOD, "safety_risk": 1}), metrics(), **kw)
+        p = s.parts
+        total = (p["fit"] + p["health"] + p["bonus"] + p["risk"]) * (p["country_unknown_factor"] or 1)
+        assert 0 < s.final_score < 100
+        assert total == pytest.approx(s.final_score, abs=0.3)
+        assert p["risk"] <= 0 and (p["country_unknown_factor"] is not None) == bool(kw)

@@ -25,6 +25,7 @@ class CreatorScore:
     dropped: bool
     drop_reasons: list[str] = field(default_factory=list)
     flags: list[str] = field(default_factory=list)  # shown as badges: rising, trend, suspicious
+    parts: dict = field(default_factory=dict)  # "why this score": points from fit, health, bonus, risk
 
     def legacy_fields(self, metrics: Metrics) -> dict:
         """Fields the existing results UI reads."""
@@ -80,6 +81,13 @@ def score_creator(j: Judgment, metrics: Metrics, *, exclude_kids_content: bool =
     bonus = (K.RISING_BONUS if metrics.rising else 0.0) + (K.TREND_BONUS if trend > K.TREND_THRESHOLD else 0.0)
 
     raw = K.FINAL_WEIGHTS["fit"] * fit + K.FINAL_WEIGHTS["health"] * metrics.health + bonus - K.RISK_WEIGHT * risk
+    parts = {
+        "fit": round(100 * K.FINAL_WEIGHTS["fit"] * fit, 1),
+        "health": round(100 * K.FINAL_WEIGHTS["health"] * metrics.health, 1),
+        "bonus": round(100 * bonus, 1),
+        "risk": round(-100 * K.RISK_WEIGHT * risk, 1),
+        "country_unknown_factor": K.COUNTRY_UNKNOWN_FACTOR if country_unknown else None,
+    }
     if country_unknown:
         raw *= K.COUNTRY_UNKNOWN_FACTOR
     final = round(100 * max(0.0, min(1.0, raw)), 1)
@@ -114,6 +122,7 @@ def score_creator(j: Judgment, metrics: Metrics, *, exclude_kids_content: bool =
         dropped=bool(drops),
         drop_reasons=drops,
         flags=flags,
+        parts=parts,
     )
 
 

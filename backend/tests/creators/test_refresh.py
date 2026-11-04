@@ -256,3 +256,16 @@ async def test_results_without_photos_get_them_added(sf, world):
     assert report.avatars_added >= 1
     again = await run_refresh(adapter_factory=lambda: PhotoAdapter({}), session_factory=sf)
     assert again.avatars_added == 0  # nothing left to fill
+
+
+def test_refreshed_lead_keeps_brief_topics_and_our_score_parts():
+    """Refreshed posts are re-tagged against the same brief topics; the score breakdown is ours and stays."""
+    from app.creators.refresh import _refreshed_lead
+    from app.metrics.compute import BriefContext
+
+    lead = {"id": "UC1", "final_score": 70, "match_terms": ["UC1 video"], "score_parts": {"fit": 40.0},
+            "posts": [], "signals": {"posts_checked": 0}}
+    out = _refreshed_lead(lead, yt("UC1"), "other", BriefContext(), NOW)
+    assert out["match_terms"] == ["UC1 video"] and out["score_parts"] == {"fit": 40.0} and out["final_score"] == 70
+    assert out["signals"]["posts_checked"] == 10 and out["signals"]["fit_posts"] == 10
+    assert out["posts"][0]["matched_topics"] == ["UC1 video"] and out["posts"][0]["x_usual"] == 1.0
