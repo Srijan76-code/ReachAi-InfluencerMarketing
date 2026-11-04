@@ -32,7 +32,7 @@ The strip at the top adds it up: how many deals, how much you've **committed** a
 
 ## Negotiate a fair price
 
-Open a deal and enter **Their quote**. ReachAI compares it with the fair price for *this* deal, adjusted for what you're asking for:
+Open a deal and enter **Their quote** under **Price**. Two tiles show the **fair price for this deal** and **our read** of their quote. The fair price is adjusted for what you're asking for:
 
 | What you ask for | Effect on the fair price |
 |---|---|
@@ -51,14 +51,24 @@ These are starting values from industry guides; they'll be tuned with real agree
 | **Counter** at $X | Above the range: offer the middle of it |
 | **Too high** | More than 2× the top: walk away, or offer the top at most |
 
-### Write the reply
-Press **Write reply** for a ready-to-send message with the right numbers. If you paste the creator's own reply first, our judge (Jev) reads it, for example whether they're open to commission or say their price is firm, to pick the best approach:
+### Reply to them
+While a deal is in **Contacted** or **Negotiating**, the panel has a **Reply to them** section. If you haven't entered their quote yet, it tells you to do that first. Then press **Write reply** for a ready-to-send message with the right numbers. If you paste the creator's own reply first, our judge (Jev) reads it, for example whether they're open to commission or say their price is firm, to pick the best approach:
 
 - **Counter with your budget**
 - **Lower fee + commission** (also the default when your goal is signups or sales)
 - **Their price, smaller scope** (no paid-ads use or exclusivity)
 
 **Rewrite with AI** makes the wording friendlier. The numbers always come from ReachAI, never from the AI: if the AI changes a price, you get the standard message instead. Their reply is only read to pick the approach; it's never sent to the AI writer.
+
+### Who does what
+| Part | Done by |
+|---|---|
+| Fair price, verdict, counter amount | Code (worked out from their usual views and the deal terms) |
+| Reading their reply (open to commission? price firm?) | Jev, our judge |
+| Wording the message | A template, or AI if you press **Rewrite with AI**; code checks the numbers didn't change |
+
+### Coming soon
+ReachAI will draft these replies for you when a creator answers, and put them in a **Needs you** list to approve, edit or skip. Nothing is sent or changed without your approval. Later you'll be able to connect your own Gmail so messages go from your address and replies come in by themselves.
 
 ## Write down what you agreed
 

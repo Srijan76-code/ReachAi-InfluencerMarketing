@@ -31,7 +31,10 @@
 | Pipeline rollout | **The new discovery graph replaces the old pipeline (decided Nov 4).** The 3-brief comparison showed it never breaks size/country rules and leads on the consumer brief; its recall on niche B2B is tuned on top. The old pipeline and the `DISCOVERY_ENGINE` switch are removed (roadmap F1.13) |
 | Run execution | LangGraph runs and resumes the pipeline from Postgres checkpoints; Inngest starts, retries (resume), limits (2 per user, 5 total: Inngest free-plan maximum, was 10) and cancels runs (a re-run cancels the previous one); platforms are parallel LangGraph branches; Vercel; Postgres caches (§4.14) |
 | After the deal | Founder pays creators directly (we send pay-on-proof requests and track); own short links; promo codes + signup snippet/server event; tracking included in paid plans (§8) |
-| Outreach | **Connected inbox**; founder approves first messages, follow-ups automatic; A/B test soft vs. concrete-offer first message (§7) |
+| Outreach | **The founder's own Gmail, connected with Google sign-in (decided Nov 4; replaces Unipile).** We send and read through the Gmail API with the founder's permission: free, no vendor, the creator sees the founder's real address, and every message and reply stays in the founder's Gmail. Google's test mode allows up to 100 users; opening it to everyone needs Google's app verification (a domain and a privacy policy) and, for reading mail, a yearly security assessment (CASA). Outlook later through Microsoft Graph. Until a founder connects Gmail, they paste replies in. A/B test soft vs. concrete-offer first message (§7) |
+| Agent autonomy | **The agent proposes, the founder approves everything (decided Nov 4).** Every message (first, follow-up, reply), price and stage change waits in a "Needs you" queue with Approve / Edit / Skip, and every action is logged. Nothing is sent or moved on its own. Revisit per action once approvals show the agent is usually right (§7.8) |
+| Results v1 | **Links + promo codes + views (decided Nov 4).** Our own short link and a promo code per creator, views on days 1–60 from the platform, cost per view and per click against the forecast. Signups and sales come next (§8.4–8.5) |
+| UI | **One look everywhere (decided Nov 4)**, written down in `docs/UI_GUIDE.md` with shared controls in `frontend/components/ui/` and `frontend/lib/ui.ts`. No browser-native dropdowns |
 
 ### Core principle (kept from the current version)
 Cheap filters first, expensive work last. Everything is batched, cached and resumable. The LLM only sees the final shortlist, and only to **write** text.
@@ -83,7 +86,7 @@ Code / API  →  Statistics / ML  →  Jev (judgments)  →  Code (scoring)  →
 │           credit_ledger · cost_events · subscriptions · connected_accounts                     │
 └────────────────────────────────────────────────────────────────────────────────────────────────┘
 External: YouTube API · X provider · Apify · LangSmith Gateway (Groq/Cerebras/OpenAI/…) · Jev ·
-          Unipile (inboxes) · email verifier · Cashfree
+          Gmail API (founder inboxes) · email verifier · Cashfree
 ```
 
 ### New backend packages
@@ -493,7 +496,7 @@ One credit is worth about **$0.40** retail. Target gross margin ≥ 75–80% per
 | LinkedIn discovery run | 20 | ≤ $3.00 (Apify public post search) |
 | Contact find + verify (per creator) | 1 | ~$0.01–0.05 |
 | Pitch generation | 0 | < $0.01/creator (drives activation) |
-| Email sending | included up to the plan cap | ~€5/inbox/month (Unipile) |
+| Email sending | included up to the plan cap | free (founder's own Gmail through the Gmail API) |
 
 | Plan | Price/mo | Credits/mo | Connected inboxes | Notes |
 |---|---|---|---|---|
@@ -632,14 +635,12 @@ Daily per-user caps protect against abuse. Provider budget alerts (Apify, gatewa
 - **Plain-text first email:** no links, images or tracking pixel; short subject, written like a 1:1 note.
 - Generation still uses LLM route `pitch` with the existing rule validation + at most 1 repair.
 
-### 7.5 Sending from the user's own inbox (decided: connected inbox)
-- Settings → "Connect inbox" → Unipile hosted auth (Gmail / Outlook / IMAP) → store `connected_accounts(account_id, user_id, provider, unipile_account_id, email, status, daily_cap)`.
-- Unipile cost: €49/mo minimum for up to 10 accounts, then ~€5 per account.
-- Send through the Unipile API. Store `outreach_messages(message_id, pitch_id, person_id, account_id, channel, direction[out,in], provider_message_id, thread_id, subject, body, variant, status, sent_at)`.
-- **Approval rule (decided):**
-  - The **first message** to each creator requires founder approval in the review queue (§7.8).
-  - **Follow-ups send automatically** unless the founder pauses them.
-  - **Every reply** to a creator needs the founder's approval.
+### 7.5 Sending from the founder's own Gmail (decided Nov 4: Google sign-in, no vendor)
+- Settings → "Connect Gmail" → Google OAuth (scopes `gmail.send` + `gmail.readonly`, offline access) → store `connected_accounts(account_id, user_id, provider, email, refresh_token_encrypted, status, daily_cap)`. The refresh token is encrypted with a key from env vars.
+- Cost: free. Google's test mode allows up to 100 named test users; publishing needs app verification (domain, privacy policy, demo video) and, because `gmail.readonly` is a restricted scope, a yearly CASA security assessment. Unipile (was decided earlier) is no longer needed.
+- Send with `users.messages.send` (plain text, the founder's own signature); read replies with `users.history.list` polled by an Inngest cron per connected account (Gmail push via Pub/Sub later). Outlook later through Microsoft Graph.
+- Without a connected inbox, everything still works: the founder copies the approved message and pastes replies in. Store `outreach_messages(message_id, pitch_id, person_id, account_id, channel, direction[out,in], provider_message_id, thread_id, subject, body, variant, status, sent_at)`.
+- **Approval rule (decided Nov 4: approve everything):** the first message, every follow-up and every reply wait in the "Needs you" queue (§7.8) until the founder approves them. Nothing sends on its own.
 - **Deliverability guardrails:** ≤ 40 new conversations per inbox per day; randomised gaps of 2–6 minutes; sent in the creator's local morning (timezone from country, else the founder's); unsubscribe line; stop on bounce.
 
 ### 7.6 Claim check (before approval)
@@ -666,9 +667,11 @@ Default sequence (editable per campaign):
 - **Stop on any reply on any platform** (the person model links the threads), on a bounce, or on an opt-out.
 - Before each step: a Jev Noul "Does `creator.recent_posts` say they are not taking sponsorships right now?" If above 0.7 → pause, and tell the founder.
 - Implementation: one Inngest function per enrollment: `step.sleep_until` → check stop conditions → generate → send → `step.wait_for_event("message/replied", match="data.person_id", timeout=…)`.
-- Unipile webhook `/webhooks/unipile` → normalise → emit `message/replied` / `message/bounced`. Assisted DMs: the founder marks "they replied" in one click.
+- Gmail history poll (Inngest cron) → normalise → emit `message/replied` / `message/bounced`. Follow-ups are drafted when due and wait for approval. Assisted DMs: the founder marks "they replied" in one click.
 
-### 7.8 Review queue (founder approval UX)
+### 7.8 Review queue: "Needs you" (founder approval UX)
+- One queue for outreach and deals: the agent's proposals (send this first message, send this follow-up, reply with this counter, move this deal to Agreed at $X, chase this late post) each with the reason and the evidence. Approve / Edit / Skip; every decision goes into the deal or message log.
+- Numbers in a proposal (prices, dates) come from code; Jev reads the creator's message; the LLM only words the message, and code checks the numbers didn't change.
 - One screen, one card per creator: the pitch, each claim with its evidence chip, contact source + verification status, variant, a send-time preview.
 - Actions: **Approve**, **Edit** (the edit is saved to the voice profile), **Skip**. Keyboard shortcuts; target < 10 s per creator.
 - "Approve all with no flags" button for creators with zero flags.
@@ -896,7 +899,7 @@ GET  /campaigns/{id}/share-activity                → owner: people, events (op
 GET/POST /campaigns/{id}/deals, PATCH/DELETE /deals/{deal_id}, GET /deals/{deal_id}/events → deals board (built)
 POST /deals/{deal_id}/counter {creator_reply?, rewrite?}       → advice + reply message (built)
 POST /campaigns/{id}/creators/{cid}/contact       → find + verify email (1 credit)
-POST /connections/inbox/start | GET /connections  → Unipile hosted auth link, list
+POST /connections/inbox/start | GET /connections  → Google OAuth link (Gmail), list
 POST /outreach/jobs/{job_id}/send                 → enroll selected pitches into a sequence
 POST /outreach/pitches/{pitch_id}/mark-sent       → assisted DM
 GET  /campaigns/{id}/inbox | GET /threads/{tid}   → threads + classification
@@ -949,7 +952,7 @@ Since validation was skipped, these are **required** from Phase 1:
 | 3 | X adapter | 1, 2 | M |
 | 4 | Instagram adapter | 1, 2 | M |
 | 5 | LinkedIn adapter (public post search + pasted URLs) | 1, 2 | M |
-| 6 | Contacts + verification, Unipile inbox, sequences, inbox UI, reply classifier, assisted DMs, pitch validation upgrade | 1, 2 | L |
+| 6 | Contacts + verification, Gmail inbox (Google OAuth), sequences, inbox UI, reply classifier, assisted DMs, pitch validation upgrade | 1, 2 | L |
 | 7 | Deal record, creator portal, draft review, live detection + checklist, snapshots, short links, conversions (promo codes, snippet, server event), results UI, pay-on-proof requests, fair range + budget planner | 6 | L |
 | 7b | Extra sources: lookalikes, competitor sponsors (with Phase 3), founder followers (with X), pre-warmed niches (after usage) | 1, 3 | M |
 | 8 | Learned ranker + valuation model | data from 6–7 | M |
@@ -984,4 +987,4 @@ Phases 3 and 6 can run in parallel after 1 and 2.
 | Data costs are higher than estimated | `cost_events` → adjust credits per action monthly; hard caps per run |
 | Building for two segments (B2B + consumer) without validation | Instrumentation (§11); review platform usage after the first 50 paying users |
 | Email deliverability on user inboxes | Caps, verification, bounce stop, unsubscribe |
-| Prices quoted in this spec come from third-party sources | Confirm with each vendor before launch (Cashfree, Unipile, Apify, X provider, gateway, verifier) |
+| Prices quoted in this spec come from third-party sources | Confirm with each vendor before launch (Cashfree, Apify, X provider, gateway, verifier) |
