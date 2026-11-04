@@ -379,3 +379,27 @@ async def test_creators_without_a_country_are_flagged_when_the_brief_sets_countr
     assert blank, "expected the blanked creator in the results"
     for l in state["final_leads"]:
         assert ("country_unknown" in l["flags"]) == (not l["country"]), l["title"]
+
+
+# --- user-chosen platforms ----------------------------------------------------------------------------------
+
+def test_brief_platforms_are_cleaned_and_the_old_single_field_ignored():
+    b = parse_brief({**BRIEF, "campaign": {**BRIEF["campaign"], "platforms": ["YouTube", "x", "tiktok", "x"]}})
+    assert b.platforms == ["youtube", "x"]  # lower-cased, unknown dropped, deduped
+    assert parse_brief({**BRIEF, "campaign": {**BRIEF["campaign"], "platform": "youtube"}}).platforms == []
+    assert parse_brief({**BRIEF, "campaign": {**BRIEF["campaign"], "platforms": "youtube"}}).platforms == []
+
+
+@pytest.mark.asyncio
+async def test_user_chosen_platforms_skip_the_jev_check_and_probes(sf, monkeypatch, cost_log):
+    use_recorded_limits(monkeypatch)
+    deps, counters = make_deps(sf, yes_platforms=("youtube", "x"))
+    calls = []
+    with_probe_platform(deps, calls, strong=True)  # X is built here, but the user didn't pick it
+    brief = {**BRIEF, "campaign": {**BRIEF["campaign"], "platforms": ["youtube", "instagram"]}}
+    _, _, state, _ = await run(sf, deps, input_={"run_id": "r", "brief": parse_brief(brief).to_dict()}, run_id="r")
+    assert counters.get("platform_judge", 0) == 0  # no Jev platform check
+    assert calls == []  # X never searched
+    assert state["platforms"]["youtube"]["mode"] == "full" and state["platforms"]["x"]["selected"] is False
+    assert any("instagram isn't available yet" in w for w in state["warnings"])
+    assert state["final_leads"]

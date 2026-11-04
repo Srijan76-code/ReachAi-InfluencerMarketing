@@ -61,7 +61,6 @@ const businessModelReverseMap: Record<string, string> = { b2b: "1", b2c: "2", d2
 const priceRangeReverseMap: Record<string, string> = { low_ticket: "1", mid_ticket: "2", high_ticket: "3" };
 const goalReverseMap: Record<string, string> = { awareness: "1", signups: "2", sales: "3" };
 const authorityReverseMap: Record<string, string> = { peer: "1", mentor: "2", expert: "3" };
-const platformReverseMap: Record<string, string> = { youtube: "1", instagram: "2" };
 
 export const useCampaignStore = create<CampaignState>((set, get) => ({
   brandName: "",
@@ -70,7 +69,7 @@ export const useCampaignStore = create<CampaignState>((set, get) => ({
   productPriceRange: "1",
   campaignGoal: "1",
   creatorAuthority: "1",
-  platforms: ["1"], // YouTube default
+  platforms: [], // empty = let ReachAI choose the platforms
   audienceLocation: "",
   pitch: "",
   targetAudience: "",
@@ -129,7 +128,7 @@ export const useCampaignStore = create<CampaignState>((set, get) => ({
       creatorSize: [subscribersToStep(constraints.min_subscribers, 3), subscribersToStep(constraints.max_subscribers, 8)],
       campaignGoal: goalReverseMap[campaign.goal] || "1",
       creatorAuthority: authorityReverseMap[campaign.creator_authority_level] || "1",
-      platforms: [platformReverseMap[campaign.platform] || "1"],
+      platforms: Array.isArray(campaign.platforms) ? campaign.platforms : [],
       totalBudget: campaign.budget_total ? String(campaign.budget_total) : "",
       numberOfCreators: campaign.creator_count ? [campaign.creator_count] : [3],
     });

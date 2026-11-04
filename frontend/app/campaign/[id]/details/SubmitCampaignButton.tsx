@@ -12,7 +12,6 @@ const businessModelMap: Record<string, string> = { "1": "b2b", "2": "b2c", "3": 
 const priceRangeMap: Record<string, string> = { "1": "low_ticket", "2": "mid_ticket", "3": "high_ticket" };
 const goalMap: Record<string, string> = { "1": "awareness", "2": "signups", "3": "sales" };
 const authorityMap: Record<string, string> = { "1": "peer", "2": "mentor", "3": "expert" };
-const platformMap: Record<string, string> = { "1": "youtube", "2": "instagram" };
 
 /** What's missing before a run can start (empty list = ready). */
 export function missingFields(store: CampaignState): string[] {
@@ -43,7 +42,7 @@ export function transformPayload(store: CampaignState) {
     campaign: {
       goal: goalMap[store.campaignGoal] || "signups",
       creator_authority_level: authorityMap[store.creatorAuthority] || "peer",
-      platform: platformMap[store.platforms[0]] || "youtube",
+      platforms: store.platforms, // empty = ReachAI chooses (preset for the business type + a quick AI check)
       budget_total: parseInt(store.totalBudget) || 5000,
       creator_count: store.numberOfCreators[0] || 5,
     },
