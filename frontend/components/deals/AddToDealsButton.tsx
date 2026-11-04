@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Check, Handshake } from "lucide-react";
 import { useApi } from "@/lib/api";
+import { btn } from "@/lib/ui";
 
 /** "Add to deals" for one or more creators (creator panel, selection bar). After adding, it links to the Deals tab. */
 export function AddToDealsButton({ campaignId, creatorIds, variant = "panel" }: {
@@ -30,7 +31,7 @@ export function AddToDealsButton({ campaignId, creatorIds, variant = "panel" }: 
 
   const base =
     variant === "panel"
-      ? "h-[34px] px-3 text-[12px] font-medium rounded-md border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5"
+      ? btn
       : "px-2.5 py-1 font-medium rounded-full border border-zinc-600 text-zinc-100 hover:bg-white/10 flex items-center gap-1.5";
 
   if (state === "done")

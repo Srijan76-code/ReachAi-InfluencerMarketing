@@ -5,6 +5,7 @@ import { Plus } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { CreatorAvatar } from "@/components/CreatorAvatar";
 import { Segmented } from "@/components/ui/segmented";
+import { btnPrimary } from "@/lib/ui";
 import type { Influencer } from "@/data/influencerList";
 
 type Api = (url: string, options?: Record<string, unknown>) => Promise<{ data: unknown }>;
@@ -68,14 +69,14 @@ export function AddCreatorsDialog({ campaignId, api, existing, onAdded, trigger 
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {trigger ?? (
-          <button className="flex items-center gap-2 h-[30px] px-3 text-xs font-medium rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 hover:opacity-90">
+          <button type="button" className={btnPrimary}>
             <Plus size={13} /> Add creators
           </button>
         )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-md gap-4 bg-white dark:bg-[#0c0d0e]">
         <DialogHeader className="space-y-1">
-          <DialogTitle className="text-base">Add creators to deals</DialogTitle>
+          <DialogTitle className="text-[14px] font-medium">Add creators to deals</DialogTitle>
           <DialogDescription className="text-xs">Pick who you&apos;re talking to. They start in Contacted.</DialogDescription>
         </DialogHeader>
         <Segmented
@@ -113,7 +114,7 @@ export function AddCreatorsDialog({ campaignId, api, existing, onAdded, trigger 
         </ul>
         {error && <p className="text-xs text-rose-500">{error}</p>}
         <div className="flex justify-end">
-          <button type="button" onClick={add} disabled={busy || !picked.size} className="h-8 px-3 text-xs font-medium rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 hover:opacity-90 disabled:opacity-40">
+          <button type="button" onClick={add} disabled={busy || !picked.size} className={btnPrimary}>
             {busy ? "Adding…" : `Add ${picked.size || ""} to deals`}
           </button>
         </div>

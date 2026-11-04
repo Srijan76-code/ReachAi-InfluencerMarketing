@@ -19,12 +19,18 @@ export function PriceVsFair({ deal }: { deal: Deal }) {
   const tone =
     v === "great" || v === "accept" ? "text-emerald-600 dark:text-emerald-400" : v === "counter" ? "text-amber-600 dark:text-amber-400" : v === "walk_away" ? "text-rose-500" : "text-zinc-700 dark:text-zinc-300";
   return (
-    <span className="flex items-baseline gap-1.5 min-w-0">
-      <span className={`font-mono text-[12px] font-semibold ${tone}`}>{price != null ? money(price) : "No price yet"}</span>
-      {deal.advice.fair_high != null && (
-        <span className="text-[10px] text-zinc-500 truncate">fair {money(deal.advice.fair_low)}–{money(deal.advice.fair_high)}</span>
+    <div className="flex flex-col gap-0.5 min-w-0">
+      {price != null ? (
+        <span className={`font-mono text-[12px] font-semibold ${tone}`}>{money(price)}</span>
+      ) : (
+        <span className="text-[11px] text-zinc-500">No price yet</span>
       )}
-    </span>
+      {deal.advice.fair_high != null && (
+        <span className="text-[11px] text-zinc-500 truncate">
+          Fair <span className="font-mono">{money(deal.advice.fair_low)}–{money(deal.advice.fair_high)}</span>
+        </span>
+      )}
+    </div>
   );
 }
 

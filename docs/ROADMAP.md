@@ -31,6 +31,12 @@ Known gaps in what's built:
 | D2 | Public demo campaign at `/demo` (saved real brief + 7 leads, emails removed, sample pitches checked by the real validator in `tests/test_demo_data.py`) and a temporary "Coming soon" landing page with sign-up, log-in, demo and docs links | done (`landing-and-demo`) | `frontend/app/demo/`, `frontend/data/demo/`, `frontend/app/page.tsx` |
 | D1 | Public docs site (Fumadocs at `/docs`): welcome, getting started, writing a brief, results, outreach, FAQ, how it works, changelog; search; Docs link in the in-app navbar. Next.js 16.1→16.2 and Tailwind 4.1→4.3 upgrades were needed | done (`docs-site`) | `frontend/content/docs/`, `frontend/app/docs/`, `frontend/lib/source.ts`, `frontend/source.config.ts` |
 
+## Look and feel
+| ID | Feature | Status | Main files |
+|---|---|---|---|
+| U1 | One UI everywhere (`ui-system`): written guide (look, type scale, controls, words), shared controls (`Select` instead of browser dropdowns, `Field`/`Input`/`NumberInput`/`TextArea`, `StatStrip`/`StatTile`, `SectionHeader`, `btn`/`btnPrimary`); Deals board, card, panel and dialogs restyled to match the creator panel; reply helper shown as its own section with a hint when no quote is entered; post tiles use `StatTile` | done | `docs/UI_GUIDE.md`, `frontend/lib/ui.ts`, `frontend/components/ui/{field,select,stat}.tsx`, `frontend/components/deals/*`, `frontend/components/PostTabs.tsx` |
+| U2 | Move the remaining hand-styled controls (brief form, outreach page, share dialog) onto the shared pieces | later | `frontend/app/campaign/[id]/details/`, `frontend/app/campaign/[id]/outreach/` |
+
 ## Phase 0: Foundations · §3
 | ID | Feature | Status | Spec | Main files |
 |---|---|---|---|---|
@@ -98,16 +104,18 @@ Known gaps in what's built:
 | F5.1 | LinkedIn adapter (public post search + pasted URLs) | later | §6.3 |
 
 ## Phase 6: Outreach loop · §7
+**Agent plan (decided Nov 4):** the agent proposes, the founder approves everything. Build order: F6.8 "Needs you" queue → F6.5 Connect Gmail → F7.3 live posts → F7.4 + F7.5 Results v1 (links, codes, views) → F7.4 signups and sales.
+
 | ID | Feature | Status | Spec |
 |---|---|---|---|
 | F6.1 | Identity: email ranking, sponsor blocklist, Jev pick, verification, first name, contact ledger, suppression list | later | §7.1 |
 | F6.2 | Creator dossier | later | §7.2 |
 | F6.3 | Primary channel per creator | later | §7.3 |
 | F6.4 | Pitch quality: founder voice, soft vs offer A/B, plain-text first email | later | §7.4 |
-| F6.5 | Connected inbox (Unipile) + sending guardrails + approval rule | later | §7.5 |
+| F6.5 | Connect Gmail (Google OAuth, send + read, test mode up to 100 users) + sending guardrails; approve-everything rule. Needs `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` in Vercel (step 3 of the agent plan) | next | §7.5 |
 | F6.6 | Claim check | later | §7.6 |
 | F6.7 | Follow-up sequences (Inngest) | later | §7.7 |
-| F6.8 | Review queue UI | later | §7.8 |
+| F6.8 | "Needs you" queue for outreach and deals: the agent proposes (first message, follow-up, counter, stage change, chase a late post) with reason and evidence; Approve / Edit / Skip; every decision logged. Pasted replies until Gmail is connected (step 2 of the agent plan) | next | §7.8 |
 | F6.9 | Inbox + reply classification | later | §7.9 |
 | F6.10 | Assisted DMs | later | §7.10 |
 | F6.11 | Reply-rate analytics | later | §7.11 |
@@ -117,9 +125,9 @@ Known gaps in what's built:
 |---|---|---|---|
 | F7.1 | Deals v1 (`deals`): `creator_deals` + `deal_events` (migration `e5a9c2d7f3b1`); Deals tab (4th) with a board Contacted → Negotiating → Agreed → Content → Live → Paid (+ Lost, hidden), drag-and-drop and ⋯ menu; deal panel with terms (deliverable, post-by, deal type + commission, usage rights, exclusivity, #ad), live post link (checked against the platform), mark paid, notes, timeline; summary strip (deals, committed vs budget, live x/y, paid); Add to deals from panel / selection / shortlist picker. Auto stage moves from outreach events come with F6 | done | §8.1, §8.5 | `backend/app/models/deal.py`, `backend/app/api/routes/deals.py`, `frontend/components/deals/*`, `app/campaign/[id]/deals/` |
 | F7.2 | Brief, contract, creator portal, draft review | later | §8.2 |
-| F7.3 | Live detection + post checklist + alerts | later | §8.3 |
-| F7.4 | Snapshots, own short links, conversions (promo codes, snippet, server event) | later | §8.4 |
-| F7.5 | Results UI | later | §8.5 |
+| F7.3 | Live detection + post checklist + alerts (step 4 of the agent plan) | next | §8.3 |
+| F7.4 | Snapshots, own short links, promo codes (v1, step 5); signups and sales by snippet or server event (step 6) | next | §8.4 |
+| F7.5 | Results tab: views on days 1–60, clicks, codes, cost per view and per click vs forecast, rebook. Self-test with the founder's own channel and a second email (step 5) | next | §8.5 |
 | F7.6 | Pay-on-proof requests, mark paid, reminders, tax-ID collection | later | §8.6 |
 | F7.7 | Negotiation helper done (`deals`): fair range for the exact deal (format ×, usage +, exclusivity +; constants in `app/deals/constants.py`, starting values from market guides), verdict great/accept/counter/walk-away, deal type from the goal, reply message: code template + Jev reads the pasted creator reply (`creator_reply_questions`, angle budget/performance/scope) + optional LLM rewording (route `counter`: Groq gpt-oss-120b → Gemini Flash-Lite) checked to keep exactly our numbers. Left: budget planner (knapsack), tune multipliers with agreed prices | in progress | §8.7 | `backend/app/deals/negotiation.py`, `backend/app/deals/reply.py` |
 | F7.8 | Extra sources: lookalikes, competitor sponsors, founder followers, pre-warmed niches | later | §4.10 |

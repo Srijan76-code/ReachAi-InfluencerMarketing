@@ -5,20 +5,12 @@ import { Handshake } from "lucide-react";
 import { Sheet } from "@/components/ui/sheet";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useApi } from "@/lib/api";
+import { btn } from "@/lib/ui";
+import { StatStrip, StatTile } from "@/components/ui/stat";
 import { AddCreatorsDialog } from "@/components/deals/AddCreatorsDialog";
 import { DealCard } from "@/components/deals/DealCard";
 import { DealPanel } from "@/components/deals/DealPanel";
 import { BOARD_STAGES, type Deal, type DealsSummary, STAGE_HINT, STAGE_LABEL, type Stage, money } from "@/data/deals";
-
-function Stat({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: string }) {
-  return (
-    <div className="p-3.5 flex flex-col gap-1 border-r last:border-r-0 border-zinc-200/60 dark:border-zinc-800/60 min-w-0">
-      <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-600 dark:text-zinc-400 truncate">{label}</span>
-      <span className={`text-[15px] font-semibold ${tone ?? "text-zinc-900 dark:text-zinc-100"}`}>{value}</span>
-      {sub && <span className="text-[11px] text-zinc-500 truncate">{sub}</span>}
-    </div>
-  );
-}
 
 /** The Deals tab (spec §8.1, §8.5): one column per stage, drag cards to move them, click to open. */
 export default function DealsBoard({ campaignId, apiOverride }: {
@@ -90,7 +82,7 @@ export default function DealsBoard({ campaignId, apiOverride }: {
           <div className="flex items-center gap-3">
             <h1 className="text-[14px] font-medium text-zinc-900 dark:text-zinc-100">Deals</h1>
             {lostCount > 0 && (
-              <button type="button" onClick={() => setShowLost((v) => !v)} className="h-[30px] px-3 text-xs font-medium rounded-md border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+              <button type="button" onClick={() => setShowLost((v) => !v)} className={btn}>
                 {showLost ? "Hide lost" : `Show lost (${lostCount})`}
               </button>
             )}
@@ -101,17 +93,17 @@ export default function DealsBoard({ campaignId, apiOverride }: {
         {error && <p className="text-xs text-rose-500 px-1">{error}</p>}
 
         {summary && deals && deals.length > 0 && (
-          <div className="grid grid-cols-2 md:grid-cols-4 rounded border border-zinc-200/80 dark:border-zinc-800/80 bg-zinc-100 dark:bg-[#121314] overflow-hidden">
-            <Stat label="Deals" value={String(summary.deals)} sub={`${summary.agreed} agreed`} />
-            <Stat
+          <StatStrip>
+            <StatTile label="Deals" value={<span className="font-mono">{summary.deals}</span>} sub={`${summary.agreed} agreed`} />
+            <StatTile
               label="Committed"
-              value={money(summary.committed)}
+              value={<span className="font-mono">{money(summary.committed)}</span>}
               sub={summary.budget ? `of ${money(summary.budget)} budget${summary.over_budget ? " · over budget" : ""}` : "agreed prices"}
-              tone={summary.over_budget ? "text-rose-500" : undefined}
+              tone={summary.over_budget ? "bad" : undefined}
             />
-            <Stat label="Posts live" value={`${summary.live} / ${summary.agreed}`} sub="of agreed deals" />
-            <Stat label="Paid" value={money(summary.paid)} sub={summary.committed ? `${money(Math.max(0, summary.committed - summary.paid))} to pay` : undefined} />
-          </div>
+            <StatTile label="Posts live" value={<span className="font-mono">{summary.live} / {summary.agreed}</span>} sub="of agreed deals" />
+            <StatTile label="Paid" value={<span className="font-mono">{money(summary.paid)}</span>} sub={summary.committed ? `${money(Math.max(0, summary.committed - summary.paid))} still to pay` : undefined} />
+          </StatStrip>
         )}
 
         {deals === null ? (
@@ -121,7 +113,7 @@ export default function DealsBoard({ campaignId, apiOverride }: {
         ) : deals.length === 0 ? (
           <div className="flex flex-col items-center justify-center text-center py-16 rounded-xl border border-dashed border-zinc-200 dark:border-zinc-800 bg-white/50 dark:bg-[#0c0d0e]/50">
             <Handshake size={22} className="text-zinc-400 mb-3" />
-            <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">No deals yet</p>
+            <p className="text-[13px] font-medium text-zinc-900 dark:text-zinc-100">No deals yet</p>
             <p className="text-xs text-zinc-500 mt-1 mb-4">Add the creators you&apos;re talking to and track them from first message to paid.</p>
             <AddCreatorsDialog campaignId={campaignId} api={api} existing={existing} onAdded={() => load()} />
           </div>
@@ -149,10 +141,11 @@ export default function DealsBoard({ campaignId, apiOverride }: {
                     }}
                     className={`rounded-lg border p-2 space-y-2 min-h-40 transition-colors ${over === stage ? "border-zinc-400 dark:border-zinc-500 bg-zinc-100/80 dark:bg-zinc-900/80" : "border-zinc-200/70 dark:border-zinc-800/70 bg-zinc-50 dark:bg-[#0a0b0c]"}`}
                   >
-                    <div className="flex items-baseline justify-between px-1" title={STAGE_HINT[stage]}>
-                      <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">{STAGE_LABEL[stage]}</span>
-                      <span className="text-[11px] font-mono text-zinc-400">{items.length}</span>
+                    <div className="flex items-baseline justify-between gap-2 px-1 pt-0.5">
+                      <span className="text-xs font-medium text-zinc-900 dark:text-zinc-100">{STAGE_LABEL[stage]}</span>
+                      <span className="text-[11px] font-mono text-zinc-500">{items.length}</span>
                     </div>
+                    <p className="px-1 -mt-1.5 text-[11px] text-zinc-500 truncate">{STAGE_HINT[stage]}</p>
                     {items.map((d) => (
                       <div key={d.id} onDragStart={() => setDragging(d.id)} onDragEnd={() => { setDragging(null); setOver(null); }}>
                         <DealCard deal={d} dragging={dragging === d.id} onOpen={() => setOpenId(d.id)} onMove={(s) => move(d, s)} />
