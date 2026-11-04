@@ -5,10 +5,8 @@ langchain-google-genai
 inngest
 psycopg[binary]
 python-dotenv
-apify-client
 numpy
 isodate
-google-api-python-client
 pydantic
 langsmith
 scikit-learn

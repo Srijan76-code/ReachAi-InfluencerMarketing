@@ -1,6 +1,6 @@
 """Every tunable number for metrics lives here (spec §4.5).
 
-Values marked "carried over" come from the current pipeline (app/my_agent) so results stay
+Values marked "carried over" come from the first pipeline (removed Nov 4) so results stayed
 comparable. Values marked "prior" are starting points until our creator database has enough
 peers (MIN_PEERS) to compute them from real data.
 """

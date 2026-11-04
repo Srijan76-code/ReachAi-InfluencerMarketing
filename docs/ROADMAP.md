@@ -43,7 +43,7 @@ Known gaps in what's built:
 
 ## Phase 1: Shared core + lead generation · §4
 **Decisions (Nov 3):**
-- **Replace the old pipeline** after comparing both on the same 3 briefs with live keys. Until then a temporary env switch `DISCOVERY_ENGINE` (`legacy` default, `graph`) picks the engine; it's removed in F1.13.
+- **The new pipeline replaces the old one (decided Nov 4)**, after the 3-brief comparison; it's tuned in place. The old pipeline and its switch are removed (F1.13).
 - Database: Neon/Supabase, so **pgvector** is used.
 - Jev thresholds: **AI-labelled ~300 creators, user spot-checks 20%**.
 - Live keys (`TYPESAFE_API_KEY`, `YOUTUBE_API_KEY`, `GROQ_API_KEY`/`GOOGLE_API_KEY`) will be added to the environment; until then, build and test against recorded samples.
@@ -65,7 +65,7 @@ Known gaps in what's built:
 | F1.11 | YouTube 30-day data refresh/delete job: refresh useful creators (scored, in results or saved; old-engine results too), delete the rest after 30 days, purge old snapshots and run metrics, update or expire old results (`data_expired` shown in the UI) | done (`youtube-refresh`) | §4.4 | `app/creators/refresh.py`, `app/creators/constants.py`, `app/inngest/functions.py` (`refresh_youtube_data`, daily 09:17 UTC), `app/discovery/legacy.py` (`data_as_of`), `tests/creators/test_refresh.py`, frontend `CreatorBadges.tsx`, `InfluencerRow.tsx` |
 | F1.12 | Frontend results: badges (rising, on trend, check engagement, country unknown), live "scored so far" count from the `leads` topic, brief-form fixes (K12), progress banner and Retry fixes. Score breakdown (fit, health) was already shown | done (`results-ui`) | §4.13 | `components/CreatorBadges.tsx`, `app/ListOfInfluencer/InfluencerRow.tsx`, `InfluencerDetailSheet.tsx`, `components/CampaignProgressBanner.tsx`, `inngest/channels.ts`, `app/actions/realtime.ts`, `lib/countries.ts`, `lib/creatorSize.ts`, `app/campaign/[id]/details/SubmitCampaignButton.tsx`, `store/campaignStore.ts` |
 | F1.12b | Platform toggles the engine respects (needs a `platforms` field in the brief and `platform_select` honouring it) and a credit estimate before a run (needs billing, Phase 2) | later | §4.9, §4.13 | `components/MultiPlatform.tsx`, `app/discovery/nodes.py` |
-| F1.13 | Compare old vs new pipeline on 3 briefs with live keys, run `alembic upgrade head` on production, set `DISCOVERY_ENGINE=graph`, then remove `app/my_agent/`, `app/core/model.py` and the switch | in progress (`discovery-recall`) | §13 file map | — |
+| F1.13 | Switch to the new pipeline: production migrated (Nov 4), old pipeline (`app/my_agent/`, `scripts/run_local.py`, `app/core/get_youtube_client.py`), its runner and the `DISCOVERY_ENGINE` switch removed; `google-api-python-client` and `apify-client` dropped from requirements. Needs `TYPESAFE_API_KEY` and `GROQ_API_KEY` in Vercel before merge | done (`engine-switch`) | §0, §4.14 | `app/inngest/functions.py`, `app/workflow/runtime.py`, `app/core/config.py`, `requirements.txt` |
 | F1.14 | Recall benchmark (ladder vs full search, target ≥ 90%) | later | §4.9 | `tests/benchmarks/` |
 
 ## Phase 2: Billing · §5
@@ -123,7 +123,7 @@ Known gaps in what's built:
 | ID | Issue | Status |
 |---|---|---|
 | K1 | Eval test fixture had no "collaboration" wording and exposed package terms; fixed the fixture and added edge-case tests (`foundations`) | done |
-| K2 | Old pipeline nodes still call `app/core/model.py` directly; they move to `app/llm` as part of F1.7/F1.9 | later |
+| K2 | Outreach nodes (`generate_creator_pitch`, `repair_creator_pitch`) and the eval judge still call `app/core/model.py` directly; move them to `app/llm` routes (`pitch`) with the K3 model choice, then delete `app/core/model.py` | next |
 | K6 | Tune Jev questions and thresholds on ~300 AI-labelled creators (user spot-checks 20%). First live check (3 real creators, Nov 3): `safety_risk` 1.43 for purely technical LLM videos (Ayush Singh) is a misread: reword the safety question with concrete examples; `posts_on_trend` ~0.6 for all three: raise `TREND_THRESHOLD` or tighten the question | next |
 | K7 | `outreach_pitches` index name differs between the old migration (`ix_outreach_pitches_job_id`) and the model (`ix_outreach_pitches_outreach_job_id`); `alembic check` reports it. Harmless; align with a tiny migration later | later |
 | K8 | Production database migrated to head (`e4b8c1d6a2f9`) on Nov 4 through the Neon connector. Vercel deploys don't run migrations: apply each new migration the same way | done |

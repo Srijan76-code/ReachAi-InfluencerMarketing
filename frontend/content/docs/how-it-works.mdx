@@ -9,39 +9,33 @@ Every campaign runs as a pipeline. Each step narrows the list before a more expe
 
 | Step | Who does it | What happens |
 |---|---|---|
-| Understand the brief | Language model (1 call) | Topics, audience problems, formats and search terms |
-| Find candidates | Platform API | Search for creators across many angles of your brief |
+| Understand the brief | Language model (1 call, reused for the same brief) | Topics, audience problems, formats and short search terms |
+| Choose platforms | Your business type + a quick AI check | Which platforms fit your product |
+| Find candidates | Platform API + creators we already know | Several searches at once; creators that several searches agree on come first |
 | Filter and measure | Code | Size, country, activity, views, reliability, engagement |
 | Shortlist | Semantic search | Keep the creators whose content is closest to your brief |
-| Judge fit | Language model, in batches | Brand and audience fit for the shortlist only |
-| Score | Code | Fit + health → final score, fair price, forecast |
-| Explain | Language model | One-line reason, only for the creators you get |
+| Judge fit | [Jev](https://docs.typesafe.ai/introduction), one request per creator | Topic and audience fit, the audience's problems, brand safety, real person or not |
+| Score | Code | Fit + health − risk → final score, fair price, forecast |
+| Explain | Language model | One-line reason, only for the creators you'll contact |
 
-## How we made it 99% cheaper
+## Fast and cheap
 
-The first version cost about **$5 per run** and took **4+ minutes**. By batching work, running steps in parallel, filtering in code before calling AI, and only writing reasons for the final list, a run now costs about **$0.04** and takes **1–2 minutes**.
+- **Platforms are searched in parallel.** Platforms that suit your brief get a full search. Others get a small test search first, and a full search only if they find creators who beat your current list.
+- **A second search when too few creators qualify.** If too few creators pass your size, country and activity checks, it searches once more.
+- **Every candidate gets a cheap size and country check** before anything expensive, so the costly steps only run on creators that can actually work for you.
+- **Repeat runs are faster.** Briefs, searches, judgments and creator data are remembered, so a similar campaign runs quicker and cheaper.
 
-## What's next: judgments by Jev
+A typical run takes **10–30 seconds** and costs well under one cent in AI calls.
 
-Most AI work in creator discovery is judging, not writing: *is this a real person? does the audience match? is it brand-safe?* We're moving these judgments to **[Jev](https://docs.typesafe.ai/introduction)**, a fast model built for yes/no, label and scale questions:
+## Judgments by Jev, words by language models
 
-- about **100 ms** per request, with all of a creator's questions answered at once;
-- about **$0.006 to judge 100 creators**;
-- answers come with **probabilities**, so thresholds mean something and we can tune them.
+Most AI work in creator discovery is judging, not writing: *is this a real person? does the audience match? is it brand-safe?* These judgments go to **Jev**, a fast model built for yes/no, label and scale questions. It answers all of a creator's questions in one request and gives probabilities, so thresholds mean something and can be tuned.
 
-Language models will only write the text you read: the reasons and the pitches. Numbers like views, growth and fair price always stay in code.
+Language models only write the text you read: the strategy, the reasons and the pitches. Numbers like views, growth and fair price always stay in code.
 
 ## Reliability
 
-- Runs happen in the background and survive restarts; you can close the page.
-- Coming with the next discovery update: automatic backup AI models if a provider is down, and cost tracking for every AI call, so pricing stays fair and sustainable.
-
-## Coming soon: the new discovery engine
-
-A new engine is built and being tested on real campaigns before it replaces the current one:
-
-- **Each platform searched in parallel.** Platforms that suit your brief get a full search. Others get a small test search first, and get a full search only if they find creators who beat your current list.
-- **A second search when too few creators qualify.** If too few creators pass your size, country and activity checks, it searches once more for larger channels with good views.
+- Runs happen in the background; you can close the page.
 - **Picks up where it stopped.** If a run is interrupted, the retry continues from the last finished step instead of starting over.
-- **Reasons that match the score.** The one-line reason for each creator agrees with its label (for example, it says what holds back a "Consider").
-- **Faster repeat runs.** Briefs, searches and judgments are remembered, so running a similar campaign again is quicker and cheaper.
+- Starting a campaign again cancels the run still going, so you never get two lists mixed up.
+- Backup AI models take over if a provider is down, and every paid call is tracked.

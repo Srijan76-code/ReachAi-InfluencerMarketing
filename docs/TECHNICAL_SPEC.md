@@ -26,7 +26,7 @@
 | Extra sources | Competitor sponsors, lookalikes, founder's own X followers, pre-warmed trending niches (§4.10) |
 | Results UX | **Stream results as they arrive** (§4.12) |
 | Discovery quality rule | **Probe every selected platform, expand where a probe beats the current top N**; fit floor as a safety net; recall benchmark ≥ 90% (§4.9) |
-| Pipeline rollout | Replace the old YouTube pipeline once the new one matches or beats it on 3 blind-rated briefs. Until then the env switch `DISCOVERY_ENGINE` (`legacy` default, `graph`) picks the engine; the switch and old code are removed after (roadmap F1.13) |
+| Pipeline rollout | **The new discovery graph replaces the old pipeline (decided Nov 4).** The 3-brief comparison showed it never breaks size/country rules and leads on the consumer brief; its recall on niche B2B is tuned on top. The old pipeline and the `DISCOVERY_ENGINE` switch are removed (roadmap F1.13) |
 | Run execution | LangGraph runs and resumes the pipeline from Postgres checkpoints; Inngest starts, retries (resume), limits (2 per user, 10 total) and cancels runs (a re-run cancels the previous one); platforms are parallel LangGraph branches; Vercel; Postgres caches (§4.14) |
 | After the deal | Founder pays creators directly (we send pay-on-proof requests and track); own short links; promo codes + signup snippet/server event; tracking included in paid plans (§8) |
 | Outreach | **Connected inbox**; founder approves first messages, follow-ups automatic; A/B test soft vs. concrete-offer first message (§7) |
@@ -43,7 +43,7 @@ Code / API  →  Statistics / ML  →  Jev (judgments)  →  Code (scoring)  →
 
 ## 1. Current state (what exists today)
 
-**Discovery** (`backend/app/my_agent/`), YouTube only. LangGraph runs these steps in sequence:
+**Discovery** (`backend/app/my_agent/`, removed Nov 4; kept here as the starting point), YouTube only. LangGraph runs these steps in sequence:
 `campaign_understanding (LLM)` → `keyword_generator (LLM)` → `youtube_search_gate` → `subscriber_filter` → `channel_enrichment` → `semantic_processor (embeddings + BM25, top 30)` → `reranker_node (LLM, batches of 15)` → `final_scoring_node (0.6·fit + 0.4·health)` → `llm_reasoning_node (LLM, top N)`.
 
 **Outreach** (`backend/app/outreach/`): one branch per creator, generate (LLM) → rule-based validation → at most 1 repair → collect. Uses a Postgres checkpointer, Inngest Realtime progress, and LangSmith evals (`backend/OUTREACH_EVALUATION.md`).
@@ -439,7 +439,7 @@ Node settings: `retry_policy` on every node that calls an API. A failed search b
 
 **Reasons** get our verdict (deal status) in the prompt and must agree with it (`reason-v2`); the verdict is part of the reason cache key.
 
-**Switch until F1.13:** `DISCOVERY_ENGINE=graph` runs this graph; the default `legacy` keeps the old pipeline until the 3-brief comparison.
+**The only engine since Nov 4** (F1.13): the old pipeline and its switch are removed.
 
 **State stays small:** profiles and posts live in the creator database; the graph state holds creator ids plus small score records, so checkpoints stay fast.
 
@@ -456,7 +456,7 @@ Node settings: `retry_policy` on every node that calls an API. A failed search b
 
 **Tables:** `run_strategy(run_id, strategy, platform_weights)` and `run_candidates(run_id, creator_id, platform, found_via, mode, stage, metrics, fit, health, risk, final_score, deal_status, flags, drop_reason)` for streaming, status and debugging.
 
-**Switch-over:** `DISCOVERY_ENGINE=legacy|graph` (default `legacy`). Flip it after the 3-brief comparison, then delete the old pipeline (F1.13) and the setting.
+**Switch-over (done Nov 4):** the old pipeline and the `DISCOVERY_ENGINE` setting are removed; every run uses this graph.
 
 ### 4.13 Frontend (Phase 1)
 - `MultiPlatform.tsx`: enable platforms based on a flag from the backend (`/platforms` endpoint).
@@ -935,8 +935,8 @@ Phases 3 and 6 can run in parallel after 1 and 2.
 ### File change map (first phases)
 | File | Change |
 |---|---|
-| `backend/app/core/model.py` | Replaced by `app/llm/client.py` (kept as a shim during migration) |
-| `backend/app/my_agent/**` | Logic moves into `app/discovery/` + `app/platforms/youtube.py` + `app/metrics/`; folder removed after parity tests |
+| `backend/app/core/model.py` | Replaced by `app/llm/client.py`; still used by outreach until K2 |
+| `backend/app/my_agent/**` | Removed Nov 4 (F1.13): logic lives in `app/discovery/` + `app/platforms/youtube.py` + `app/metrics/` |
 | `backend/app/workflow/runtime.py`, `app/inngest/functions.py` | Run the generic graph; stage list from the graph; credit reserve/commit |
 | `backend/app/outreach/nodes/validate_creator_pitch.py` | + Jev Nouls (§7.6) |
 | `backend/app/outreach/utils.py` | `available_channels` / evidence read `CreatorProfile` |
