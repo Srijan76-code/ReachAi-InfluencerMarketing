@@ -94,6 +94,7 @@ export interface PostCard {
   likes: number | null;
   comments: number | null;
   x_usual: number | null; // reach / the creator's median reach
+  is_new?: boolean; // under a week old: still collecting views, so no x_usual
   matched_topics: string[];
   sponsored: boolean;
 }

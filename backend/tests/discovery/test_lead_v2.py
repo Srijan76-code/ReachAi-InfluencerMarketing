@@ -78,3 +78,17 @@ def test_skipped_reasons_fold_into_plain_buckets():
     assert out["looked_at"] == 3 and out["skipped"] == 2
     assert {r["reason"]: r["count"] for r in out["reasons"]} == {"inactive": 1, "not an individual creator": 1,
                                                                "different language": 1}
+
+
+def test_new_posts_are_not_judged_and_link_lists_are_not_matched():
+    from datetime import timedelta
+    asof = T + timedelta(days=1)
+    posts = [_post(1, "Fresh upload", views=50), _post(2, "Older", views=1000), _post(3, "Older", views=3000)]
+    posts[1]["published_at"] = posts[2]["published_at"] = T - timedelta(days=20)
+    posts[0]["published_at"] = T  # one day before the fetch
+    cards, signals = analyse_posts(posts, [], as_of=asof)
+    assert cards[0]["is_new"] and cards[0]["x_usual"] is None  # not "0.03x usual"
+    assert signals["median_reach"] == 2000 and cards[2]["x_usual"] == 1.5  # the usual leaves the new post out
+    # topics: the opening summary counts, link lists further down don't
+    p = _post(4, "Weekly vlog", description="We talk about AI agents today.\n\nPlaylists:\nMachine learning interviews https://x")
+    assert analyse_posts([p], ["AI agents", "machine learning interviews"])[0][0]["matched_topics"] == ["AI agents"]
