@@ -114,13 +114,13 @@ Known gaps in what's built:
 ## Phase 7: Deals, tracking, payments · §8
 | ID | Feature | Status | Spec |
 |---|---|---|---|
-| F7.1 | Deal record + events + pipeline board | later | §8.1, §8.5 |
+| F7.1 | Deals v1 (`deals`): `creator_deals` + `deal_events` (migration `e5a9c2d7f3b1`); Deals tab (4th) with a board Contacted → Negotiating → Agreed → Content → Live → Paid (+ Lost, hidden), drag-and-drop and ⋯ menu; deal panel with terms (deliverable, post-by, deal type + commission, usage rights, exclusivity, #ad), live post link (checked against the platform), mark paid, notes, timeline; summary strip (deals, committed vs budget, live x/y, paid); Add to deals from panel / selection / shortlist picker. Auto stage moves from outreach events come with F6 | done | §8.1, §8.5 | `backend/app/models/deal.py`, `backend/app/api/routes/deals.py`, `frontend/components/deals/*`, `app/campaign/[id]/deals/` |
 | F7.2 | Brief, contract, creator portal, draft review | later | §8.2 |
 | F7.3 | Live detection + post checklist + alerts | later | §8.3 |
 | F7.4 | Snapshots, own short links, conversions (promo codes, snippet, server event) | later | §8.4 |
 | F7.5 | Results UI | later | §8.5 |
 | F7.6 | Pay-on-proof requests, mark paid, reminders, tax-ID collection | later | §8.6 |
-| F7.7 | Fair range, add-ons, deal type suggestion, negotiation helper, budget planner | later | §8.7 |
+| F7.7 | Negotiation helper done (`deals`): fair range for the exact deal (format ×, usage +, exclusivity +; constants in `app/deals/constants.py`, starting values from market guides), verdict great/accept/counter/walk-away, deal type from the goal, reply message: code template + Jev reads the pasted creator reply (`creator_reply_questions`, angle budget/performance/scope) + optional LLM rewording (route `counter`: Groq gpt-oss-120b → Gemini Flash-Lite) checked to keep exactly our numbers. Left: budget planner (knapsack), tune multipliers with agreed prices | in progress | §8.7 | `backend/app/deals/negotiation.py`, `backend/app/deals/reply.py` |
 | F7.8 | Extra sources: lookalikes, competitor sponsors, founder followers, pre-warmed niches | later | §4.10 |
 
 ## Phase 8: Learning · §9

@@ -37,6 +37,7 @@ import { LeadListSkeleton } from "@/components/LeadListSkeleton";
 import { SkippedNote } from "@/components/SkippedNote";
 import { ShareDialog } from "@/components/ShareDialog";
 import { Segmented } from "@/components/ui/segmented";
+import { AddToDealsButton } from "@/components/deals/AddToDealsButton";
 import { CompareTray, MAX_COMPARE } from "@/components/CompareTray";
 import type { FeedbackItem } from "@/data/influencerList";
 import {
@@ -778,6 +779,8 @@ const InfluencerPage = ({ campaignId }: InfluencerPageProps) => {
                       </button>
                     }
                   />
+
+                  <AddToDealsButton key={[...selectedIds].join(",")} campaignId={campaignId} creatorIds={[...selectedIds]} variant="bar" />
 
                   <ExportDialog
                     influencers={displayedLeads.filter((l) => selectedIds.has(l.id))}

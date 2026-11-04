@@ -27,12 +27,13 @@ async def client(tmp_path, monkeypatch):
     from app.models.campaign import Campaign, CampaignStatus
     from app.models.discovery_run import RunCandidate  # noqa: F401  (registers the table)
     from app.models.share_link import ShareLink  # noqa: F401
+    from app.models.deal import CreatorDeal  # noqa: F401
     from app.models.saved_lead import SavedLead
     from app.models.user import User
     from tests.discovery.conftest import create_tables, make_engine
 
     engine, is_pg = make_engine(tmp_path)
-    await create_tables(engine, is_pg, ["users", "campaigns", "saved_leads", "run_candidates", "share_links", "share_feedback"])
+    await create_tables(engine, is_pg, ["users", "campaigns", "saved_leads", "run_candidates", "share_links", "share_feedback", "creator_deals", "deal_events"])
     sf = sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
     async with sf() as s:
         s.add_all([User(user_id="u1", clerk_id="clerk-1"), User(user_id="u2", clerk_id="clerk-2")])
@@ -387,3 +388,88 @@ async def test_links_never_share_contacts_even_if_asked(client):
     page = (await client.get("/api/share/" + link["path"][3:])).json()
     assert "me@creator.com" not in str(page) and "instagram.com" not in str(page) and "contacts" not in page
     assert (await client.post("/api/share/" + link["path"][3:] + "/code")).status_code in (404, 405)  # no code step
+
+
+# --- deals (F7.1) ---------------------------------------------------------------------------------
+
+DEAL_LEADS = [{**l, "fair_low": 150, "fair_high": 210, "metrics": {"avg_views": 28300, "forecast": "~424 clicks/video"}}
+              for l in LEADS]
+
+
+@needs_pg
+@pytest.mark.asyncio
+async def test_deals_board_flow(client):
+    await _set_leads(client, DEAL_LEADS)
+    assert (await client.post("/api/campaigns/c1/deals", json={"creator_ids": ["nope"]})).status_code == 422
+    r = (await client.post("/api/campaigns/c1/deals", json={"creator_ids": ["UC1", "UC2", "UC1", "x"]})).json()
+    assert [d["creator_id"] for d in r["created"]] == ["UC1", "UC2"] and r["skipped"] == 0
+    again = (await client.post("/api/campaigns/c1/deals", json={"creator_ids": ["UC1", "UC3"]})).json()
+    assert [d["creator_id"] for d in again["created"]] == ["UC3"] and again["skipped"] == 1  # UC1 already in deals
+    d = r["created"][0]
+    assert d["stage"] == "contacted" and d["name"] == "Creator 1" and d["typical_views"] == 28300
+    assert d["advice"]["fair_low"] == 150 and d["advice"]["verdict"] is None
+
+    # quote above fair → counter advice; terms change the fair range
+    ch = (await client.patch(f"/api/deals/{d['id']}", json={"stage": "negotiating", "quoted_rate": 300})).json()
+    assert ch["advice"]["verdict"] == "counter" and ch["advice"]["counter"] == 180
+    ch = (await client.patch(f"/api/deals/{d['id']}", json={"deliverable": "dedicated", "usage_rights": "paid_90"})).json()
+    assert ch["advice"]["verdict"] in ("accept", "great")
+
+    # validation
+    for bad in ({"stage": "won"}, {"deliverable": "tweetstorm"}, {"quoted_rate": -5}, {"commission_pct": 150},
+                {"exclusivity_days": 999}, {"post_url": "https://evil.com/watch?v=1"}, {"post_url": "javascript:alert(1)"}):
+        assert (await client.patch(f"/api/deals/{d['id']}", json=bad)).status_code == 422, bad
+
+    # agreed → live → paid: dates and amounts filled in, all on the timeline
+    await client.patch(f"/api/deals/{d['id']}", json={"stage": "agreed", "agreed_rate": 400, "post_by": "2020-01-01"})
+    board = (await client.get("/api/campaigns/c1/deals")).json()
+    me = next(x for x in board["deals"] if x["id"] == d["id"])
+    assert me["overdue"] is True and board["summary"]["committed"] == 400 and board["summary"]["agreed"] == 1
+    live = (await client.patch(f"/api/deals/{d['id']}", json={"stage": "live", "post_url": " https://www.youtube.com/watch?v=abc "})).json()
+    assert live["live_at"] and live["post_url"] == "https://www.youtube.com/watch?v=abc" and live["overdue"] is False
+    paid = (await client.patch(f"/api/deals/{d['id']}", json={"stage": "paid"})).json()
+    assert paid["paid_at"] and paid["paid_amount"] == 400
+    s = (await client.get("/api/campaigns/c1/deals")).json()["summary"]
+    assert s["paid"] == 400 and s["live"] == 1 and s["by_stage"]["paid"] == 1
+    types = [e["type"] for e in (await client.get(f"/api/deals/{d['id']}/events")).json()]
+    assert types.count("stage") == 4 and "created" in types and "quoted_rate" in types and "agreed_rate" in types
+
+    # lost deals don't count; delete works; someone else's campaign is invisible
+    await client.patch(f"/api/deals/{r['created'][1]['id']}", json={"stage": "lost"})
+    assert (await client.get("/api/campaigns/c1/deals")).json()["summary"]["deals"] == 2
+    assert (await client.delete(f"/api/deals/{r['created'][1]['id']}")).status_code == 200
+    assert (await client.get("/api/campaigns/c3/deals")).status_code == 404
+    assert (await client.post("/api/campaigns/c3/deals", json={"creator_ids": ["UC1"]})).status_code == 404
+
+
+@needs_pg
+@pytest.mark.asyncio
+async def test_counter_message_endpoint(client, monkeypatch):
+    from app.judge import client as jc
+    from app.judge.client import Answer, Judgment
+    from app.llm import client as llm
+
+    await _set_leads(client, DEAL_LEADS)
+    d = (await client.post("/api/campaigns/c1/deals", json={"creator_ids": ["UC4"]})).json()["created"][0]
+    await client.patch(f"/api/deals/{d['id']}", json={"quoted_rate": 300})
+
+    t = (await client.post(f"/api/deals/{d['id']}/counter", json={})).json()
+    assert t["source"] == "template" and t["angle"] == "budget" and "$180" in t["message"] and t["signals"] == {}
+
+    async def fake_judge(state, questions, context=None, **k):
+        assert state == {"reply": {"text": "Happy to do commission instead"}}
+        return Judgment({q: Answer("noul", 0.9 if q == "wants_commission" else 0.05) for q in questions}, "jev", "jev")
+
+    async def fake_llm(route, messages, schema=None, **k):
+        assert "Happy to do commission" not in str(messages)  # the creator's text never reaches the LLM
+        return "Hi Creator, how about $130 up front plus 10% commission on sales? Would that work?"
+    monkeypatch.setattr(jc, "judge", fake_judge)
+    monkeypatch.setattr(llm, "achat", fake_llm)
+    ai = (await client.post(f"/api/deals/{d['id']}/counter", json={"creator_reply": "Happy to do commission instead", "rewrite": True})).json()
+    assert ai["angle"] == "performance" and ai["source"] == "ai" and ai["amounts"]["base"] == 130
+
+    no_fair = (await client.post("/api/campaigns/c1/deals", json={"creator_ids": ["UC5"]})).json()["created"][0]
+    await _set_leads(client, LEADS)  # older results without a fair price
+    d6 = (await client.post("/api/campaigns/c1/deals", json={"creator_ids": ["UC6"]})).json()["created"][0]
+    assert (await client.post(f"/api/deals/{d6['id']}/counter", json={})).status_code == 422
+    assert no_fair["advice"]["fair_high"] == 210

@@ -9,18 +9,20 @@ import {
   LayoutGrid,
   Users,
   Send,
+  Handshake,
 } from "lucide-react";
 
 interface PageProps {
   id: string;
 }
 
-// One tab per step of a campaign (max 5: Brief, Creators, Outreach, then Deals and Results when they
-// ship). Things that span campaigns (New campaign, Docs, account) live in the main navbar.
+// One tab per step of a campaign (max 5: Brief, Creators, Outreach, Deals, then Results when it
+// ships). Things that span campaigns (New campaign, Docs, account) live in the main navbar.
 const NAV_ITEMS = [
   { name: "Brief", path: "details", icon: LayoutGrid },
   { name: "Creators", path: "leads", icon: Users },
   { name: "Outreach", path: "outreach", icon: Send },
+  { name: "Deals", path: "deals", icon: Handshake },
 ];
 
 const CampaignTabs = ({ id }: PageProps) => {
