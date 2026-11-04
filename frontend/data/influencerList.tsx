@@ -56,6 +56,16 @@ export interface Influencer {
 
   // ---------- EXTRA ----------
   rich_context: string;
+
+  // ---------- NEW DISCOVERY ENGINE (absent on results from the old one) ----------
+  platform?: string;
+  url?: string;
+  found_via?: string | null;
+  flags?: string[]; // rising | trend | suspicious | country_unknown
+  fair_low?: number | null;
+  fair_high?: number | null;
+  risk?: number | null;
+  niche?: string | null;
 }
 
 
