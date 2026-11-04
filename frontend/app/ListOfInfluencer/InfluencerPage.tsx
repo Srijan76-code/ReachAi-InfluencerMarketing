@@ -33,6 +33,8 @@ import {
 import { Sheet } from "@/components/ui/sheet";
 import { LeadListSkeleton } from "@/components/LeadListSkeleton";
 import { SkippedNote } from "@/components/SkippedNote";
+import { ShareDialog } from "@/components/ShareDialog";
+import { CompareTray, MAX_COMPARE } from "@/components/CompareTray";
 import {
   DEFAULT_VIEW,
   SORTS,
@@ -115,6 +117,7 @@ const InfluencerPage = ({ campaignId }: InfluencerPageProps) => {
   const [openId, setOpenId] = useState<string | null>(null); // creator whose panel is open
   const [cursor, setCursor] = useState<number | null>(null); // keyboard-highlighted row
   const [helpOpen, setHelpOpen] = useState(false);
+  const [compareOpen, setCompareOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
   const displayedLeads = useMemo(
@@ -486,6 +489,16 @@ const InfluencerPage = ({ campaignId }: InfluencerPageProps) => {
                   </DropdownMenuContent>
                 </DropdownMenu>
 
+                {/* Share (view-only links) */}
+                {campaignId && (
+                  <ShareDialog
+                    campaignId={campaignId}
+                    api={api}
+                    totalCount={final_ranked_leads.length}
+                    selectedIds={[...selectedIds]}
+                  />
+                )}
+
                 {/* Outreach Action Trigger */}
                 {campaignId && (
                   <OutreachDialog
@@ -641,6 +654,12 @@ const InfluencerPage = ({ campaignId }: InfluencerPageProps) => {
             </div>
           </div>
 
+          <CompareTray
+            open={compareOpen}
+            onOpenChange={setCompareOpen}
+            leads={(final_ranked_leads ?? []).filter((l) => selectedIds.has(l.id))}
+          />
+
           {/* A save that didn't reach the server (the bookmark has already been put back) */}
           <AnimatePresence>
             {saveError && (
@@ -691,6 +710,16 @@ const InfluencerPage = ({ campaignId }: InfluencerPageProps) => {
                   <ExportDialog
                     influencers={displayedLeads.filter((l) => selectedIds.has(l.id))}
                   />
+
+                  <button
+                    type="button"
+                    disabled={selectedIds.size < 2 || selectedIds.size > MAX_COMPARE}
+                    title={selectedIds.size < 2 ? "Select 2 to 4 creators to compare" : selectedIds.size > MAX_COMPARE ? `Compare up to ${MAX_COMPARE} at a time` : "Compare side by side"}
+                    onClick={() => setCompareOpen(true)}
+                    className="px-2.5 py-1 font-medium rounded-full border border-zinc-600 text-zinc-100 hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Compare
+                  </button>
 
                   <button
                     type="button"

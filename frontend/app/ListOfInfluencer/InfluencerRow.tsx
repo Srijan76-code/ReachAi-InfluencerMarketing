@@ -22,6 +22,7 @@ export const InfluencerRow = ({
   isSaved = false,
   onToggleSelection = () => {},
   onToggleSave = () => {},
+  readOnly = false,
 }: {
   influencer: Influencer;
   rank: number;
@@ -29,6 +30,7 @@ export const InfluencerRow = ({
   isSaved?: boolean;
   onToggleSelection?: (id: string) => void;
   onToggleSave?: (influencer: Influencer) => void;
+  readOnly?: boolean; // shared view: no saving
 }) => {
   const { title, subscribers, metrics, deal_status, final_score } = influencer;
   const expired = Boolean(influencer.data_expired); // numbers removed after 30 days (YouTube rules)
@@ -194,7 +196,7 @@ export const InfluencerRow = ({
             </Tooltip>
           </span>
           <span className="font-mono text-[12px] font-bold text-rose-400 leading-none">
-            {expired ? dash : `$${influencer.valuation}`}
+            {expired || influencer.valuation == null ? dash : `$${influencer.valuation}`}
           </span>
         </div>
 
@@ -282,6 +284,7 @@ export const InfluencerRow = ({
 
         {/* Action button / Bookmark */}
         <div className="w-7 flex justify-center items-center">
+          {!readOnly && (
           <button
             type="button"
             onClick={(e) => {
@@ -296,6 +299,7 @@ export const InfluencerRow = ({
               className={isSaved ? "fill-amber-500 text-amber-500" : "text-zinc-400"}
             />
           </button>
+          )}
         </div>
       </div>
     </div>
