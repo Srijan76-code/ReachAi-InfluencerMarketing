@@ -887,6 +887,9 @@ GET  /creators/{creator_id}                       → profile + latest snapshot 
 GET  /campaigns/{id}/skipped                       → {looked_at, skipped, reasons[{reason, count}]} (built)
 GET/POST /campaigns/{id}/shares, PATCH/DELETE /shares/{link_id} → owner manages view-only links (built)
 GET  /share/{token}                               → public, allowlisted shortlist; 404 unknown, 410 off/expired (built)
+POST /share/{token}/code, POST /share/{token}/verify → email code → session (X-Share-Session) that shows contacts (built)
+PUT  /share/{token}/feedback/{creator_id}          → reviewer verdict + comment (built)
+GET  /campaigns/{id}/feedback                      → owner: what reviewers said (built)
 POST /campaigns/{id}/creators/{cid}/contact       → find + verify email (1 credit)
 POST /connections/inbox/start | GET /connections  → Unipile hosted auth link, list
 POST /outreach/jobs/{job_id}/send                 → enroll selected pitches into a sequence

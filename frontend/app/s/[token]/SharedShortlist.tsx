@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Eye, Lock } from "lucide-react";
+import { Eye, Lock, Mail, MessageSquare } from "lucide-react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Sheet } from "@/components/ui/sheet";
 import { InfluencerRow } from "@/app/ListOfInfluencer/InfluencerRow";
 import { InfluencerDetailSheet } from "@/app/ListOfInfluencer/InfluencerDetailSheet";
 import { CompareTray, MAX_COMPARE } from "@/components/CompareTray";
 import { LeadListSkeleton } from "@/components/LeadListSkeleton";
+import { ReviewBox, VerdictButtons, type MyFeedback } from "@/components/Feedback";
 import type { Influencer } from "@/data/influencerList";
 
 type Shared = {
@@ -18,11 +19,101 @@ type Shared = {
   show_prices: boolean;
   expires_at: string | null;
   creators: Influencer[];
+  can_review: boolean;
+  my_feedback: Record<string, MyFeedback>;
+  contacts: { offered: boolean; verified: boolean; email_hint: string | null };
 };
 
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
+const sessionKey = (token: string) => `reachai:share-session:${token}`;
 
-/** A read-only shortlist someone shared. No sign-in: the link is the permission. */
+function readSession(token: string): string | null {
+  try {
+    return window.localStorage.getItem(sessionKey(token));
+  } catch {
+    return null;
+  }
+}
+
+async function call(path: string, init?: RequestInit) {
+  const r = await fetch(`${BACKEND}${path}`, { cache: "no-store", referrerPolicy: "no-referrer", ...init });
+  const body = await r.json().catch(() => ({}));
+  return { ok: r.ok, status: r.status, body };
+}
+
+/** The email-code step that unlocks contact details (only on links that share them). */
+function ContactsGate({ token, hint, onVerified }: { token: string; hint: string | null; onVerified: () => void }) {
+  const [step, setStep] = useState<"ask" | "code">("ask");
+  const [code, setCode] = useState("");
+  const [msg, setMsg] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const send = async () => {
+    setBusy(true);
+    setMsg(null);
+    const r = await call(`/api/share/${encodeURIComponent(token)}/code`, { method: "POST" });
+    setBusy(false);
+    if (r.ok) setStep("code");
+    else setMsg(typeof r.body?.detail === "string" ? r.body.detail : "Couldn't send the code.");
+    if (r.status === 429) setStep("code"); // a code was just sent: let them type it
+  };
+  const verify = async () => {
+    setBusy(true);
+    setMsg(null);
+    const r = await call(`/api/share/${encodeURIComponent(token)}/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code }),
+    });
+    setBusy(false);
+    if (r.ok && r.body?.session) {
+      try {
+        window.localStorage.setItem(sessionKey(token), r.body.session);
+      } catch {}
+      onVerified();
+    } else setMsg(typeof r.body?.detail === "string" ? r.body.detail : "That didn't work.");
+  };
+
+  return (
+    <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#0c0d0e] p-3.5 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+      <div className="flex items-start gap-2.5">
+        <Mail size={16} className="mt-0.5 text-zinc-400 shrink-0" />
+        <div>
+          <p className="text-xs font-medium text-zinc-900 dark:text-zinc-100">Contact details are hidden</p>
+          <p className="text-[11px] text-zinc-500">
+            {step === "ask"
+              ? `To see them, confirm it's you: we'll email a 6-digit code to ${hint ?? "your inbox"}.`
+              : `Enter the code we sent to ${hint ?? "your inbox"}. It works for 10 minutes.`}
+          </p>
+          {msg && <p className="text-[11px] text-rose-500 mt-1">{msg}</p>}
+        </div>
+      </div>
+      {step === "ask" ? (
+        <button type="button" onClick={send} disabled={busy} className="h-8 px-3 text-xs font-medium rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 hover:opacity-90 disabled:opacity-50 shrink-0">
+          {busy ? "Sending…" : "Email me a code"}
+        </button>
+      ) : (
+        <form className="flex items-center gap-2 shrink-0" onSubmit={(e) => { e.preventDefault(); verify(); }}>
+          <input
+            value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            placeholder="123456"
+            aria-label="6-digit code"
+            className="w-24 h-8 px-2 text-sm font-mono tracking-widest text-center rounded-md border border-zinc-200 dark:border-zinc-800 bg-transparent focus:outline-none focus:border-zinc-400"
+          />
+          <button type="submit" disabled={busy || code.length !== 6} className="h-8 px-3 text-xs font-medium rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 hover:opacity-90 disabled:opacity-50">
+            {busy ? "Checking…" : "Confirm"}
+          </button>
+          <button type="button" onClick={send} disabled={busy} className="text-[11px] text-zinc-500 hover:underline">Resend</button>
+        </form>
+      )}
+    </div>
+  );
+}
+
+/** A shortlist someone shared. No sign-in: the link is the permission. */
 export default function SharedShortlist({ token }: { token: string }) {
   const [data, setData] = useState<Shared | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -30,20 +121,20 @@ export default function SharedShortlist({ token }: { token: string }) {
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [compareOpen, setCompareOpen] = useState(false);
 
-  useEffect(() => {
-    let live = true;
-    fetch(`${BACKEND}/api/share/${encodeURIComponent(token)}`, { cache: "no-store", referrerPolicy: "no-referrer" })
-      .then(async (r) => {
-        const body = await r.json().catch(() => ({}));
-        if (!live) return;
-        if (r.ok) setData(body as Shared);
-        else setError(typeof body?.detail === "string" ? body.detail : "This link can't be opened.");
-      })
-      .catch(() => live && setError("Couldn't load this shortlist. Check your connection and try again."));
-    return () => {
-      live = false;
-    };
+  const load = useCallback(async () => {
+    const session = readSession(token);
+    try {
+      const r = await call(`/api/share/${encodeURIComponent(token)}`, session ? { headers: { "X-Share-Session": session } } : undefined);
+      if (r.ok) setData(r.body as Shared);
+      else setError(typeof r.body?.detail === "string" ? r.body.detail : "This link can't be opened.");
+    } catch {
+      setError("Couldn't load this shortlist. Check your connection and try again.");
+    }
   }, [token]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const toggle = (id: string) =>
     setPicked((s) => {
@@ -53,7 +144,21 @@ export default function SharedShortlist({ token }: { token: string }) {
       return n;
     });
 
+  // reviewer: save a verdict/comment (optimistic for the thumbs, confirmed for the comment box)
+  const saveFeedback = async (creatorId: string, v: MyFeedback): Promise<boolean> => {
+    const before = data?.my_feedback[creatorId];
+    setData((d) => (d ? { ...d, my_feedback: { ...d.my_feedback, [creatorId]: v } } : d));
+    const r = await call(`/api/share/${encodeURIComponent(token)}/feedback/${encodeURIComponent(creatorId)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(v),
+    }).catch(() => ({ ok: false }));
+    if (!r.ok) setData((d) => (d ? { ...d, my_feedback: { ...d.my_feedback, [creatorId]: before ?? { verdict: null, comment: null } } } : d));
+    return r.ok;
+  };
+
   const expires = data?.expires_at ? Math.max(0, Math.ceil((Date.parse(data.expires_at) - Date.now()) / 86_400_000)) : null;
+  const reviewed = data ? Object.values(data.my_feedback).filter((f) => f.verdict).length : 0;
 
   return (
     <TooltipProvider delayDuration={150}>
@@ -75,7 +180,11 @@ export default function SharedShortlist({ token }: { token: string }) {
                   <h1 className="mt-1 text-lg font-medium text-zinc-900 dark:text-zinc-100">{data.campaign_name}</h1>
                   <p className="mt-1 text-xs text-zinc-500 flex flex-wrap items-center gap-x-2">
                     {data.shared_by && <span>Shared by {data.shared_by}</span>}
-                    <span className="flex items-center gap-1"><Eye size={12} /> View only</span>
+                    {data.can_review ? (
+                      <span className="flex items-center gap-1"><MessageSquare size={12} /> You can approve or reject each creator · {reviewed} of {data.creators.length} done</span>
+                    ) : (
+                      <span className="flex items-center gap-1"><Eye size={12} /> View only</span>
+                    )}
                     {expires !== null && <span>Link expires in {expires} day{expires === 1 ? "" : "s"}</span>}
                     {!data.show_prices && <span>Prices hidden by the sender</span>}
                   </p>
@@ -86,12 +195,16 @@ export default function SharedShortlist({ token }: { token: string }) {
                     type="button"
                     disabled={picked.size < 2}
                     onClick={() => setCompareOpen(true)}
-                    className="px-3 py-1.5 font-medium rounded-md border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="h-[30px] px-3 font-medium rounded-md border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-40"
                   >
                     Compare
                   </button>
                 </div>
               </header>
+
+              {data.contacts.offered && !data.contacts.verified && (
+                <ContactsGate token={token} hint={data.contacts.email_hint} onVerified={load} />
+              )}
 
               {data.creators.length === 0 ? (
                 <p className="text-sm text-zinc-500 px-1">No creators in this shortlist.</p>
@@ -99,7 +212,7 @@ export default function SharedShortlist({ token }: { token: string }) {
                 <div className="flex flex-col gap-2">
                   {data.creators.map((c, i) => (
                     <div key={c.id} className="flex items-stretch gap-2">
-                      <label className="w-10 rounded-lg border border-zinc-200/50 dark:border-zinc-800/50 bg-white dark:bg-[#0c0d0e] flex items-center justify-center cursor-pointer" title="Pick to compare">
+                      <label className="w-10 rounded-lg border border-zinc-200/50 dark:border-zinc-800/50 bg-white dark:bg-[#0c0d0e] flex items-center justify-center" title="Pick to compare">
                         <input
                           type="checkbox"
                           aria-label={`Compare ${c.title}`}
@@ -116,13 +229,25 @@ export default function SharedShortlist({ token }: { token: string }) {
                             tabIndex={0}
                             onClick={() => setOpenId(c.id)}
                             onKeyDown={(e) => e.key === "Enter" && setOpenId(c.id)}
-                            className="h-full rounded-lg border border-zinc-200/50 dark:border-zinc-800/50 hover:border-zinc-300/50 dark:hover:border-zinc-700/50 overflow-hidden cursor-pointer"
+                            className={`h-full rounded-lg border overflow-hidden ${openId === c.id ? "border-zinc-400 dark:border-zinc-500" : "border-zinc-200/50 dark:border-zinc-800/50 hover:border-zinc-300/50 dark:hover:border-zinc-700/50"}`}
                           >
                             <InfluencerRow influencer={c} rank={i + 1} readOnly />
                           </div>
-                          <InfluencerDetailSheet influencer={c} readOnly />
+                          <InfluencerDetailSheet
+                            influencer={c}
+                            readOnly
+                            showContacts={data.contacts.verified}
+                            reviewSlot={data.can_review ? (
+                              <ReviewBox value={data.my_feedback[c.id]} onSave={(v) => saveFeedback(c.id, v)} />
+                            ) : undefined}
+                          />
                         </Sheet>
                       </div>
+                      {data.can_review && (
+                        <div className="w-10 flex items-center justify-center">
+                          <VerdictButtons name={c.title} value={data.my_feedback[c.id]} onChange={(v) => saveFeedback(c.id, v)} />
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

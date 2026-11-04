@@ -116,6 +116,15 @@ export interface ScoreParts {
   country_unknown_factor: number | null; // the sum is multiplied by this when the country is unknown
 }
 
+/** GET /api/campaigns/{id}/feedback: what reviewers said about one creator */
+export interface FeedbackItem {
+  creator_id: string;
+  by: string | null; // the reviewer's email
+  verdict: "yes" | "no" | null;
+  comment: string | null;
+  updated_at: string | null;
+}
+
 /** GET /api/campaigns/{id}/skipped */
 export interface SkippedSummary {
   looked_at: number;

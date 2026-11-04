@@ -1,6 +1,8 @@
 import { CreatorAvatar } from "@/components/CreatorAvatar";
 import type { Influencer } from "@/data/influencerList";
 import { CreatorBadges, badgeFlags } from "@/components/CreatorBadges";
+import { FeedbackChip } from "@/components/Feedback";
+import type { FeedbackItem } from "@/data/influencerList";
 import { ShieldCheck, Info, Bookmark } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -36,6 +38,7 @@ export const InfluencerRow = ({
   isSaved = false,
   onToggleSave = () => {},
   readOnly = false,
+  feedback,
 }: {
   influencer: Influencer;
   rank: number;
@@ -44,6 +47,7 @@ export const InfluencerRow = ({
   onToggleSelection?: (id: string) => void;
   onToggleSave?: (influencer: Influencer) => void;
   readOnly?: boolean; // shared view: no shortlist button
+  feedback?: FeedbackItem[]; // what reviewers said (owner's view)
 }) => {
   const { title, metrics, deal_status, final_score } = influencer;
   const expired = Boolean(influencer.data_expired); // numbers removed after 30 days (YouTube rules)
@@ -93,6 +97,7 @@ export const InfluencerRow = ({
               {deal_status}
             </span>
             <CreatorBadges flags={badgeFlags(influencer)} compact="auto" />
+            <FeedbackChip items={feedback} />
           </div>
         </div>
       </div>

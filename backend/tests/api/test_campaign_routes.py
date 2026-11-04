@@ -32,7 +32,7 @@ async def client(tmp_path, monkeypatch):
     from tests.discovery.conftest import create_tables, make_engine
 
     engine, is_pg = make_engine(tmp_path)
-    await create_tables(engine, is_pg, ["users", "campaigns", "saved_leads", "run_candidates", "share_links"])
+    await create_tables(engine, is_pg, ["users", "campaigns", "saved_leads", "run_candidates", "share_links", "share_sessions", "share_feedback"])
     sf = sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
     async with sf() as s:
         s.add_all([User(user_id="u1", clerk_id="clerk-1"), User(user_id="u2", clerk_id="clerk-2")])
@@ -271,7 +271,7 @@ async def test_share_links_show_only_allowed_fields_and_respect_prices(client):
                                json={"kind": "person", "email": "investor@fund.com", "creator_ids": ["UC1", "UC2"]})).json()
     assert again["id"] == p["id"]
 
-    listed = (await client.get("/api/campaigns/c1/shares")).json()
+    listed = (await client.get("/api/campaigns/c1/shares")).json()["links"]
     assert {l["id"] for l in listed} == {link["id"], p["id"]}
     assert next(l for l in listed if l["id"] == link["id"])["view_count"] == 2
 
@@ -311,7 +311,7 @@ async def test_expired_public_link_stops_working(client):
     await db.commit()
     await gen.aclose()
     assert (await client.get("/api/share/" + link["path"][3:])).status_code == 410
-    assert (await client.get("/api/campaigns/c1/shares")).json() == []  # expired links drop off the list
+    assert (await client.get("/api/campaigns/c1/shares")).json()["links"] == []  # expired links drop off the list
 
 
 def test_shared_lead_allowlist_without_a_database():
@@ -329,3 +329,152 @@ def test_shared_lead_allowlist_without_a_database():
     assert len(new_token()) >= 32 and new_token() != new_token()
     from datetime import datetime, timezone
     assert (anyone_link_expiry(datetime(2026, 1, 1, tzinfo=timezone.utc)) - datetime(2026, 1, 1, tzinfo=timezone.utc)).days == ANYONE_LINK_DAYS
+
+
+
+# --- reviewers and contacts (F1.18b) -----------------------------------------------------------
+
+async def _set_leads(client, leads):
+    from sqlalchemy import update as sa_update
+
+    from app.db import database
+    from app.models.campaign import Campaign
+
+    gen = client._transport.app.dependency_overrides[database.get_db]()
+    db = await gen.__anext__()
+    await db.execute(sa_update(Campaign).where(Campaign.campaign_id == "c1").values(campaign_leads=leads))
+    await db.commit()
+    await gen.aclose()
+
+
+@needs_pg
+@pytest.mark.asyncio
+async def test_reviewers_give_feedback_the_owner_sees(client):
+    assert (await client.post("/api/campaigns/c1/shares", json={"kind": "anyone", "role": "reviewer"})).status_code == 422
+    r = (await client.post("/api/campaigns/c1/shares", json={"kind": "person", "email": "cofounder@x.com", "role": "reviewer",
+                                                            "creator_ids": ["UC1", "UC2"]})).json()
+    assert r["role"] == "reviewer"
+    tok = r["path"][3:]
+    pub = (await client.get(f"/api/share/{tok}")).json()
+    assert pub["can_review"] is True and pub["my_feedback"] == {}
+    ok = await client.put(f"/api/share/{tok}/feedback/UC1", json={"verdict": "yes", "comment": "  Great fit  "})
+    assert ok.status_code == 200 and ok.json() == {"creator_id": "UC1", "verdict": "yes", "comment": "Great fit"}
+    await client.put(f"/api/share/{tok}/feedback/UC1", json={"verdict": "no", "comment": None})  # latest wins
+    assert (await client.put(f"/api/share/{tok}/feedback/UC5", json={"verdict": "yes"})).status_code == 404  # not shared
+    assert (await client.put(f"/api/share/{tok}/feedback/UC1", json={"verdict": "maybe"})).status_code == 422
+    assert (await client.get(f"/api/share/{tok}")).json()["my_feedback"] == {"UC1": {"verdict": "no", "comment": None}}
+
+    viewer = (await client.post("/api/campaigns/c1/shares", json={"kind": "person", "email": "inv@x.com"})).json()
+    assert (await client.put(f"/api/share/{viewer['path'][3:]}/feedback/UC1", json={"verdict": "yes"})).status_code == 403
+    assert (await client.get(f"/api/share/{viewer['path'][3:]}")).json()["can_review"] is False
+
+    fb = (await client.get("/api/campaigns/c1/feedback")).json()
+    assert fb == [{"creator_id": "UC1", "by": "cofounder@x.com", "verdict": "no", "comment": None, "updated_at": fb[0]["updated_at"]}]
+    assert (await client.get("/api/campaigns/c3/feedback")).status_code == 404  # not my campaign
+    # removing the reviewer's link keeps what they said, but they can't add more
+    await client.delete(f"/api/shares/{r['id']}")
+    assert len((await client.get("/api/campaigns/c1/feedback")).json()) == 1
+    assert (await client.put(f"/api/share/{tok}/feedback/UC2", json={"verdict": "yes"})).status_code == 410
+
+
+@needs_pg
+@pytest.mark.asyncio
+async def test_contacts_need_email_set_up(client, monkeypatch):
+    monkeypatch.delenv("GMAIL_SMTP_USER", raising=False)
+    monkeypatch.delenv("GMAIL_SMTP_APP_PASSWORD", raising=False)
+    r = await client.post("/api/campaigns/c1/shares", json={"kind": "person", "email": "va@x.com", "show_contacts": True})
+    assert r.status_code == 422 and "isn't set up" in r.json()["detail"]
+    assert (await client.get("/api/campaigns/c1/shares")).json()["email_enabled"] is False
+
+
+@needs_pg
+@pytest.mark.asyncio
+async def test_contacts_unlock_with_a_one_time_email_code(client, monkeypatch):
+    from app.notify import email as mail
+
+    monkeypatch.setenv("GMAIL_SMTP_USER", "team@example.com")
+    monkeypatch.setenv("GMAIL_SMTP_APP_PASSWORD", "abcd efgh")
+    sent = []
+    monkeypatch.setattr(mail, "_send_sync", lambda to, subject, text: sent.append((to, subject, text)))
+    await _set_leads(client, [SECRET_LEAD, *LEADS[1:]])
+
+    assert (await client.post("/api/campaigns/c1/shares", json={"kind": "anyone", "show_contacts": True})).status_code == 422
+    link = (await client.post("/api/campaigns/c1/shares", json={"kind": "person", "email": "VA@Agency.com", "show_contacts": True})).json()
+    tok = link["path"][3:]
+
+    first = (await client.get(f"/api/share/{tok}")).json()
+    assert first["contacts"] == {"offered": True, "verified": False, "email_hint": "va•••@agency.com"}
+    assert "me@creator.com" not in str(first)  # nothing before the code
+
+    r = await client.post(f"/api/share/{tok}/code")
+    assert r.status_code == 200 and r.json()["sent"] and len(sent) == 1 and sent[0][0] == "va@agency.com"
+    code = sent[0][1].split("(")[-1].rstrip(")")
+    assert len(code) == 6 and code in sent[0][2] and "team@example.com" not in sent[0][2]
+    assert (await client.post(f"/api/share/{tok}/code")).status_code == 429  # one a minute
+
+    wrong = await client.post(f"/api/share/{tok}/verify", json={"code": "000000" if code != "000000" else "111111"})
+    assert wrong.status_code == 400 and "4 tries left" in wrong.json()["detail"]
+    ok = await client.post(f"/api/share/{tok}/verify", json={"code": code})
+    assert ok.status_code == 200
+    session = ok.json()["session"]
+    assert (await client.post(f"/api/share/{tok}/verify", json={"code": code})).status_code == 400  # one use
+
+    seen = (await client.get(f"/api/share/{tok}", headers={"X-Share-Session": session})).json()
+    assert seen["contacts"]["verified"] is True
+    assert seen["creators"][0]["socials"]["email"] == "me@creator.com"
+    # a made-up session, or another link's session, shows nothing
+    assert "me@creator.com" not in str((await client.get(f"/api/share/{tok}", headers={"X-Share-Session": "nope"})).json())
+    other = (await client.post("/api/campaigns/c1/shares", json={"kind": "person", "email": "x@y.com"})).json()
+    assert "me@creator.com" not in str((await client.get(f"/api/share/{other['path'][3:]}", headers={"X-Share-Session": session})).json())
+
+    # owner turns contacts off: the verified browser loses them at once
+    await client.patch(f"/api/shares/{link['id']}", json={"show_contacts": False})
+    after = (await client.get(f"/api/share/{tok}", headers={"X-Share-Session": session})).json()
+    assert "me@creator.com" not in str(after) and after["contacts"]["offered"] is False
+
+
+@needs_pg
+@pytest.mark.asyncio
+async def test_code_guesses_are_limited(client, monkeypatch):
+    from app.notify import email as mail
+
+    monkeypatch.setenv("GMAIL_SMTP_USER", "team@example.com")
+    monkeypatch.setenv("GMAIL_SMTP_APP_PASSWORD", "x")
+    sent = []
+    monkeypatch.setattr(mail, "_send_sync", lambda to, subject, text: sent.append(subject))
+    link = (await client.post("/api/campaigns/c1/shares", json={"kind": "person", "email": "a@b.co", "show_contacts": True})).json()
+    tok = link["path"][3:]
+    await client.post(f"/api/share/{tok}/code")
+    code = sent[0].split("(")[-1].rstrip(")")
+    bad = "999999" if code != "999999" else "888888"
+    codes = [(await client.post(f"/api/share/{tok}/verify", json={"code": bad})).status_code for _ in range(5)]
+    assert codes == [400, 400, 400, 400, 429]
+    assert (await client.post(f"/api/share/{tok}/verify", json={"code": code})).status_code == 429  # locked until a new code
+
+
+@pytest.mark.asyncio
+async def test_email_failure_is_reported_without_secrets(monkeypatch, caplog):
+    from app.notify import email as mail
+
+    monkeypatch.setenv("GMAIL_SMTP_USER", "team@example.com")
+    monkeypatch.setenv("GMAIL_SMTP_APP_PASSWORD", "super-secret-pass")
+
+    def boom(*a):
+        raise OSError("auth failed for super-secret-pass")
+    monkeypatch.setattr(mail, "_send_sync", boom)
+    with pytest.raises(mail.EmailSendError):
+        await mail.send_email("x@y.com", "s", "t")
+    assert "super-secret-pass" not in caplog.text
+    monkeypatch.delenv("GMAIL_SMTP_USER")
+    assert mail.email_enabled() is False
+    with pytest.raises(mail.EmailNotConfigured):
+        await mail.send_email("x@y.com", "s", "t")
+
+
+def test_email_hint_and_codes():
+    from app.sharing.view import code_hash, email_hint, new_code
+
+    assert email_hint("investor@fund.com") == "in•••@fund.com" and email_hint(None) is None
+    c = new_code()
+    assert len(c) == 6 and c.isdigit()
+    assert code_hash("l1", "123456") == code_hash("l1", " 123456 ") != code_hash("l2", "123456")
