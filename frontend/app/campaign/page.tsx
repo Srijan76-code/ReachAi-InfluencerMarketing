@@ -19,8 +19,15 @@ import {
 } from "lucide-react";
 
 import CampaignCard from "./_components/CampaignCard";
-import { DemoCampaigns } from "@/data/BrandDashboard/DemoCampaigns";
-import { Campaign, CampaignStatus } from "@/types/campaign";
+import { Campaign, CampaignStatus, campaignStatus } from "@/types/campaign";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { HoverButton } from "@/components/buttons/HoverButton";
 import { useApi } from "@/lib/api";
@@ -47,23 +54,19 @@ const CampaignPage: React.FC = () => {
           id: string;
           name?: string;
           status?: string;
-          stage_index?: string;
-          current_stage?: string;
+          run_status?: string | null;
+          leads_count?: number;
           createdAt?: string;
+          updatedAt?: string | null;
         }) => {
-          let uiStatus: CampaignStatus = "draft";
-          const rawStatus = (c.status || "").toLowerCase();
-          if (rawStatus === "completed" || rawStatus === "active") uiStatus = "active";
-          else if (rawStatus === "pending" || rawStatus === "in_progress") uiStatus = "in_progress";
-          else uiStatus = "draft";
-
+          const created = c.createdAt || new Date().toISOString();
           return {
             id: c.id,
             name: c.name || "Untitled Campaign",
-            logoUrl: "",
-            step: c.stage_index ? `Stage ${c.stage_index}` : (c.current_stage || "Details"),
-            status: uiStatus,
-            createdAt: c.createdAt || new Date().toISOString(),
+            status: campaignStatus(c),
+            leadsCount: c.leads_count ?? 0,
+            createdAt: created,
+            updatedAt: c.updatedAt || created,
           };
         });
         setCampaigns(mapped);
@@ -78,6 +81,46 @@ const CampaignPage: React.FC = () => {
   useEffect(() => {
     fetchCampaigns();
   }, []);
+
+  const [renaming, setRenaming] = useState<Campaign | null>(null);
+  const [newName, setNewName] = useState("");
+  const [deleting, setDeleting] = useState<Campaign | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const errorText = (err: unknown, fallback: string) => {
+    const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
+    return typeof detail === "string" ? detail : fallback;
+  };
+
+  const saveName = async () => {
+    if (!renaming || !newName.trim()) return;
+    setBusy(true);
+    try {
+      const res = await api(`/api/campaigns/${renaming.id}`, { method: "PATCH", data: { name: newName } });
+      const saved = res.data?.name ?? newName.trim();
+      setCampaigns((list) => list.map((c) => (c.id === renaming.id ? { ...c, name: saved } : c)));
+      setRenaming(null);
+    } catch (err) {
+      setActionError(errorText(err, "Couldn't rename the campaign. Try again."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleting) return;
+    setBusy(true);
+    try {
+      await api(`/api/campaigns/${deleting.id}`, { method: "DELETE" });
+      setCampaigns((list) => list.filter((c) => c.id !== deleting.id));
+      setDeleting(null);
+    } catch (err) {
+      setActionError(errorText(err, "Couldn't delete the campaign. Try again."));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const handleCreateCampaign = async () => {
     try {
@@ -124,9 +167,9 @@ const CampaignPage: React.FC = () => {
 
   const statuses: { label: string; value: StatusFilter }[] = [
     { label: "All Campaigns", value: "all" },
-    { label: "Active", value: "active" },
-    { label: "Draft", value: "draft" },
-    { label: "In Progress", value: "in_progress" },
+    { label: "Ready", value: "ready" },
+    { label: "Searching", value: "running" },
+    { label: "Drafts", value: "draft" },
   ];
 
 
@@ -248,13 +291,69 @@ const CampaignPage: React.FC = () => {
                 key={campaign.id}
                 campaign={campaign}
                 onOpen={() => router.push(`/campaign/${campaign.id}`)}
-                onEdit={() => console.log("edit", campaign.id)}
-                onDelete={() => console.log("delete", campaign.id)}
+                onRename={() => {
+                  setRenaming(campaign);
+                  setNewName(campaign.name);
+                  setActionError(null);
+                }}
+                onDelete={() => {
+                  setDeleting(campaign);
+                  setActionError(null);
+                }}
               />
             ))}
           </div>
         )}
       </div>
+
+      {/* Rename */}
+      <Dialog open={!!renaming} onOpenChange={(o) => !o && !busy && setRenaming(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Rename campaign</DialogTitle>
+            <DialogDescription>Only you see this name.</DialogDescription>
+          </DialogHeader>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              saveName();
+            }}
+            className="space-y-3"
+          >
+            <Input autoFocus value={newName} maxLength={80} onChange={(e) => setNewName(e.target.value)} aria-label="Campaign name" />
+            {actionError && <p className="text-xs text-rose-500">{actionError}</p>}
+            <DialogFooter>
+              <button type="button" onClick={() => setRenaming(null)} disabled={busy} className="px-3 py-1.5 text-xs rounded-md border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-800">
+                Cancel
+              </button>
+              <button type="submit" disabled={busy || !newName.trim()} className="px-3 py-1.5 text-xs font-medium rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 disabled:opacity-50">
+                {busy ? "Saving…" : "Save"}
+              </button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete */}
+      <Dialog open={!!deleting} onOpenChange={(o) => !o && !busy && setDeleting(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete “{deleting?.name}”?</DialogTitle>
+            <DialogDescription>
+              This removes the campaign, its creators, saved creators and outreach drafts. It can&apos;t be undone.
+            </DialogDescription>
+          </DialogHeader>
+          {actionError && <p className="text-xs text-rose-500">{actionError}</p>}
+          <DialogFooter>
+            <button type="button" onClick={() => setDeleting(null)} disabled={busy} className="px-3 py-1.5 text-xs rounded-md border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-800">
+              Cancel
+            </button>
+            <button type="button" onClick={confirmDelete} disabled={busy} className="px-3 py-1.5 text-xs font-medium rounded-md bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-50">
+              {busy ? "Deleting…" : "Delete"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
