@@ -373,7 +373,7 @@ const InfluencerPage = ({ campaignId }: InfluencerPageProps) => {
                   ) : (
                     <h1 className="text-[14px] font-medium text-zinc-900 dark:text-zinc-100 tracking-tight">Creators</h1>
                   )}
-                  <div role="tablist" aria-label="Which creators" className="flex items-center p-0.5 rounded-md bg-zinc-100 dark:bg-zinc-900/60 border border-zinc-200/60 dark:border-zinc-800/60 text-[11px]">
+                  <div role="tablist" aria-label="Which creators" className="flex items-center h-[30px] p-[3px] gap-0.5 rounded-md border border-zinc-200 dark:border-zinc-800 text-xs">
                     {([false, true] as const).map((only) => (
                       <button
                         key={String(only)}
@@ -381,7 +381,7 @@ const InfluencerPage = ({ campaignId }: InfluencerPageProps) => {
                         type="button"
                         aria-selected={view.savedOnly === only}
                         onClick={() => set("savedOnly", only)}
-                        className={`px-2 py-0.5 rounded font-medium whitespace-nowrap transition-colors ${view.savedOnly === only ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-sm" : "text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"}`}
+                        className={`h-full px-2.5 rounded-[4px] font-medium whitespace-nowrap transition-colors ${view.savedOnly === only ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100" : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100"}`}
                       >
                         {only ? "Shortlist" : "All"} <span className="font-mono opacity-60">{only ? shortlistCount : final_ranked_leads.length}</span>
                       </button>

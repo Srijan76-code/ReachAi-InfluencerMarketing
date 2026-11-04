@@ -127,6 +127,30 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /* Anything you can click shows a pointer; disabled controls show they can't be used. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="tab"],
+  [role="link"],
+  [role="menuitem"],
+  [role="menuitemradio"],
+  [role="menuitemcheckbox"],
+  [role="option"],
+  [role="switch"],
+  a[href],
+  summary,
+  select,
+  label:has(> input[type="checkbox"]:not(:disabled)),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled) {
+    cursor: pointer;
+  }
+  button:disabled,
+  [aria-disabled="true"],
+  input:disabled,
+  select:disabled {
+    cursor: not-allowed;
+  }
   /* One fixed page background everywhere (the /campaign look), so reloads,
      loading screens and short pages never flash a different colour. */
   html,

@@ -1,7 +1,9 @@
 "use client";
 
+import type React from "react";
 import { useEffect, useState } from "react";
-import { PlayCircle, BadgeDollarSign } from "lucide-react";
+import { PlayCircle, BadgeDollarSign, Eye, Target } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { PostCard, PostSignals } from "@/data/influencerList";
 import { ABOVE_USUAL_FROM, age, compact, defaultTab, postsFor, type PostTab } from "@/lib/posts";
 
@@ -10,6 +12,26 @@ const TABS: { key: PostTab; label: string; empty: string }[] = [
   { key: "above", label: "Above their usual", empty: `No recent post did ${ABOVE_USUAL_FROM}× better than usual.` },
   { key: "latest", label: "Latest", empty: "No recent posts." },
 ];
+
+/** One tile in the summary strip, styled like the panel's Performance metrics cells. */
+function Stat({ icon, label, value, help, last = false }: { icon: React.ReactNode; label: string; value: React.ReactNode; help: string; last?: boolean }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div className={`p-3 flex flex-col gap-1.5 min-w-0 cursor-help hover:bg-zinc-100 dark:hover:bg-zinc-800/20 transition-colors ${last ? "" : "border-r border-zinc-200/60 dark:border-zinc-800/60"}`}>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-zinc-400 dark:text-zinc-600 shrink-0">{icon}</span>
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-600 dark:text-zinc-400 truncate">{label}</span>
+          </div>
+          <span className="text-[13px] font-semibold text-zinc-900 dark:text-zinc-200 pl-[1.125rem] truncate">{value}</span>
+        </div>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="bg-zinc-100 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700 text-xs shadow-xl max-w-[220px] text-zinc-700 dark:text-zinc-300">
+        {help}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
 
 function Thumb({ src }: { src: string | null }) {
   const [failed, setFailed] = useState(false);
@@ -35,17 +57,27 @@ export function PostTabs({ posts, signals, fallbackUrl }: { posts: PostCard[]; s
   return (
     <div className="space-y-3">
       {signals && signals.posts_checked > 0 && (
-        <p className="text-[12px] text-zinc-500 leading-relaxed">
-          <span className="font-medium text-zinc-700 dark:text-zinc-300">{signals.fit_posts}</span> of their last {signals.posts_checked} posts match your brief
-          {signals.sponsored_posts > 0 && (
-            <>
-              {" · "}
-              <span className="font-medium text-zinc-700 dark:text-zinc-300">{signals.sponsored_posts}</span> sponsored
-              {signals.sponsor_brands.length > 0 && <> ({signals.sponsor_brands.join(", ")})</>}
-            </>
-          )}
-          {signals.median_reach !== null && <> · usually {compact(signals.median_reach)} {posts[0]?.reach_label === "likes" ? "likes" : "views"}</>}
-        </p>
+        <div className="grid grid-cols-3 rounded border border-zinc-200/80 dark:border-zinc-800/80 bg-zinc-100 dark:bg-[#121314] overflow-hidden">
+          <Stat
+            icon={<Target size={13} />}
+            label="On brief"
+            value={<>{signals.fit_posts}<span className="text-zinc-500 font-normal"> / {signals.posts_checked}</span></>}
+            help={`${signals.fit_posts} of their last ${signals.posts_checked} posts are about your brief's topics.`}
+          />
+          <Stat
+            icon={<BadgeDollarSign size={13} />}
+            label="Sponsored"
+            value={<>{signals.sponsored_posts}<span className="text-zinc-500 font-normal"> / {signals.posts_checked}</span></>}
+            help={signals.sponsor_brands.length ? `Recent sponsors: ${signals.sponsor_brands.join(", ")}` : "Posts that say they're a paid promotion."}
+          />
+          <Stat
+            icon={<Eye size={13} />}
+            label={posts[0]?.reach_label === "likes" ? "Usual likes" : "Usual views"}
+            value={compact(signals.median_reach)}
+            help="What a typical recent post gets: the middle value, so one viral post doesn't skew it."
+            last
+          />
+        </div>
       )}
 
       <div role="tablist" aria-label="Posts" className="flex items-center gap-1 p-0.5 rounded-md bg-zinc-100 dark:bg-zinc-900/60 border border-zinc-200/60 dark:border-zinc-800/60 w-fit">
