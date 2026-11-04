@@ -85,6 +85,8 @@ export type Deal = {
   notes: string | null;
   overdue: boolean;
   updated_at: string | null;
+  contact_email?: string | null;
+  emailing?: boolean; // an email thread with them exists in the founder's Gmail
 };
 
 export type DealsSummary = {
@@ -123,6 +125,7 @@ export type Proposal = {
   source: "ai" | "template";
   can_reword: boolean;
   is_message: boolean;
+  can_send?: boolean; // Gmail connected and we have their email: approving sends it
   name: string;
   avatar_url: string | null;
   created_at: string | null;

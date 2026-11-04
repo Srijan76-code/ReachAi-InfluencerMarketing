@@ -53,6 +53,7 @@ export const InfluencerRow = ({
   const expired = Boolean(influencer.data_expired); // numbers removed after 30 days (YouTube rules)
   const dash = "—";
   const score = Math.round(final_score ?? 0);
+  const unscored = final_score == null; // a creator you added by link: measured, not scored
   const fit = Math.round(Number(influencer.score_breakdown?.strategy_score ?? 0));
   const ring = score >= STRONG_BUY_FROM ? "text-emerald-500" : score >= CONSIDER_FROM ? "text-amber-500" : "text-rose-500";
 
@@ -160,6 +161,9 @@ export const InfluencerRow = ({
           <span className={`${LABEL} mb-1`}>
             Impact <Help text="The overall score (0-100): fit, channel health and risk combined." />
           </span>
+          {unscored ? (
+            <span className="h-9 flex items-center text-[11px] text-zinc-500 whitespace-nowrap" title="You added this creator, so there's no fit score">Added by you</span>
+          ) : (
           <div className="relative w-9 h-9 flex items-center justify-center" aria-label={`Impact ${score} of 100`}>
             <svg className="w-9 h-9 -rotate-90" viewBox="0 0 36 36">
               <circle className="text-zinc-200 dark:text-zinc-800" strokeWidth="2.5" stroke="currentColor" fill="transparent" r="15" cx="18" cy="18" />
@@ -168,6 +172,7 @@ export const InfluencerRow = ({
             </svg>
             <span className="absolute text-[11px] font-mono font-bold text-zinc-800 dark:text-zinc-200">{score}</span>
           </div>
+          )}
         </div>
       </div>
 

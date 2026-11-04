@@ -80,9 +80,15 @@ def _change_for(p: AgentProposal, d: CreatorDeal) -> dict:
     return {}
 
 
-def approve(db: AsyncSession, p: AgentProposal, d: CreatorDeal, message: Optional[str]) -> None:
-    """Carries out an approved suggestion from its stored payload (never from model text). The caller commits."""
-    apply_change(db, d, _change_for(p, d))
+async def approve(db: AsyncSession, p: AgentProposal, d: CreatorDeal, message: Optional[str], send=None) -> dict:
+    """Carries out an approved suggestion from its stored payload (never from model text). `send(text)` sends a
+    message through the founder's Gmail (→ {"gmail_id", "thread_id"}); without it a message is only recorded as
+    sent (the founder copied it). The change is checked before sending, and nothing changes if sending fails.
+    The caller commits. → the result stored on the proposal."""
+    from app.deals.changes import validate
+
+    change = _change_for(p, d)
+    validate(d, change)
     pl = p.payload or {}
     result: dict = {}
     if p.kind in A.MESSAGE_KINDS and pl.get("message"):
@@ -91,13 +97,16 @@ def approve(db: AsyncSession, p: AgentProposal, d: CreatorDeal, message: Optiona
         amounts = pl.get("amounts")
         # an edited message keeps its amounts only if it still says exactly our numbers (used if they accept)
         keep = amounts if amounts and (not edited or allowed(final, amounts)) else None
+        via = await send(final) if send else None
         db.add(DealEvent(deal_id=d.deal_id, type="message_sent",
                          payload={"kind": p.kind, "text": final, "amounts": keep, "edited": edited, "final": bool(pl.get("final")),
-                                  "proposal_id": p.proposal_id}))
-        result = {"message": final, "edited": edited}
+                                  "proposal_id": p.proposal_id, "via": "gmail" if via else "copied", **(via or {})}))
+        result = {"message": final, "edited": edited, "sent": bool(via)}
+    apply_change(db, d, change)
     db.add(DealEvent(deal_id=d.deal_id, type="proposal", payload={"kind": p.kind, "title": p.title, "decision": "approved",
                                                                  "edited": result.get("edited", False)}))
     p.status, p.decided_at, p.result = "approved", _now(), result
+    return result
 
 
 def skip(db: AsyncSession, p: AgentProposal) -> None:
@@ -105,10 +114,12 @@ def skip(db: AsyncSession, p: AgentProposal) -> None:
     p.status, p.decided_at = "skipped", _now()
 
 
-def out(p: AgentProposal, name: str, avatar: Optional[str]) -> dict:
+def out(p: AgentProposal, name: str, avatar: Optional[str], can_send: bool = False) -> dict:
+    """`can_send`: the founder's Gmail is connected and we have the creator's email, so approving sends it."""
     pl = p.payload or {}
     return {"id": p.proposal_id, "deal_id": p.deal_id, "kind": p.kind, "title": p.title, "reason": p.reason,
             "message": pl.get("message"), "source": pl.get("source", "template"),
             "can_reword": p.kind in ("send_counter", "agree") and bool(pl.get("message") and pl.get("angle")),
             "is_message": p.kind in A.MESSAGE_KINDS and bool(pl.get("message")),
+            "can_send": can_send and p.kind in A.MESSAGE_KINDS and bool(pl.get("message")),
             "name": name, "avatar_url": avatar, "created_at": p.created_at.isoformat() if p.created_at else None}

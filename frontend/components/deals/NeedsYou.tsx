@@ -36,7 +36,7 @@ export function ProposalCard({ p, api, onDone, onOpen, selected, onSelect, text:
     setBusy("approve");
     setError(null);
     try {
-      if (p.is_message) {
+      if (p.is_message && !p.can_send) {
         try {
           await navigator.clipboard.writeText(text);
         } catch {} // copying can be blocked; the message stays on the timeline either way
@@ -120,7 +120,9 @@ export function ProposalCard({ p, api, onDone, onOpen, selected, onSelect, text:
 
       <div className="flex flex-wrap items-center gap-2">
         <button type="button" onClick={approve} disabled={!!busy || (p.is_message && !text.trim())} className={btnPrimary}>
-          <Check size={13} /> {busy === "approve" ? "Working…" : p.kind === "agree" && p.is_message ? "Copy and agree" : PROPOSAL_ACTION[p.kind]}
+          <Check size={13} /> {busy === "approve" ? (p.can_send ? "Sending…" : "Working…")
+            : p.can_send ? (p.kind === "agree" ? "Send and agree" : "Send")
+            : p.kind === "agree" && p.is_message ? "Copy and agree" : PROPOSAL_ACTION[p.kind]}
         </button>
         {p.is_message && (
           <button type="button" onClick={() => setEditing((v) => !v)} disabled={!!busy} className={btn}>
@@ -154,7 +156,8 @@ export function NeedsYou({ proposals, api, onDone, onOpen }: {
   const [error, setError] = useState<string | null>(null);
   const live = new Set(proposals.map((p) => p.id));
   const chosen = proposals.filter((p) => picked.has(p.id) && live.has(p.id));
-  const messages = chosen.filter((p) => p.is_message).length;
+  const messages = chosen.filter((p) => p.is_message && !p.can_send).length;
+  const sends = chosen.filter((p) => p.can_send).length;
   const toggle = (id: string) => setPicked((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
   const bulk = async (what: "approve" | "skip") => {
@@ -204,7 +207,9 @@ export function NeedsYou({ proposals, api, onDone, onOpen }: {
             <button type="button" onClick={() => bulk("skip")} disabled={!!busy} className={btn}>
               {busy === "skip" ? "Skipping…" : "Skip"}
             </button>
-            {messages > 0 && <span className="text-[11px] text-zinc-500">{messages === 1 ? "1 message is" : `${messages} messages are`} marked sent. Send them yourself until Gmail is connected.</span>}
+            <span className="text-[11px] text-zinc-500">
+              {[sends ? `${sends} sent from your Gmail` : null, messages ? `${messages} marked sent (send ${messages === 1 ? "it" : "them"} yourself)` : null].filter(Boolean).join(" · ")}
+            </span>
           </>
         )}
       </div>

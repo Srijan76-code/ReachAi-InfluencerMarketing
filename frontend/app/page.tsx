@@ -64,6 +64,10 @@ export default function Home() {
             Read the docs
           </Link>
         </div>
+        <p className="mt-10 text-[11px] text-zinc-400 flex gap-4 justify-center">
+          <Link href="/privacy" className="hover:text-zinc-700 dark:hover:text-zinc-200">Privacy</Link>
+          <Link href="/terms" className="hover:text-zinc-700 dark:hover:text-zinc-200">Terms</Link>
+        </p>
       </div>
     </main>
   );

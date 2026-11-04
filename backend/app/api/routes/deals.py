@@ -81,11 +81,12 @@ def _out(d: CreatorDeal, lead: Optional[dict], today: date) -> dict:
         "post_url": d.post_url, "live_at": d.live_at.isoformat() if d.live_at else None,
         "paid_amount": d.paid_amount, "paid_at": d.paid_at.isoformat() if d.paid_at else None,
         "payment_ref": d.payment_ref, "notes": d.notes, "overdue": overdue,
+        "contact_email": d.contact_email, "emailing": bool(d.gmail_thread_id),
         "updated_at": d.updated_at.isoformat() if d.updated_at else None,
     }
 
 
-async def _proposals(db: AsyncSession, deals: list[CreatorDeal], camp) -> list[dict]:
+async def _proposals(db: AsyncSession, deals: list[CreatorDeal], camp, user: User) -> list[dict]:
     """The campaign's "Needs you" list, brought up to date (spec §7.8)."""
     from app.agent import queue as Q
 
@@ -94,12 +95,16 @@ async def _proposals(db: AsyncSession, deals: list[CreatorDeal], camp) -> list[d
     names = {i: l.get("title") for i, l in lead.items()}
     pending = await Q.refresh(db, deals, names=names, goal=_goal(camp.campaign_details))
     by_id = {d.deal_id: d for d in deals}
-    return [Q.out(p, names.get(p.deal_id) or by_id[p.deal_id].creator_name or "", lead[p.deal_id].get("avatar_url")) for p in pending]
+    from app.gmail.service import account_for, usable
+
+    gmail = usable(await account_for(db, user.user_id))
+    return [Q.out(p, names.get(p.deal_id) or by_id[p.deal_id].creator_name or "", lead[p.deal_id].get("avatar_url"),
+                  can_send=gmail and bool(by_id[p.deal_id].contact_email)) for p in pending]
 
 
-async def _campaign_proposals(db: AsyncSession, campaign_id: str, camp) -> list[dict]:
+async def _campaign_proposals(db: AsyncSession, campaign_id: str, camp, user: User) -> list[dict]:
     deals = list((await db.execute(select(CreatorDeal).where(CreatorDeal.campaign_id == campaign_id))).scalars())
-    return await _proposals(db, deals, camp)
+    return await _proposals(db, deals, camp, user)
 
 
 def _summary(deals: list[CreatorDeal], details) -> dict:
@@ -127,7 +132,7 @@ async def list_deals(campaign_id: str, user: User = Depends(get_db_user), db: As
     leads, today = _leads_by_id(camp.campaign_leads), date.today()
     body = {"deals": [_out(d, leads.get(d.creator_id), today) for d in deals], "summary": _summary(list(deals), camp.campaign_details),
             "goal": _goal(camp.campaign_details), "suggested_deal_type": N.suggest_deal_type(_goal(camp.campaign_details))}
-    body["proposals"] = await _proposals(db, list(deals), camp)
+    body["proposals"] = await _proposals(db, list(deals), camp, user)
     return body
 
 
@@ -147,19 +152,10 @@ async def add_deals(campaign_id: str, body: NewDeals, user: User = Depends(get_d
         select(CreatorDeal.creator_id).where(CreatorDeal.campaign_id == campaign_id, CreatorDeal.creator_id.in_(wanted))
     )).scalars().all())
     top = (await db.execute(select(func.max(CreatorDeal.position)).where(CreatorDeal.campaign_id == campaign_id))).scalar() or 0
-    deal_type = N.suggest_deal_type(_goal(camp.campaign_details))
     created = []
     for i, cid in enumerate(c for c in wanted if c not in existing):
         lead = leads[cid]
-        metrics = lead.get("metrics") or {}
-        d = CreatorDeal(
-            campaign_id=campaign_id, creator_id=cid, platform=(lead.get("platform") or "youtube").lower(),
-            creator_name=lead.get("title"), stage="contacted", position=top + i + 1, deal_type=deal_type,
-            commission_pct=float(C.SUGGESTED_COMMISSION_PCT) if deal_type == "base_plus_commission" else None,
-            deliverable="integration", usage_rights="none", exclusivity_days=0, disclosure=True, currency="USD",
-            fair_low=lead.get("fair_low"), fair_high=lead.get("fair_high") or lead.get("valuation") or None,
-            typical_views=None if lead.get("data_expired") else metrics.get("avg_views"),
-        )
+        d = new_deal(camp, lead, campaign_id, position=top + i + 1)
         db.add(d)
         await db.flush()
         db.add(DealEvent(deal_id=d.deal_id, type="created", payload={"stage": "contacted"}))
@@ -167,6 +163,21 @@ async def add_deals(campaign_id: str, body: NewDeals, user: User = Depends(get_d
     await db.commit()
     today = date.today()
     return {"created": [_out(d, leads.get(d.creator_id), today) for d in created], "skipped": len(wanted) - len(created)}
+
+
+def new_deal(camp, lead: dict, campaign_id: str, *, position: float) -> CreatorDeal:
+    """A deal for one of the campaign's creators, prefilled with the usual terms for the campaign's goal."""
+    metrics = lead.get("metrics") or {}
+    deal_type = N.suggest_deal_type(_goal(camp.campaign_details))
+    return CreatorDeal(
+        campaign_id=campaign_id, creator_id=lead.get("id"), platform=(lead.get("platform") or "youtube").lower(),
+        creator_name=lead.get("title"), stage="contacted", position=position, deal_type=deal_type,
+        commission_pct=float(C.SUGGESTED_COMMISSION_PCT) if deal_type == "base_plus_commission" else None,
+        deliverable="integration", usage_rights="none", exclusivity_days=0, disclosure=True, currency="USD",
+        fair_low=lead.get("fair_low"), fair_high=lead.get("fair_high") or lead.get("valuation") or None,
+        typical_views=None if lead.get("data_expired") else metrics.get("avg_views"),
+        contact_email=((lead.get("socials") or {}).get("email") or None),
+    )
 
 
 # --- change / delete / timeline -------------------------------------------------------------------
@@ -188,6 +199,7 @@ class DealChange(BaseModel):
     paid_at: Optional[datetime] = None
     payment_ref: Optional[str] = None
     notes: Optional[str] = None
+    contact_email: Optional[str] = None
 
 
 _NO_MERGE = object()
@@ -297,25 +309,14 @@ async def paste_reply(deal_id: str, body: ReplyIn, user: User = Depends(get_db_u
     signals = await read_reply(text, CostContext(user_id=user.user_id, campaign_id=d.campaign_id), await _thread(db, d))
     db.add(DealEvent(deal_id=d.deal_id, type="creator_reply", payload={"text": text, "signals": signals, "amounts": money_in(text)}))
     await db.commit()
-    return {"signals": signals, "proposals": await _campaign_proposals(db, d.campaign_id, row)}
+    return {"signals": signals, "proposals": await _campaign_proposals(db, d.campaign_id, row, user)}
 
 
 async def _thread(db: AsyncSession, d: CreatorDeal) -> Optional[dict]:
-    """The negotiation so far, in code's words, as context for Jev (numbers from our own records only)."""
-    from app.agent.proposals import Ev
+    from app.deals.thread import thread_context
 
-    rows = (await db.execute(select(DealEvent).where(DealEvent.deal_id == d.deal_id).order_by(DealEvent.created_at))).scalars().all()
-    sent = [e for e in rows if e.type == "message_sent" and (e.payload or {}).get("amounts")]
-    if not sent and d.quoted_rate is None:
-        return None
-    out: dict = {"round": len(sent) + 1}
-    if sent:
-        a = sent[-1].payload["amounts"]
-        out["our_last_offer"] = (f"${a['base']:,} fee plus {a.get('commission_pct')}% commission" if a.get("base")
-                                 else f"${(a.get('price') or a.get('counter')):,}")
-    if d.quoted_rate is not None:
-        out["their_last_ask"] = f"${d.quoted_rate:,.0f}"
-    return out
+    rows = (await db.execute(select(DealEvent).where(DealEvent.deal_id == d.deal_id))).scalars().all()
+    return thread_context(rows, d.quoted_rate)
 
 
 async def _proposal(db: AsyncSession, proposal_id: str, user: User):
@@ -336,6 +337,7 @@ async def _proposal(db: AsyncSession, proposal_id: str, user: User):
 
 class ApproveIn(BaseModel):
     message: Optional[str] = None  # the founder's edited message, if they changed it
+    via: str = "gmail"  # "gmail" sends it when Gmail is connected and we have their email; "copy" only records it
 
 
 @router.post("/api/proposals/{proposal_id}/approve")
@@ -347,11 +349,19 @@ async def approve_proposal(proposal_id: str, body: ApproveIn, user: User = Depen
     p, d = row[0], row[1]
     if body.message and len(body.message) > MAX_MESSAGE_CHARS * 3:
         raise HTTPException(422, "That message is too long.")
-    Q.approve(db, p, d, body.message)
+    send = None
+    if body.via != "copy" and d.contact_email:
+        from app.gmail.service import account_for, send_for_deal, usable
+
+        account = await account_for(db, user.user_id)
+        if usable(account):
+            async def send(text: str) -> dict:
+                return await send_for_deal(db, account, d, text)
+    result = await Q.approve(db, p, d, body.message, send=send)
     await db.commit()
     await db.refresh(d)
     deal = _out(d, _leads_by_id(row.campaign_leads).get(d.creator_id), date.today())
-    return {"deal": deal, "proposals": await _campaign_proposals(db, d.campaign_id, row)}
+    return {"deal": deal, "sent": bool(result.get("sent")), "proposals": await _campaign_proposals(db, d.campaign_id, row, user)}
 
 
 @router.post("/api/proposals/{proposal_id}/skip")
@@ -361,7 +371,7 @@ async def skip_proposal(proposal_id: str, user: User = Depends(get_db_user), db:
     row = await _proposal(db, proposal_id, user)
     Q.skip(db, row[0])
     await db.commit()
-    return {"proposals": await _campaign_proposals(db, row[1].campaign_id, row)}
+    return {"proposals": await _campaign_proposals(db, row[1].campaign_id, row, user)}
 
 
 @router.post("/api/proposals/{proposal_id}/reword")
@@ -385,3 +395,51 @@ async def reword_proposal(proposal_id: str, user: User = Depends(get_db_user), d
         p.payload = pl
         await db.commit()
     return {"message": pl["message"], "source": source}
+
+
+# --- add a creator you already know (roadmap F1.23) ------------------------------------------------
+
+class ByLink(BaseModel):
+    link: str  # their channel link or @handle
+    email: Optional[str] = None
+
+
+@router.post("/api/campaigns/{campaign_id}/creators/by-link")
+async def add_creator_by_link(campaign_id: str, body: ByLink, user: User = Depends(get_db_user), db: AsyncSession = Depends(get_db)):
+    """Measures the channel like a search would (no Jev, no LLM) and adds it to this campaign's creators."""
+    from sqlalchemy import update
+
+    from app.creators.by_link import lead_from_link, parse_youtube
+    from app.deals.changes import validate
+    from app.platforms.youtube_api import HttpYouTubeAPI, YouTubeAPIError
+
+    camp = await _campaign(db, campaign_id, user)
+    if parse_youtube(body.link) == (None, None):
+        raise HTTPException(422, "Paste a YouTube channel link, like youtube.com/@name or youtube.com/channel/UC…")
+    email = None
+    if body.email:
+        ch = {"contact_email": body.email}
+        validate(CreatorDeal(platform="youtube"), ch)
+        email = ch["contact_email"]
+    leads = list(camp.campaign_leads or [])
+    topics = next((l.get("match_terms") for l in leads if isinstance(l, dict) and l.get("match_terms")), None)
+    try:
+        api = HttpYouTubeAPI(context=CostContext(user_id=user.user_id, campaign_id=campaign_id))
+    except YouTubeAPIError:
+        raise HTTPException(503, "YouTube isn't set up on this server.")
+    try:
+        lead = await lead_from_link(body.link, camp.campaign_details or {}, api=api, email=email, topics=topics)
+    finally:
+        await api.aclose()
+    if lead is None:
+        raise HTTPException(404, "Couldn't find that channel on YouTube.")
+    existing = next((i for i, l in enumerate(leads) if isinstance(l, dict) and l.get("id") == lead["id"]), None)
+    if existing is not None:
+        if email:
+            leads[existing] = {**leads[existing], "socials": {**(leads[existing].get("socials") or {}), "email": email}}
+        lead = leads[existing]
+    else:
+        leads.append(lead)
+    await db.execute(update(Campaign).where(Campaign.campaign_id == campaign_id).values(campaign_leads=leads))
+    await db.commit()
+    return {"lead": lead, "added": existing is None}

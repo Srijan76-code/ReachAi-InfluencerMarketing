@@ -47,6 +47,13 @@ class CreatorDeal(Base):
     payment_ref = Column(String, nullable=True)
     notes = Column(Text, nullable=True)
 
+    # email with the creator through the founder's Gmail (F6.5)
+    contact_email = Column(String, nullable=True)
+    gmail_thread_id = Column(String, nullable=True)
+    gmail_subject = Column(String, nullable=True)
+    gmail_last_message_id = Column(String, nullable=True)  # the RFC 822 Message-ID our next reply answers
+    gmail_synced_at = Column(DateTime(timezone=True), nullable=True)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -83,3 +90,22 @@ class AgentProposal(Base):
     result = Column(JSONB, nullable=True)  # what was done: final message, edited or not
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     decided_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class ConnectedAccount(Base):
+    """A founder's connected inbox (spec §7.5): Gmail today, Outlook later. The refresh token is encrypted
+    (app/gmail/crypto.py) and never leaves the server."""
+
+    __tablename__ = "connected_accounts"
+    __table_args__ = (UniqueConstraint("user_id", "provider", name="uq_connected_accounts_user_provider"),)
+
+    account_id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False, index=True)
+    provider = Column(String, nullable=False, default="gmail")
+    email = Column(String, nullable=False)
+    refresh_token = Column(Text, nullable=False)  # encrypted
+    status = Column(String, nullable=False, default="active")  # active | reconnect
+    sent_day = Column(Date, nullable=True)
+    sent_today = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

@@ -12,6 +12,7 @@ import { DealCard } from "@/components/deals/DealCard";
 import { DealPanel } from "@/components/deals/DealPanel";
 import { NeedsYou } from "@/components/deals/NeedsYou";
 import { Segmented } from "@/components/ui/segmented";
+import { GmailConnect, useGmail } from "@/components/GmailConnect";
 import { BOARD_STAGES, type Deal, type DealsSummary, type Proposal, STAGE_HINT, STAGE_LABEL, type Stage, money } from "@/data/deals";
 
 /** The Deals tab (spec §8.1, §8.5): one column per stage, drag cards to move them, click to open. */
@@ -25,6 +26,7 @@ export default function DealsBoard({ campaignId, apiOverride }: {
   const [summary, setSummary] = useState<DealsSummary | null>(null);
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [view, setView] = useState<"board" | "todo">("board");
+  const gmail = useGmail(apiOverride);
   const [error, setError] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [showLost, setShowLost] = useState(false);
@@ -43,6 +45,12 @@ export default function DealsBoard({ campaignId, apiOverride }: {
 
   useEffect(() => {
     load();
+    // then check email threads for new replies, without holding up the board
+    api(`/api/campaigns/${campaignId}/gmail/sync`, { method: "POST" })
+      .then((r) => {
+        if ((r.data as { new?: number })?.new) load();
+      })
+      .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps -- api changes every render
   }, [campaignId]);
 
@@ -107,7 +115,10 @@ export default function DealsBoard({ campaignId, apiOverride }: {
               </button>
             )}
           </div>
-          <AddCreatorsDialog campaignId={campaignId} api={api} existing={existing} onAdded={() => load()} />
+          <div className="flex items-center gap-2">
+            <GmailConnect gmail={gmail} />
+            <AddCreatorsDialog campaignId={campaignId} api={api} existing={existing} onAdded={() => load()} />
+          </div>
         </div>
 
         {error && <p className="text-xs text-rose-500 px-1">{error}</p>}
@@ -181,7 +192,7 @@ export default function DealsBoard({ campaignId, apiOverride }: {
         )}
 
         <Sheet open={!!open} onOpenChange={(o) => !o && setOpenId(null)}>
-          {open && <DealPanel deal={open} api={api} onChange={replace} onRemove={() => remove(open)} proposals={proposals.filter((p) => p.deal_id === open.id)} onProposals={onProposals} />}
+          {open && <DealPanel deal={open} api={api} onChange={replace} onRemove={() => remove(open)} proposals={proposals.filter((p) => p.deal_id === open.id)} onProposals={onProposals} gmailReady={gmail.ready} />}
         </Sheet>
       </div>
     </TooltipProvider>

@@ -121,13 +121,14 @@ function QuoteField({ value, onSave }: { value: number | null; onSave: (v: numbe
   );
 }
 
-export function DealPanel({ deal, api, onChange, onRemove, proposals, onProposals }: {
+export function DealPanel({ deal, api, onChange, onRemove, proposals, onProposals, gmailReady = false }: {
   deal: Deal;
   api: Api;
   onChange: (d: Deal) => void;
   onRemove: () => void;
   proposals: Proposal[];
   onProposals: (data: { proposals?: Proposal[] }) => void;
+  gmailReady?: boolean;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [events, setEvents] = useState<DealEvent[]>([]);
@@ -240,6 +241,14 @@ export function DealPanel({ deal, api, onChange, onRemove, proposals, onProposal
             ? proposals.map((p) => <ProposalCard key={`${p.id}:${p.message}`} p={p} api={api} onDone={onProposals} />)
             : <p className="text-[13px] text-zinc-700 dark:text-zinc-300">{status}</p>}
 
+          {(talking || posting) && (
+            <Field label="Their email" hint={gmailReady
+              ? (deal.emailing ? "You're emailing them from your Gmail. Their replies come in here by themselves." : "Messages you approve are sent here from your Gmail.")
+              : "Connect Gmail (top of the page) to send from your own address."}>
+              <Input value={deal.contact_email ?? null} onSave={(v) => save({ contact_email: v })} placeholder="their@email.com" />
+            </Field>
+          )}
+
           {talking && (
             <div className="space-y-2 pt-1">
               <textarea
@@ -247,7 +256,7 @@ export function DealPanel({ deal, api, onChange, onRemove, proposals, onProposal
                 onChange={(e) => setReply(e.target.value.slice(0, 3000))}
                 rows={3}
                 aria-label="Their reply"
-                placeholder="Did they reply? Paste it here"
+                placeholder={deal.emailing && gmailReady ? "Replied somewhere else (DM, WhatsApp)? Paste it here" : "Did they reply? Paste it here"}
                 className={textarea}
               />
               <div className="flex items-center gap-3 min-w-0">

@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useApi } from "@/lib/api";
+import { SendPitch } from "@/components/GmailConnect";
 import { useCampaignStore } from "@/store/campaignStore";
 import { outreachChannel } from "@/inngest/channels";
 import { getOutreachRealtimeToken } from "@/app/actions/realtime";
@@ -773,62 +774,14 @@ export default function OutreachClient({
                     {activeTab === "email" && (
                       <div className="space-y-6">
                         {email ? (
-                          <>
-                            {/* Subject */}
-                            <div className="space-y-1.5">
-                              <div className="flex items-center justify-between">
-                                <span className="text-[11px] font-medium text-zinc-400">
-                                  Subject Line
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleCopy(email.subject, "subj")}
-                                  className="flex items-center gap-1 text-[11px] text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"
-                                >
-                                  {copiedKey === "subj" ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
-                                  {copiedKey === "subj" ? "Copied" : "Copy"}
-                                </button>
-                              </div>
-                              <div className="p-4 bg-zinc-50 dark:bg-zinc-900/50 rounded-lg border border-zinc-200 dark:border-zinc-700 text-[13px] font-medium text-zinc-900 dark:text-zinc-100 select-all">
-                                {email.subject}
-                              </div>
-                            </div>
-
-                            {/* Body */}
-                            <div className="space-y-1.5">
-                              <div className="flex items-center justify-between">
-                                <span className="text-[11px] font-medium text-zinc-400">
-                                  Email Body
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleCopy(email.body, "body")}
-                                  className="flex items-center gap-1 text-[11px] text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"
-                                >
-                                  {copiedKey === "body" ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
-                                  {copiedKey === "body" ? "Copied" : "Copy"}
-                                </button>
-                              </div>
-                              <div className="p-5 bg-zinc-50 dark:bg-zinc-900/50 rounded-lg border border-zinc-200 dark:border-zinc-700 text-[13px] text-zinc-700 dark:text-zinc-200 whitespace-pre-line leading-relaxed font-sans select-all">
-                                {email.body}
-                              </div>
-                            </div>
-
-                            {/* Direct Mailto */}
-                            {leadEmail && (
-                              <div className="pt-2">
-                                <a
-                                  href={`mailto:${leadEmail}?subject=${encodeURIComponent(
-                                    email.subject
-                                  )}&body=${encodeURIComponent(email.body)}`}
-                                  className="inline-flex items-center gap-2 px-4 py-2 text-xs font-medium bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 rounded-md hover:bg-zinc-800 dark:hover:bg-zinc-100 transition-colors shadow-sm"
-                                >
-                                  <ExternalLink size={13} />
-                                  Open Draft in Mail App ({leadEmail})
-                                </a>
-                              </div>
-                            )}
-                          </>
+                          <SendPitch
+                            key={activePitch.pitch_id}
+                            campaignId={campaignId}
+                            creatorId={activePitch.creator_id}
+                            subject={email.subject}
+                            body={email.body}
+                            leadEmail={leadEmail || null}
+                          />
                         ) : (
                           <p className="text-xs text-zinc-400">
                             No email channel detected for this creator.
