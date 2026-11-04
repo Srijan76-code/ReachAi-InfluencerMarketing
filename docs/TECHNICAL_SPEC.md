@@ -468,6 +468,13 @@ Node settings: `retry_policy` on every node that calls an API. A failed search b
   - Badges: platform, rising, trend, suspicious engagement.
   - Show fit / health / risk breakdown and the Jev answers in plain language: "Audience: developers (0.82)".
 - Show the estimated **credit cost** before "Run campaign".
+- **Creator panel data (lead v2, built).** Every lead carries the same shape on every platform, computed in code (`app/metrics/posts.py`), no model calls:
+  - `posts[]`: up to 12 newest posts, each with `thumbnail_url`, `format`, `reach` (views, else likes), `x_usual` (reach ÷ the creator's median), `matched_topics` (brief topics whose words appear in the post, ≥ 60% of the words, plurals folded) and `sponsored` (whole-phrase match on "sponsored by", "use code", "#ad"…).
+  - `signals`: `posts_checked`, `fit_posts`, `sponsored_posts`, `sponsor_brands`, `median_reach`.
+  - `score_parts`: points from fit, health, bonus and risk (negative); their sum × `country_unknown_factor` (when set) is the final score.
+  - `trend` (momentum), `verified`, `person_id` (same person on other platforms), `match_terms` (kept so the nightly refresh re-tags refreshed posts).
+  - The panel sorts `posts` into **Best match** (most topics matched), **Above their usual** (highest `x_usual`) and **Latest**.
+- **Skipped summary.** `GET /api/campaigns/{id}/skipped` groups the run's `run_candidates.drop_reason` into plain buckets (inactive, too few views, too small, wrong country, not an individual creator…), each creator counted once per bucket.
 
 ---
 
@@ -875,6 +882,7 @@ GET  /platforms                                   → enabled platforms + credit
 POST /campaigns/{id}/estimate                     → {credits, breakdown}
 POST /campaigns/{id}/run                          (existing trigger; now reserves credits)
 GET  /creators/{creator_id}                       → profile + latest snapshot + judgments
+GET  /campaigns/{id}/skipped                       → {looked_at, skipped, reasons[{reason, count}]} (built)
 POST /campaigns/{id}/creators/{cid}/contact       → find + verify email (1 credit)
 POST /connections/inbox/start | GET /connections  → Unipile hosted auth link, list
 POST /outreach/jobs/{job_id}/send                 → enroll selected pitches into a sequence

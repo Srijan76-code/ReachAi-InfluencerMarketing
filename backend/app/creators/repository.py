@@ -159,6 +159,7 @@ def _profile_from_row(row: Creator, posts: Optional[list] = None) -> CreatorProf
         bio=row.bio or "",
         url=row.url,
         avatar_url=row.avatar_url,
+        person_id=row.person_id,
         followers=row.followers or 0,
         country=row.country,
         language=row.language,

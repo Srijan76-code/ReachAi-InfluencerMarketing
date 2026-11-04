@@ -24,12 +24,13 @@ async def client(tmp_path, monkeypatch):
     from app.db import database
     from app.main import app
     from app.models.campaign import Campaign, CampaignStatus
+    from app.models.discovery_run import RunCandidate  # noqa: F401  (registers the table)
     from app.models.saved_lead import SavedLead
     from app.models.user import User
     from tests.discovery.conftest import create_tables, make_engine
 
     engine, is_pg = make_engine(tmp_path)
-    await create_tables(engine, is_pg, ["users", "campaigns", "saved_leads"])
+    await create_tables(engine, is_pg, ["users", "campaigns", "saved_leads", "run_candidates"])
     sf = sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
     async with sf() as s:
         s.add_all([User(user_id="u1", clerk_id="clerk-1"), User(user_id="u2", clerk_id="clerk-2")])
@@ -42,6 +43,13 @@ async def client(tmp_path, monkeypatch):
         ])
         await s.flush()
         s.add(SavedLead(lead_id=str(uuid.uuid4()), campaign_id="c1", name="Creator 1", lead_data=LEADS[1]))
+        from app.models.discovery_run import RunCandidate
+        for i, (stage, why) in enumerate([("shortlisted", None), ("scored", None),
+                                          ("filtered_out", "inactive for 140 days"), ("filtered_out", "inactive for 9 days"),
+                                          ("filtered_out", "below the view floor for saas (high price)"),
+                                          ("judged", "not an individual creator; posts in a different language")]):
+            s.add(RunCandidate(run_id="r1", creator_id=f"youtube:UC{i}", platform="youtube", stage=stage, drop_reason=why))
+        s.add(RunCandidate(run_id="other", creator_id="youtube:X", platform="youtube", stage="filtered_out", drop_reason="no views"))
         await s.commit()
 
     async def get_db():
@@ -138,3 +146,17 @@ def test_heavy_modules_are_not_loaded_at_startup():
     env = {**os.environ, "GOOGLE_API_KEY": "x", "INNGEST_DEV": "1"}
     out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, env=env, cwd=os.getcwd())
     assert out.stdout.strip().splitlines()[-1] == "[]", out.stderr[-500:]
+
+
+@needs_pg
+@pytest.mark.asyncio
+async def test_skipped_summary_groups_reasons_for_my_run_only(client):
+    r = await client.get("/api/campaigns/c1/skipped")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["looked_at"] == 6 and body["skipped"] == 4
+    reasons = {x["reason"]: x["count"] for x in body["reasons"]}
+    assert reasons == {"inactive": 2, "too few views": 1, "not an individual creator": 1, "different language": 1}
+    assert body["reasons"][0] == {"reason": "inactive", "count": 2}  # most common first
+    assert (await client.get("/api/campaigns/c2/skipped")).json() == {"looked_at": 0, "skipped": 0, "reasons": []}
+    assert (await client.get("/api/campaigns/c3/skipped")).status_code == 404  # someone else's campaign

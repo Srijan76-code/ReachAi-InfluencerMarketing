@@ -38,9 +38,11 @@ TTL = C.DATA_TTL[PLATFORM]
 # Lead fields that come from YouTube (refreshed or removed). Scores, labels and reasons are ours.
 API_FIELDS = ("title", "description", "country", "uploads_id", "subscribers", "video_count", "estimated_cpm",
               "lifetime_health", "metrics", "socials", "valuation", "recent_videos", "url", "avatar_url", "rising", "momentum",
+              "posts", "signals", "trend", "verified",
               "anomaly_score", "fair_low", "fair_high")
 KEEP_WHEN_EXPIRED = ("id", "title", "url", "platform", "creator_id", "final_score", "deal_status", "relevance_score",
-                     "semantic_score", "score_breakdown", "llm_reasoning", "flags", "found_via", "niche", "risk")
+                     "semantic_score", "score_breakdown", "llm_reasoning", "flags", "found_via", "niche", "risk",
+                     "score_parts", "match_terms", "person_id")
 STATS_FIELDS = ("video_count", "uploads_id", "lifetime_health")  # only known right after a fetch
 
 
@@ -150,7 +152,7 @@ async def _purge_old_copies(sf, now: datetime, report: RefreshReport) -> None:
 
 def _expired_lead(lead: dict) -> dict:
     out = {k: lead[k] for k in KEEP_WHEN_EXPIRED if k in lead}
-    out.update(data_expired=True, subscribers=0, recent_videos=[], description="", country="", valuation=0,
+    out.update(data_expired=True, subscribers=0, recent_videos=[], posts=[], description="", country="", valuation=0,
                socials={"email": None, "instagram": None, "twitter": None, "linkedin": None},
                metrics={"avg_views": 0, "volatility": 0, "reliability": "Medium", "engagement_rate": 0,
                         "raw_engagement": 0, "trust_score": 0, "forecast": "n/a"})
@@ -161,7 +163,7 @@ def _refreshed_lead(lead: dict, profile: dict, industry: str, ctx: BriefContext,
     from app.discovery.legacy import to_legacy_lead
 
     metrics = compute_metrics(profile, ctx, now=now).to_dict()
-    fresh = to_legacy_lead(profile, metrics, {}, None, industry)
+    fresh = to_legacy_lead(profile, metrics, {}, None, industry, topics=lead.get("match_terms") or [])
     out = dict(lead)
     for k in API_FIELDS:
         if k in STATS_FIELDS and not (profile.get("platform_stats") or {}) and k in lead:

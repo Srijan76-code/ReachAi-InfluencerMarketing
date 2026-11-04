@@ -263,6 +263,8 @@ class YouTubeAdapter:
             comments=_int(stats.get("commentCount")) or 0,
             shares=None,
             is_short_form=seconds is not None and seconds <= SHORT_MAX_SECONDS,
+            thumbnail_url=_thumbnail(snip) or f"https://i.ytimg.com/vi/{item['id']}/mqdefault.jpg",
+            format="short" if seconds is not None and seconds <= SHORT_MAX_SECONDS else "long",
         )
 
     async def _safe(self, coro, what: str):

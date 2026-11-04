@@ -86,3 +86,11 @@ CTR_BY_INDUSTRY = {"tech": 0.025, "fintech": 0.03, "vlog": 0.008, "gaming": 0.01
 LINKEDIN_PRICE_BY_TIER = {"nano": 150.0, "micro": 500.0, "mid": 1200.0, "macro": 2500.0, "mega": 5000.0}
 # fair range around the point estimate, widened by unreliability
 FAIR_RANGE = {"High": (0.85, 1.2), "Medium": (0.75, 1.3), "Low": (0.6, 1.5)}
+
+# --- Post analysis for the creator panel (app/metrics/posts.py) -----------------------------------------
+POSTS_IN_LEAD = 12  # posts sent to the UI per creator (tabs: best match, above usual, latest)
+MATCH_MIN_TERM_SHARE = 0.6  # a topic matches a post if this share of its meaningful words appear in it
+ABOVE_USUAL_FROM = 1.5  # "above their usual": reach at least 1.5x the creator's median
+# Phrases that mark a paid promotion in a title, caption or description (lower-case)
+SPONSOR_PHRASES = ("sponsored by", "for sponsoring", "use code", "use my code", "promo code", "paid partnership",
+                   "#ad", "#sponsored", "in partnership with", "brought to you by", "affiliate link")

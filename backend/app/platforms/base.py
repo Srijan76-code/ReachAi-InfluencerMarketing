@@ -25,6 +25,8 @@ class Post(TypedDict, total=False):
     comments: int
     shares: Optional[int]
     is_short_form: bool  # Shorts / Reels
+    thumbnail_url: Optional[str]  # set by the adapter: video frame, image, or None for text posts
+    format: Optional[str]  # set by the adapter: short | long | image | reel | carousel | text | thread
 
 
 class CreatorProfile(TypedDict, total=False):
@@ -35,6 +37,8 @@ class CreatorProfile(TypedDict, total=False):
     display_name: str
     bio: str
     url: str
+    verified: Optional[bool]  # None where the platform doesn't expose it (YouTube's API doesn't)
+    person_id: Optional[str]  # same person across platforms (creator database)
     avatar_url: Optional[str]  # profile photo from the platform (counts as platform data: refreshed/expired like the rest)
     followers: int
     country: Optional[str]  # ISO code from the platform; None if unknown

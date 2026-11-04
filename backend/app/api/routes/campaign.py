@@ -240,6 +240,30 @@ async def get_campaign_leads(
     return Response(content=body, media_type="application/json")
 
 
+# GET /api/campaigns/{campaign_id}/skipped
+@router.get("/{campaign_id}/skipped")
+async def get_campaign_skipped(
+    campaign_id: str,
+    user: User = Depends(get_db_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """How many creators the run looked at and why the rest were left out, in plain buckets."""
+    from app.discovery.skipped import summarise
+    from app.models.discovery_run import RunCandidate
+
+    run_id = (await db.execute(
+        select(Campaign.run_id).where(Campaign.campaign_id == campaign_id, Campaign.user_id == user.user_id)
+    )).one_or_none()
+    if run_id is None:
+        raise HTTPException(404, "Campaign not found")
+    if not run_id[0]:
+        return summarise([])
+    rows = (await db.execute(
+        select(RunCandidate.stage, RunCandidate.drop_reason).where(RunCandidate.run_id == run_id[0])
+    )).all()
+    return summarise(rows)
+
+
 # GET /api/campaigns/{campaign_id}/stream
 @router.get("/{campaign_id}/stream")
 async def stream_campaign_progress(
