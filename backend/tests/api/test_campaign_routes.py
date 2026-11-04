@@ -33,7 +33,7 @@ async def client(tmp_path, monkeypatch):
     from tests.discovery.conftest import create_tables, make_engine
 
     engine, is_pg = make_engine(tmp_path)
-    await create_tables(engine, is_pg, ["users", "campaigns", "saved_leads", "run_candidates", "share_links", "share_feedback", "creator_deals", "deal_events"])
+    await create_tables(engine, is_pg, ["users", "campaigns", "saved_leads", "run_candidates", "share_links", "share_feedback", "creator_deals", "deal_events", "share_events"])
     sf = sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
     async with sf() as s:
         s.add_all([User(user_id="u1", clerk_id="clerk-1"), User(user_id="u2", clerk_id="clerk-2")])
@@ -473,3 +473,52 @@ async def test_counter_message_endpoint(client, monkeypatch):
     d6 = (await client.post("/api/campaigns/c1/deals", json={"creator_ids": ["UC6"]})).json()["created"][0]
     assert (await client.post(f"/api/deals/{d6['id']}/counter", json={})).status_code == 422
     assert no_fair["advice"]["fair_high"] == 210
+
+
+@needs_pg
+@pytest.mark.asyncio
+async def test_share_activity_feeds_the_sharing_panel(client):
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import update as sa_update
+
+    from app.db import database
+    from app.models.share_link import ShareLink
+
+    rev = (await client.post("/api/campaigns/c1/shares", json={"kind": "person", "email": "co@x.io", "role": "reviewer",
+                                                              "creator_ids": ["UC1", "UC2", "UC3"]})).json()
+    pub = (await client.post("/api/campaigns/c1/shares", json={"kind": "anyone"})).json()
+    tok = rev["path"][3:]
+    await client.get(f"/api/share/{tok}")
+    await client.get(f"/api/share/{tok}")  # within 30 minutes: one "opened" event
+    await client.get(f"/api/share/{pub['path'][3:]}")
+    await client.put(f"/api/share/{tok}/feedback/UC1", json={"verdict": "yes", "comment": "great fit"})
+    await client.put(f"/api/share/{tok}/feedback/UC2", json={"verdict": "no"})
+    await client.put(f"/api/share/{tok}/feedback/UC1", json={"verdict": "yes", "comment": "great fit, ask for rates"})
+
+    a = (await client.get("/api/campaigns/c1/share-activity")).json()
+    types = [(e["type"], e["by"]) for e in a["events"]]
+    assert types.count(("opened", "co@x.io")) == 1 and ("opened", "Someone with the public link") in types
+    assert [e for e in a["events"] if e["type"] == "feedback"][0]["comment"] == "great fit, ask for rates"  # newest first
+    assert a["latest_at"] == a["events"][0]["at"]
+    me = next(p for p in a["people"] if p["email"] == "co@x.io")
+    assert me["view_count"] == 2 and me["reviewed"] == 2 and me["yes"] == 1 and me["no"] == 1 and me["creators"] == 3
+    rows = {r["creator_id"]: r for r in a["by_creator"]}
+    assert rows["UC1"]["yes"] == 1 and rows["UC1"]["name"] == "Creator 1" and rows["UC1"]["notes"][0]["by"] == "co@x.io"
+    assert rows["UC2"]["no"] == 1 and a["by_creator"][0]["creator_id"] == "UC1"  # most approved first
+
+    # an open after 30 minutes is a new event
+    gen = client._transport.app.dependency_overrides[database.get_db]()
+    db = await gen.__anext__()
+    await db.execute(sa_update(ShareLink).where(ShareLink.link_id == rev["id"])
+                     .values(last_viewed_at=datetime.now(timezone.utc) - timedelta(hours=1)))
+    await db.commit()
+    await gen.aclose()
+    await client.get(f"/api/share/{tok}")
+    a2 = (await client.get("/api/campaigns/c1/share-activity")).json()
+    assert [(e["type"], e["by"]) for e in a2["events"]].count(("opened", "co@x.io")) == 2
+    # removed people leave the People list but their activity stays
+    await client.delete(f"/api/shares/{rev['id']}")
+    a3 = (await client.get("/api/campaigns/c1/share-activity")).json()
+    assert all(p["email"] != "co@x.io" for p in a3["people"]) and any(e["by"] == "co@x.io" for e in a3["events"])
+    assert (await client.get("/api/campaigns/c3/share-activity")).status_code == 404

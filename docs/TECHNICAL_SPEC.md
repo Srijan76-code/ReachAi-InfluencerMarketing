@@ -892,6 +892,7 @@ GET/POST /campaigns/{id}/shares, PATCH/DELETE /shares/{link_id} → owner manage
 GET  /share/{token}                               → public, allowlisted shortlist; 404 unknown, 410 off/expired (built)
 PUT  /share/{token}/feedback/{creator_id}          → reviewer verdict + comment (built)
 GET  /campaigns/{id}/feedback                      → owner: what reviewers said (built)
+GET  /campaigns/{id}/share-activity                → owner: people, events (opened/feedback), by creator (built)
 GET/POST /campaigns/{id}/deals, PATCH/DELETE /deals/{deal_id}, GET /deals/{deal_id}/events → deals board (built)
 POST /deals/{deal_id}/counter {creator_reply?, rewrite?}       → advice + reply message (built)
 POST /campaigns/{id}/creators/{cid}/contact       → find + verify email (1 credit)

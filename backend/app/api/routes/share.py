@@ -7,7 +7,7 @@ Contact details are never shared through a link.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.user import get_db_user
 from app.db.database import get_db
 from app.models.campaign import Campaign
-from app.models.share_link import ShareFeedback, ShareLink
+from app.models.share_link import ShareEvent, ShareFeedback, ShareLink
 from app.models.user import User
 from app.sharing import view as V
 
@@ -174,6 +174,58 @@ async def campaign_feedback(campaign_id: str, user: User = Depends(get_db_user),
     ]
 
 
+@router.get("/api/campaigns/{campaign_id}/share-activity")
+async def share_activity(campaign_id: str, user: User = Depends(get_db_user), db: AsyncSession = Depends(get_db)):
+    """Everything for the Sharing panel in one call: who has access and what they did (people), what happened
+    when (events, newest first) and what was said about each creator (by_creator)."""
+    camp = await _own_campaign(db, campaign_id, user)
+    leads = {l.get("id"): l for l in (camp.campaign_leads or []) if isinstance(l, dict)}
+    links = {l.link_id: l for l in (await db.execute(select(ShareLink).where(ShareLink.campaign_id == campaign_id))).scalars().all()}
+    feedback = (await db.execute(
+        select(ShareFeedback).where(ShareFeedback.campaign_id == campaign_id).order_by(ShareFeedback.updated_at.desc())
+    )).scalars().all()
+    events = (await db.execute(
+        select(ShareEvent).where(ShareEvent.campaign_id == campaign_id).order_by(ShareEvent.created_at.desc()).limit(V.ACTIVITY_LIMIT)
+    )).scalars().all()
+
+    def who(link_id: str) -> str:
+        l = links.get(link_id)
+        return (l.email if l and l.email else "Someone with the public link") if l else "Someone"
+
+    def creator(cid: Optional[str]) -> dict:
+        lead = leads.get(cid) or {}
+        return {"creator_id": cid, "name": lead.get("title") or cid, "avatar_url": lead.get("avatar_url")}
+
+    iso = lambda d: d.isoformat() if d else None  # noqa: E731
+    now = _now()
+    people = []
+    for l in links.values():
+        if l.revoked_at is not None or not V.is_live(l, now):
+            continue
+        mine = [f for f in feedback if f.link_id == l.link_id and (f.verdict or f.comment)]
+        scope = len(l.creator_ids) if l.creator_ids else len(leads)
+        people.append({
+            "link_id": l.link_id, "kind": l.kind, "email": l.email, "role": l.role, "view_count": l.view_count or 0,
+            "last_viewed_at": iso(l.last_viewed_at), "creators": scope, "reviewed": len([f for f in mine if f.verdict]),
+            "yes": sum(1 for f in mine if f.verdict == "yes"), "no": sum(1 for f in mine if f.verdict == "no"),
+        })
+    by_creator: dict[str, dict] = {}
+    for f in feedback:
+        if not (f.verdict or f.comment):
+            continue
+        row = by_creator.setdefault(f.creator_id, {**creator(f.creator_id), "yes": 0, "no": 0, "notes": []})
+        row["yes"] += f.verdict == "yes"
+        row["no"] += f.verdict == "no"
+        row["notes"].append({"by": who(f.link_id), "verdict": f.verdict, "comment": f.comment, "at": iso(f.updated_at)})
+    return {
+        "people": sorted(people, key=lambda p: p["last_viewed_at"] or "", reverse=True),
+        "events": [{"type": e.type, "by": who(e.link_id), **({} if e.type == "opened" else creator(e.creator_id)),
+                    "verdict": e.verdict, "comment": e.comment, "at": iso(e.created_at)} for e in events],
+        "by_creator": sorted(by_creator.values(), key=lambda r: (r["no"] - r["yes"], r["name"] or "")),
+        "latest_at": iso(events[0].created_at) if events else None,
+    }
+
+
 # --- public -----------------------------------------------------------------------------------
 
 PRIVATE = {"Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow", "Referrer-Policy": "no-referrer"}
@@ -202,8 +254,12 @@ async def open_share(token: str, db: AsyncSession = Depends(get_db)):
         select(Campaign.name, Campaign.campaign_details, Campaign.campaign_leads)
         .where(Campaign.campaign_id == link.campaign_id)
     )).one()
+    now = _now()
+    last = link.last_viewed_at
+    if last is None or (last if last.tzinfo else last.replace(tzinfo=timezone.utc)) < now - timedelta(minutes=V.OPEN_EVENT_GAP_MINUTES):
+        db.add(ShareEvent(link_id=link.link_id, campaign_id=link.campaign_id, type="opened"))
     await db.execute(update(ShareLink).where(ShareLink.link_id == link.link_id).values(
-        view_count=ShareLink.view_count + 1, last_viewed_at=_now()))
+        view_count=ShareLink.view_count + 1, last_viewed_at=now))
     my_feedback = {}
     if link.role == "reviewer":
         my_feedback = {f.creator_id: {"verdict": f.verdict, "comment": f.comment} for f in (await db.execute(
@@ -244,5 +300,7 @@ async def give_feedback(token: str, creator_id: str, body: FeedbackIn, db: Async
         db.add(row)
     row.verdict, row.comment = body.verdict, comment
     row.updated_at = _now()
+    db.add(ShareEvent(link_id=link.link_id, campaign_id=link.campaign_id, type="feedback", creator_id=creator_id,
+                      verdict=body.verdict, comment=comment))
     await db.commit()
     return _private({"creator_id": creator_id, "verdict": row.verdict, "comment": row.comment})

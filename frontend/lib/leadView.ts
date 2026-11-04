@@ -25,6 +25,8 @@ export type LeadView = {
   onTrend: boolean;
   hideSuspicious: boolean;
   savedOnly: boolean;
+  approved: boolean; // reviewers gave more 👍 than 👎
+  hasFeedback: boolean;
 };
 
 export const DEFAULT_VIEW: LeadView = {
@@ -38,6 +40,8 @@ export const DEFAULT_VIEW: LeadView = {
   onTrend: false,
   hideSuspicious: false,
   savedOnly: false,
+  approved: false,
+  hasFeedback: false,
 };
 
 /** Number of filters that differ from the default (sort, search and the All | Shortlist switch are not counted). */
@@ -49,7 +53,9 @@ export function activeFilterCount(v: LeadView): number {
     Number(v.platforms.length > 0) +
     Number(v.rising) +
     Number(v.onTrend) +
-    Number(v.hideSuspicious)
+    Number(v.hideSuspicious) +
+    Number(v.approved) +
+    Number(v.hasFeedback)
   );
 }
 
@@ -88,7 +94,15 @@ function sortValue(l: Influencer, key: SortKey): number | null {
   }
 }
 
-export function applyView(leads: Influencer[] | null | undefined, v: LeadView, saved: Record<string, boolean>): Influencer[] {
+/** Reviewer feedback per creator, for the "Approved by reviewers" / "Has feedback" filters. */
+export type FeedbackCounts = Record<string, { yes: number; no: number; comments: number }>;
+
+export function applyView(
+  leads: Influencer[] | null | undefined,
+  v: LeadView,
+  saved: Record<string, boolean>,
+  feedback: FeedbackCounts = {},
+): Influencer[] {
   if (!Array.isArray(leads)) return [];
   const q = v.query.trim().toLowerCase();
   const out = leads.filter((l) => {
@@ -108,6 +122,9 @@ export function applyView(leads: Influencer[] | null | undefined, v: LeadView, s
     if (v.onTrend && !flags.includes("trend")) return false;
     if (v.hideSuspicious && flags.includes("suspicious")) return false;
     if (v.savedOnly && !saved[l.id]) return false;
+    const fb = feedback[l.id];
+    if (v.approved && !(fb && fb.yes > fb.no)) return false;
+    if (v.hasFeedback && !(fb && fb.yes + fb.no + fb.comments > 0)) return false;
     return true;
   });
   // stable sort: ties keep the engine's order
@@ -128,7 +145,7 @@ export function parseView(raw: string | null): LeadView {
     if (["All", "High", "Stable"].includes(o.reliability)) v.reliability = o.reliability;
     if (["All", "Micro", "Mid", "Premium"].includes(o.price)) v.price = o.price;
     if (Array.isArray(o.platforms)) v.platforms = o.platforms.filter((p: unknown) => typeof p === "string");
-    for (const k of ["rising", "onTrend", "hideSuspicious", "savedOnly"] as const) v[k] = o[k] === true;
+    for (const k of ["rising", "onTrend", "hideSuspicious", "savedOnly", "approved", "hasFeedback"] as const) v[k] = o[k] === true;
     return v; // the search box is not restored: it surprises people on return
   } catch {
     return DEFAULT_VIEW;

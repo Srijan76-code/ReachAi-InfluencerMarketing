@@ -52,3 +52,19 @@ class ShareFeedback(Base):
     verdict = Column(String, nullable=True)  # yes | no | None (comment only)
     comment = Column(Text, nullable=True)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class ShareEvent(Base):
+    """The sharing activity log: a link was opened (at most once per OPEN_EVENT_GAP_MINUTES per link) or a
+    reviewer gave feedback. Feeds the owner's Activity feed."""
+
+    __tablename__ = "share_events"
+
+    event_id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    link_id = Column(String, ForeignKey("share_links.link_id", ondelete="CASCADE"), nullable=False, index=True)
+    campaign_id = Column(String, ForeignKey("campaigns.campaign_id", ondelete="CASCADE"), nullable=False, index=True)
+    type = Column(String, nullable=False)  # opened | feedback
+    creator_id = Column(String, nullable=True)  # feedback: which creator
+    verdict = Column(String, nullable=True)  # feedback: yes | no | None
+    comment = Column(Text, nullable=True)  # feedback: the comment at that moment
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
