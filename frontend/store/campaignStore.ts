@@ -43,6 +43,7 @@ export interface CampaignState {
   // Saved Leads Map (for fast lookup by id) and Array
   savedLeadsMap: Record<string, boolean>;
   savedLeadsList: any[];
+  saveError: string | null; // shown briefly when a save/unsave didn't reach the server
 
   // Cache by Campaign ID for fast navigation without latency
   campaignsCache: Record<string, CachedCampaign>;
@@ -61,6 +62,8 @@ const businessModelReverseMap: Record<string, string> = { b2b: "1", b2c: "2", d2
 const priceRangeReverseMap: Record<string, string> = { low_ticket: "1", mid_ticket: "2", high_ticket: "3" };
 const goalReverseMap: Record<string, string> = { awareness: "1", signups: "2", sales: "3" };
 const authorityReverseMap: Record<string, string> = { peer: "1", mentor: "2", expert: "3" };
+
+const savesInFlight = new Set<string>();
 
 export const useCampaignStore = create<CampaignState>((set, get) => ({
   brandName: "",
@@ -88,6 +91,7 @@ export const useCampaignStore = create<CampaignState>((set, get) => ({
 
   savedLeadsMap: {},
   savedLeadsList: [],
+  saveError: null,
   campaignsCache: {},
 
   setField: (field, value) => set({ [field]: value }),
@@ -221,7 +225,8 @@ export const useCampaignStore = create<CampaignState>((set, get) => ({
 
   toggleSaveLead: async (campaignId: string, lead: any, api: any) => {
     const leadId = lead.id;
-    if (!leadId) return;
+    if (!leadId || savesInFlight.has(leadId)) return; // a second click while saving would race the first
+    savesInFlight.add(leadId);
 
     const currentMap = { ...get().savedLeadsMap };
     const isCurrentlySaved = !!currentMap[leadId];
@@ -254,10 +259,14 @@ export const useCampaignStore = create<CampaignState>((set, get) => ({
           data: lead,
         });
       }
+      set({ saveError: null });
     } catch (err) {
       console.error("Error toggling saved lead:", err);
-      // Revert on error
-      get().fetchSavedLeads(campaignId, api);
+      // Revert on error, and say so: a silent undo looks like the click didn't work
+      set({ saveError: isCurrentlySaved ? `Couldn't remove ${lead.title || "this creator"}. Try again.` : `Couldn't save ${lead.title || "this creator"}. Try again.` });
+      await get().fetchSavedLeads(campaignId, api);
+    } finally {
+      savesInFlight.delete(leadId);
     }
   },
 }));
