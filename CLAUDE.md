@@ -34,7 +34,6 @@ backend/                 FastAPI + LangGraph + Inngest (Python)
   app/outreach/runtime.py   Runs the outreach graph with Postgres checkpointer + Inngest Realtime events
   app/inngest/           Inngest client + functions (campaign/run, outreach/run, nightly refresh)
   app/models/            SQLAlchemy models; migrations in alembic/versions/
-  app/core/model.py      Hard-coded Gemini model, still used by outreach only (moves to app/llm: K2)
   tests/evals/           Outreach tests (deterministic) + LangSmith eval runner
 frontend/                Next.js (App Router) + Clerk + Zustand + Inngest Realtime
   app/campaign/[id]/     details, leads, saved, outreach pages

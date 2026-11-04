@@ -935,7 +935,7 @@ Phases 3 and 6 can run in parallel after 1 and 2.
 ### File change map (first phases)
 | File | Change |
 |---|---|
-| `backend/app/core/model.py` | Replaced by `app/llm/client.py`; still used by outreach until K2 |
+| `backend/app/core/model.py` | Removed Nov 4 (K2): outreach and the eval judge use `app/llm` routes `pitch` and `judge_eval` |
 | `backend/app/my_agent/**` | Removed Nov 4 (F1.13): logic lives in `app/discovery/` + `app/platforms/youtube.py` + `app/metrics/` |
 | `backend/app/workflow/runtime.py`, `app/inngest/functions.py` | Run the generic graph; stage list from the graph; credit reserve/commit |
 | `backend/app/outreach/nodes/validate_creator_pitch.py` | + Jev Nouls (§7.6) |
