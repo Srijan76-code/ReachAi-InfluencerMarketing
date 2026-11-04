@@ -33,12 +33,12 @@ export function SkippedNote({ campaignId, api, ready }: {
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="flex items-center gap-1.5 px-2 py-0.5 rounded-md border border-zinc-200/80 dark:border-zinc-800 text-[11px] text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition-colors whitespace-nowrap"
+          className="flex items-center gap-1.5 h-[30px] px-3 rounded-md border border-zinc-200 dark:border-zinc-800 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors whitespace-nowrap"
         >
-          <span><span className="font-mono text-zinc-700 dark:text-zinc-300">{s.looked_at.toLocaleString()}</span> checked</span>
+          <span><span className="text-zinc-900 dark:text-zinc-100">{s.looked_at.toLocaleString()}</span> checked</span>
           <span className="text-zinc-300 dark:text-zinc-700">·</span>
-          <span><span className="font-mono text-zinc-700 dark:text-zinc-300">{kept.toLocaleString()}</span> kept</span>
-          <Info size={11} className="opacity-60" />
+          <span><span className="text-zinc-900 dark:text-zinc-100">{kept.toLocaleString()}</span> kept</span>
+          <Info size={13} className="opacity-60" />
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-72 p-3 bg-white dark:bg-[#0c0d0e] border-zinc-200 dark:border-zinc-800">
