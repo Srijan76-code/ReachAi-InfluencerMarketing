@@ -107,10 +107,28 @@ async def test_failure_handler_reads_the_original_event(monkeypatch):
     assert seen == {}
 
 
-def test_engine_defaults_to_legacy_until_switched():
-    from app.core import config
+@pytest.mark.asyncio
+async def test_campaign_run_always_uses_the_discovery_graph(monkeypatch):
+    """The old pipeline is gone: every campaign/run event runs (or resumes) the discovery graph."""
+    from types import SimpleNamespace
 
-    assert config.DISCOVERY_ENGINE in {"legacy", "graph"}
+    from app.discovery import runtime as R
+    from app.inngest import functions as F
+
+    seen = {}
+
+    async def fake_run(**kw):
+        seen.update(kw)
+        return {"leads": [{"id": "UC1"}], "warnings": [], "resumed": True}
+
+    monkeypatch.setattr(R, "run_discovery", fake_run)
+    ctx = SimpleNamespace(event=SimpleNamespace(data={"campaign_id": "c1", "campaign_details": BRIEF, "run_id": "r1", "user_id": "u1"}))
+    out = await F.run_campaign._handler(ctx)
+    assert seen == {"campaign_id": "c1", "run_id": "r1", "campaign_details": BRIEF, "user_id": "u1"}
+    assert out["leads"] == 1 and out["resumed"] is True
+    with pytest.raises(ModuleNotFoundError):
+        __import__("app.my_agent")
+
 
 
 @pytest.mark.asyncio

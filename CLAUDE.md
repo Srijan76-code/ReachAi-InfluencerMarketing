@@ -25,12 +25,16 @@ The public docs live in `frontend/content/docs/*.mdx` (Fumadocs, served at `/doc
 backend/                 FastAPI + LangGraph + Inngest (Python)
   app/main.py            FastAPI app, Inngest endpoint
   app/api/routes/        campaign.py, outreach.py, saved_lead.py
-  app/my_agent/          CURRENT YouTube discovery graph (to be replaced by app/discovery + app/platforms)
+  app/discovery/         Discovery graph (graph.py, nodes.py), runtime (run/resume), brief, prompts, limits
+  app/platforms/         Platform adapters (base.py interface, youtube.py); each returns CreatorProfile
+  app/metrics/, app/judge/   Numbers in code; Jev questions, weights and scoring
+  app/creators/          Creator database (repository.py) and the nightly YouTube refresh (refresh.py)
+  app/llm/               LLM client with named routes and fallback; embeddings
   app/outreach/          Pitch generation graph (generate → validate → repair → collect)
-  app/workflow/runtime.py, app/outreach/runtime.py   Run graphs with Postgres checkpointer + Inngest Realtime events
-  app/inngest/           Inngest client + functions (campaign/run, outreach/run)
+  app/outreach/runtime.py   Runs the outreach graph with Postgres checkpointer + Inngest Realtime events
+  app/inngest/           Inngest client + functions (campaign/run, outreach/run, nightly refresh)
   app/models/            SQLAlchemy models; migrations in alembic/versions/
-  app/core/model.py      CURRENT hard-coded Gemini model (to be replaced by app/llm/)
+  app/core/model.py      Hard-coded Gemini model, still used by outreach only (moves to app/llm: K2)
   tests/evals/           Outreach tests (deterministic) + LangSmith eval runner
 frontend/                Next.js (App Router) + Clerk + Zustand + Inngest Realtime
   app/campaign/[id]/     details, leads, saved, outreach pages
