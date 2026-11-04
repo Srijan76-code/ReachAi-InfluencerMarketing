@@ -61,3 +61,8 @@ NICHES = [
 AUDIENCE_ROLES = [
     "founders", "developers", "marketers", "sales", "designers", "students", "job_seekers", "general_consumers",
 ]
+
+# --- A creator's reply to a deal offer (app/deals/reply.py) ----------------------------------------
+REPLY_QUESTIONS_VERSION = "reply-v1"
+REPLY_SIGNAL_FROM = 0.6  # a reply signal (open to negotiate, wants commission…) counts from this probability
+REPLY_INJECTION_ABOVE = 0.5  # the reply is ignored if it looks aimed at an AI

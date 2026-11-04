@@ -68,6 +68,8 @@ ROUTES: dict[str, list[ModelSpec]] = {
     "reply": [GEMINI_FLASH, GROQ_GPT_OSS],
     "judge_eval": [GEMINI_FLASH_LITE],
     "fit_fallback": [GROQ_GPT_OSS, CEREBRAS_GPT_OSS, GEMINI_FLASH_LITE],
+    # deal counter-offer wording (app/deals/reply.py): fast first, the numbers come from code
+    "counter": [GROQ_GPT_OSS, GEMINI_FLASH_LITE],
 }
 
 

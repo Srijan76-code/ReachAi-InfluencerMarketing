@@ -8,3 +8,4 @@ from .cache_entry import CacheEntry
 from .creator import Creator, CreatorPerson, CreatorSnapshot, CreatorJudgment, PersonLink, CreatorEmbedding
 from .discovery_run import RunStrategy, RunCandidate
 from .share_link import ShareFeedback, ShareLink
+from .deal import CreatorDeal, DealEvent

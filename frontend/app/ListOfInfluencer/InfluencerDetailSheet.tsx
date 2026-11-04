@@ -4,6 +4,7 @@ import { useState } from "react";
 import type React from "react";
 import { CreatorAvatar } from "@/components/CreatorAvatar";
 import { FeedbackSection } from "@/components/Feedback";
+import { AddToDealsButton } from "@/components/deals/AddToDealsButton";
 import type { FeedbackItem } from "@/data/influencerList";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 
@@ -192,6 +193,8 @@ export const InfluencerDetailSheet = ({
               <SocialLink href={socials.email ? `mailto:${socials.email}` : null} label="Email" external={false} className="w-8 h-8 rounded border border-zinc-200/60 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-900/50 flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors text-zinc-600 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"><Mail size={14} /></SocialLink>
             </div>
             {readOnly ? null : campaignId ? (
+              <div className="flex items-center gap-2">
+              <AddToDealsButton campaignId={campaignId} creatorIds={[influencer.id]} />
               <OutreachDialog
                 campaignId={campaignId}
                 influencers={[influencer]}
@@ -202,6 +205,7 @@ export const InfluencerDetailSheet = ({
                   </button>
                 }
               />
+              </div>
             ) : (
               <a href="/sign-in" title="Sign in to contact creators" className="bg-zinc-100 hover:bg-zinc-900 hover:text-white dark:hover:bg-white dark:hover:text-zinc-900 text-zinc-900 text-[12px] font-semibold px-4 py-2 rounded transition-colors shadow-sm active:scale-95">
                 Start Outreach
