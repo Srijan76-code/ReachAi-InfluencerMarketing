@@ -40,7 +40,7 @@ export async function getCampaignRealtimeToken(
 
   return getClientSubscriptionToken(inngest, {
     channel: campaignChannel({ runId }),
-    topics: ["status"],
+    topics: ["status", "leads"],
   });
 }
 

@@ -5,7 +5,7 @@ import { useAuth } from "@clerk/nextjs";
 import { useRealtime } from "inngest/react";
 import { Loader2, CheckCircle2, XCircle, AlertCircle, RotateCcw } from "lucide-react";
 import { getCampaignRealtimeToken } from "@/app/actions/realtime";
-import { campaignChannel } from "@/inngest/channels";
+import { campaignChannel, type CampaignLeadsUpdate } from "@/inngest/channels";
 import { useCampaignStore } from "@/store/campaignStore";
 
 const backendUrl =
@@ -16,6 +16,21 @@ type DurableStatus = {
   current_stage?: string;
   status?: string;
 };
+
+type LeadItem = CampaignLeadsUpdate["items"][number];
+
+/** Unique creators across every `leads` message so far, and the best-scored one. */
+export function scoredSoFar(messages: { topic?: string; data?: unknown }[]): { count: number; best: LeadItem | null } {
+  const seen = new Map<string, LeadItem>();
+  for (const m of messages) {
+    if (m.topic !== "leads") continue;
+    const items = (m.data as CampaignLeadsUpdate | undefined)?.items ?? [];
+    for (const item of items) seen.set(item.creator_id, item);
+  }
+  let best: LeadItem | null = null;
+  for (const item of seen.values()) if (!best || item.final_score > best.final_score) best = item;
+  return { count: seen.size, best };
+}
 
 interface CampaignProgressBannerProps {
   campaignId: string;
@@ -79,7 +94,7 @@ export function CampaignProgressBanner({ campaignId }: CampaignProgressBannerPro
 
   const realtime = useRealtime({
     channel: runId ? campaignChannel({ runId }) : undefined,
-    topics: ["status"] as const,
+    topics: ["status", "leads"] as const,
     token: runId ? () => getCampaignRealtimeToken(campaignId, runId) : undefined,
     enabled: Boolean(runId && durableStatus.status === "PENDING"),
     autoCloseOnTerminal: true,
@@ -87,7 +102,10 @@ export function CampaignProgressBanner({ campaignId }: CampaignProgressBannerPro
 
   const live = realtime.messages.byTopic.status?.data;
   const stage = live?.stage ?? durableStatus.current_stage;
-  const status = (live?.status ?? durableStatus.status ?? "").toUpperCase();
+  // Live updates say "running"; the campaign row says "PENDING". Both mean in progress.
+  const rawStatus = (live?.status ?? durableStatus.status ?? "").toUpperCase();
+  const status = rawStatus === "RUNNING" ? "PENDING" : rawStatus;
+  const scored = scoredSoFar(realtime.messages.all);
 
   useEffect(() => {
     if (!live) return;
@@ -150,6 +168,12 @@ export function CampaignProgressBanner({ campaignId }: CampaignProgressBannerPro
                 {stage}
               </span>
             )}
+            {status === "PENDING" && scored.count > 0 && (
+              <span className="text-[12px] text-zinc-500 truncate block">
+                {scored.count} creator{scored.count === 1 ? "" : "s"} scored so far
+                {scored.best ? ` · best so far: ${scored.best.display_name} (${Math.round(scored.best.final_score)})` : ""}
+              </span>
+            )}
             {status === "FAILED" && (
               <span className="text-[12px] text-rose-400">
                 The AI workflow encountered an error.
@@ -167,7 +191,8 @@ export function CampaignProgressBanner({ campaignId }: CampaignProgressBannerPro
         {status === "FAILED" && (
           <button
             type="button"
-            onClick={() => void reconcile()}
+            onClick={() => void handleRetry()}
+            disabled={isRetrying}
             className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium border border-zinc-200 dark:border-zinc-800 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors focus:outline-none shrink-0"
           >
             <RotateCcw size={11} />

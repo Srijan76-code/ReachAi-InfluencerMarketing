@@ -3,6 +3,18 @@ title: Changelog
 description: What's new in ReachAI. Updated every time we ship.
 ---
 
+## November 4, 2026
+
+**Fixes**
+- Audience location is now sent correctly for every country. Before, the country was read from the first two letters of its name, so "United States" didn't work and "Germany" was searched as Georgia.
+- A campaign can't be started with the brand name, product, audience or location missing. Before, empty fields were silently filled with a sample brand.
+- Creator languages now follow the country you pick (for example English and Hindi for India), instead of always English and Hindi.
+- Reopening a campaign now restores its location and creator size correctly.
+- The progress bar keeps showing the current step while a search runs, and **Retry** on a failed search now starts it again.
+
+**Coming with the new discovery engine**
+- Badges on creators (Rising, On trend, Check engagement, Country unknown) and a live count of creators scored while a search runs. See [Understanding your results](/docs/understanding-results).
+
 ## November 3, 2026
 
 **Demo and landing page**

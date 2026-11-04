@@ -8,11 +8,28 @@ export type CampaignStageUpdate = {
   ts: number;
 };
 
+/** Creators scored so far, sent by the new discovery engine as each platform finishes judging. */
+export type CampaignLeadsUpdate = {
+  run_id: string;
+  ts: number;
+  platform?: string;
+  items: {
+    creator_id: string;
+    display_name: string;
+    final_score: number;
+    deal_status: string;
+    flags?: string[];
+  }[];
+};
+
 export const campaignChannel = realtime.channel({
   name: ({ runId }: { runId: string }) => `campaign:${runId}`,
   topics: {
     status: {
       schema: staticSchema<CampaignStageUpdate>(),
+    },
+    leads: {
+      schema: staticSchema<CampaignLeadsUpdate>(),
     },
   },
 });
