@@ -60,14 +60,12 @@ export const InfluencerDetailSheet = ({
   influencer,
   campaignId,
   readOnly = false,
-  showContacts = false,
   feedback,
   reviewSlot,
 }: {
   influencer: Influencer;
   campaignId?: string;
-  readOnly?: boolean; // shared view: no outreach, no contacts unless showContacts
-  showContacts?: boolean; // shared view after the viewer confirmed their email code
+  readOnly?: boolean; // shared view: no contacts, no outreach
   feedback?: FeedbackItem[]; // owner's view: what reviewers said
   reviewSlot?: React.ReactNode; // shared view for reviewers: their 👍/👎 and comment
 }) => {
@@ -186,7 +184,7 @@ export const InfluencerDetailSheet = ({
             </div>
           </div>
 
-          {(!readOnly || showContacts) && (
+          {!readOnly && (
           <div className="flex items-center justify-between pt-1">
             <div className="flex items-center gap-2">
               <SocialLink href={socials.instagram} label="Instagram" className="w-8 h-8 rounded border border-zinc-200/60 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-900/50 flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors text-zinc-600 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"><Instagram size={14} /></SocialLink>
