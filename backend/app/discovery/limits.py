@@ -10,9 +10,10 @@ LIMITS_BY_MODE = {
 }
 
 # Top-up round (full branches only): if fewer than TOPUP_FACTOR x the creators asked for pass the
-# checks, search once more: unused queries first, all-time video search ordered by views (larger creators).
+# checks, search once more: unused queries first, all-time video search by relevance ("viewCount" order
+# returned only 0-11 results for niche queries in the Nov 4 comparison).
 TOPUP_FACTOR = 10
-TOPUP_LIMITS = Limits(max_queries=3, max_candidates=150, max_profiles=100, published_within_days=None, order="viewCount")
+TOPUP_LIMITS = Limits(max_queries=3, max_candidates=150, max_profiles=100, published_within_days=None, order="relevance")
 
 SHORTLIST_SIZE = 100  # creators per branch that go to Jev
 SHORTLIST_EMBED_WEIGHT = 0.7  # hybrid shortlist: 70% embedding similarity, 30% keyword (BM25)

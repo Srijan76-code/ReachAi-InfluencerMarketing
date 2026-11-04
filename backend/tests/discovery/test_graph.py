@@ -177,7 +177,7 @@ class FakeProbeAdapter:
         self.calls.append(limits.max_queries)
         return [CandidateRef("x", f"x{i}", "search") for i in range(3)]
 
-    async def fetch_profiles(self, refs, constraints=None):
+    async def fetch_profiles(self, refs, constraints=None, max_deep=None):
         from tests.shared_core.factories import post, profile
         from scripts.record_youtube_fixtures import RECORDED_AT
 
@@ -277,7 +277,7 @@ class FakeTopUpAdapter(FakeProbeAdapter):
         from app.platforms.base import CandidateRef
 
         self.calls.append((limits.order, limits.query_offset))
-        ids = ["t3", "t4", "t5", "t0"] if limits.order == "viewCount" else ["t0", "t1", "t2"]
+        ids = ["t3", "t4", "t5", "t0"] if limits.order else ["t0", "t1", "t2"]
         return [CandidateRef("x", i, "search") for i in ids]
 
 
@@ -303,7 +303,7 @@ async def test_too_few_creators_triggers_one_top_up_round(sf, monkeypatch, cost_
     _, _, state, events = await run(sf, deps, stream=True)
     from app.discovery import limits as L
 
-    assert calls == [(None, 0), ("viewCount", L.LIMITS_BY_MODE["full"].max_queries)]  # exactly one extra round
+    assert calls == [(None, 0), (L.TOPUP_LIMITS.order, L.LIMITS_BY_MODE["full"].max_queries)]  # exactly one extra round
     ids = {l["creator_id"] for l in state["final_leads"]}
     assert len(ids) == 6  # both rounds' creators compete, the repeat isn't fetched twice
     run_stats = state["branch_runs"][0]
@@ -352,3 +352,30 @@ async def test_reason_prompt_gets_our_verdict(sf, monkeypatch, cost_log):
     labels = {l["deal_status"] for l in state["final_leads"] if l["llm_reasoning"]}
     assert prompts and all("Our verdict:" in p for p in prompts)
     assert any(f"Our verdict: {lab}." in p for p in prompts for lab in labels)
+
+
+@pytest.mark.asyncio
+async def test_creators_without_a_country_are_flagged_when_the_brief_sets_countries(sf, monkeypatch, cost_log):
+    """The recording has a country for every channel, so blank one (as YouTube does for many)."""
+    use_recorded_limits(monkeypatch)
+    deps, _ = make_deps(sf)
+    factory = deps.adapters["youtube"]
+
+    def blanking():
+        a = factory()
+        real = a.fetch_profiles
+
+        async def fetch(refs, constraints=None, max_deep=None):
+            profiles = await real(refs, constraints, max_deep)
+            for p in profiles:
+                if p["display_name"].lower().startswith("campusx"):
+                    p["country"] = None
+            return profiles
+        a.fetch_profiles = fetch
+        return a
+    deps.adapters = {"youtube": blanking}
+    _, _, state, _ = await run(sf, deps)
+    blank = [l for l in state["final_leads"] if not l["country"]]
+    assert blank, "expected the blanked creator in the results"
+    for l in state["final_leads"]:
+        assert ("country_unknown" in l["flags"]) == (not l["country"]), l["title"]

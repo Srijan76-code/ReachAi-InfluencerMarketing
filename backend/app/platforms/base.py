@@ -97,10 +97,11 @@ class PlatformAdapter(Protocol):
     async def source_candidates(self, strategy: Strategy, limits: Limits) -> list[CandidateRef]: ...
 
     async def fetch_profiles(
-        self, refs: list[CandidateRef], constraints: Optional[dict] = None
+        self, refs: list[CandidateRef], constraints: Optional[dict] = None, max_deep: Optional[int] = None
     ) -> list[CreatorProfile]:
         """Fetch profiles + recent posts. With `constraints`, `cheap_filter` runs after the cheap
-        profile lookup and before the expensive post fetch, so dropped creators cost nothing more."""
+        profile lookup and before the expensive post fetch, so dropped creators cost nothing more.
+        `max_deep` caps how many survivors get the expensive post fetch (in the order of `refs`)."""
         ...
 
     def cheap_filter(self, profile: CreatorProfile, constraints: dict) -> tuple[bool, Optional[str]]: ...

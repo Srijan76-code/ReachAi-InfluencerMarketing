@@ -277,8 +277,9 @@ async def fetch_measure(state: BranchState, runtime: Runtime[Deps]) -> dict:
     todo = list(via) if state.get("fetch_ids") is None else state["fetch_ids"]
     if state.get("fetch_ids") is not None:
         limits = L.TOPUP_LIMITS
-    refs = [CandidateRef(platform, pid, via[pid]) for pid in todo[: limits.max_profiles]]
-    profiles = await adapter.fetch_profiles(refs, brief.constraints())
+    # Every candidate gets the cheap profile check; only the best `max_profiles` that pass get posts fetched.
+    refs = [CandidateRef(platform, pid, via[pid]) for pid in todo[: limits.max_candidates]]
+    profiles = await adapter.fetch_profiles(refs, brief.constraints(), max_deep=limits.max_profiles)
     sf, mctx, now = runtime.context.session_factory, brief.metrics_context(), _now(runtime)
 
     kept, rows = [], []
@@ -434,7 +435,8 @@ async def judge_score(state: BranchState, runtime: Runtime[Deps]) -> dict:
     results = []
     for cid, j in judgments.items():
         p = profiles[cid]
-        s = score_creator(j, Metrics(**(p.get("metrics") or {})), exclude_kids_content=brief.exclude_kids_content)
+        s = score_creator(j, Metrics(**(p.get("metrics") or {})), exclude_kids_content=brief.exclude_kids_content,
+                          country_unknown=bool(brief.target_countries) and not p.get("country"))
         results.append({
             "creator_id": cid, "platform": platform, "platform_id": p["platform_id"],
             "display_name": p.get("display_name", ""), "found_via": via.get(p["platform_id"]), "mode": state["mode"],

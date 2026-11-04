@@ -92,6 +92,14 @@ def test_great_fit_is_a_strong_buy():
     assert legacy["final_score"] == s.final_score and "score_breakdown" in legacy
 
 
+def test_unknown_country_is_ranked_lower_and_flagged():
+    known = score_creator(judgment(**GOOD), metrics())
+    unknown = score_creator(judgment(**GOOD), metrics(), country_unknown=True)
+    assert unknown.final_score == pytest.approx(known.final_score * K.COUNTRY_UNKNOWN_FACTOR, abs=0.1)
+    assert "country_unknown" in unknown.flags and "country_unknown" not in known.flags
+    assert not unknown.dropped  # kept, not dropped
+
+
 def test_poor_fit_is_avoid():
     s = score_creator(judgment(**{**GOOD, "topic_fit": 0, "audience_stage": 0, "pain_point": 0.0}), metrics())
     assert s.deal_status == "Avoid"

@@ -26,7 +26,7 @@
 | Extra sources | Competitor sponsors, lookalikes, founder's own X followers, pre-warmed trending niches (§4.10) |
 | Results UX | **Stream results as they arrive** (§4.12) |
 | Discovery quality rule | **Probe every selected platform, expand where a probe beats the current top N**; fit floor as a safety net; recall benchmark ≥ 90% (§4.9) |
-| Pipeline rollout | Replace the old YouTube pipeline directly once the new one works; compare both on 3 briefs before deleting the old code (roadmap Phase 1) |
+| Pipeline rollout | Replace the old YouTube pipeline once the new one matches or beats it on 3 blind-rated briefs. Until then the env switch `DISCOVERY_ENGINE` (`legacy` default, `graph`) picks the engine; the switch and old code are removed after (roadmap F1.13) |
 | Run execution | LangGraph runs and resumes the pipeline from Postgres checkpoints; Inngest starts, retries (resume), limits (2 per user, 10 total) and cancels runs (a re-run cancels the previous one); platforms are parallel LangGraph branches; Vercel; Postgres caches (§4.14) |
 | After the deal | Founder pays creators directly (we send pay-on-proof requests and track); own short links; promo codes + signup snippet/server event; tracking included in paid plans (§8) |
 | Outreach | **Connected inbox**; founder approves first messages, follow-ups automatic; A/B test soft vs. concrete-offer first message (§7) |
@@ -302,9 +302,10 @@ risk  = max(norm(safety_risk), 0.5·promo_heavy, metrics.anomaly_flag)          
 health= 0.4·er_percentile + 0.3·reliability_score + 0.3·cadence_score
 bonus = 0.10 if rising else 0;  +0.05 if posts_on_trend > 0.6
 final = 100 · clamp(0.55·fit + 0.30·health + bonus − 0.40·risk, 0, 1)
+        × 0.8 if the brief sets target countries and the creator lists none (flag "country_unknown", decided Nov 4)
 
 Hard drops: is_individual < 0.4 · language_match < 0.3 · (exclude_kids and kids_content > 0.6) · injection > 0.5 · anomaly_score > 0.8
-deal_status: ≥ 75 "Strong Buy" · ≥ 55 "Consider" · else "Avoid"
+deal_status: ≥ 60 "Strong Buy" · ≥ 45 "Consider" · else "Avoid"   (calibrated Nov 4; was 75/55, which no real creator reached)
 ```
 All weights and thresholds are **starting values**, to be tuned on the labelled set and later replaced by a learned ranker. Sort ties by `median_views`.
 
@@ -315,8 +316,11 @@ All weights and thresholds are **starting values**, to be tuned on the labelled 
 - Replace the in-memory `checkpointer` in `my_agent/agent.py` (unused in production; the runtime already uses Postgres) when the module is removed.
 
 ### 4.8b YouTube adapter as built
-- **Unknown country is kept, not dropped.** The old pipeline dropped channels with no country set; many real channels leave it blank, so a target-country filter now only drops channels that *state* a different country.
-- **Search results are taken round-robin across searches** before the candidate cap, so trend (recent-video) results aren't crowded out by the first channel search.
+- **Unknown country is kept, not dropped.** The old pipeline dropped channels with no country set; many real channels leave it blank, so a target-country filter now only drops channels that *state* a different country. They are ranked lower and labelled instead (§4.7).
+- **Searches (revised Nov 4 after the old-vs-new comparison):** short 2-5 word niche phrases; a quarter of the budget (at least one) on recent-video trend search, the rest on channel search; the top-up round is an all-time video search by relevance. Long sentence-like phrases and `order=viewCount` returned 0-17 results for niche B2B topics.
+- **Rate limits:** `rateLimitExceeded` is treated like `quotaExceeded` (YouTube sends it once the daily search allowance is gone): stop calling YouTube for the run, one warning. YouTube's day resets at midnight Pacific time.
+- **Candidates are ranked by reciprocal rank fusion** (score = Σ 1/(60 + rank) over the searches a channel appears in): channels several searches agree on come first, and each search's top results still rank high, so trend results aren't crowded out (replaced round-robin, Nov 4).
+- **Every candidate gets the cheap channel check** (1 unit per 50, up to `max_candidates`); only the best `max_profiles` that pass get recent videos fetched (~1 unit each). Before, candidates past `max_profiles` were never checked at all. Skipped ones are recorded as "over the measuring limit for this run".
 - **Video details are batched across creators** (50 ids per call), not one call per creator.
 - **Shorts** = duration ≤ 180 s (YouTube Shorts can be up to 3 minutes).
 - Contacts come from the **channel description only**, never from video descriptions (fixes the old "first email in any description" problem). The API doesn't expose the channel's links section (roadmap K11).

@@ -61,7 +61,10 @@ def label(final_score: float) -> str:
     return "Avoid"
 
 
-def score_creator(j: Judgment, metrics: Metrics, *, exclude_kids_content: bool = False) -> CreatorScore:
+def score_creator(j: Judgment, metrics: Metrics, *, exclude_kids_content: bool = False,
+                  country_unknown: bool = False) -> CreatorScore:
+    """`country_unknown`: the brief sets target countries and the creator lists no country.
+    Kept (many good creators list none) but ranked lower and flagged."""
     w = K.FIT_WEIGHTS
     topic = _score(j, "topic_fit")
     stage = _score(j, "audience_stage")
@@ -77,6 +80,8 @@ def score_creator(j: Judgment, metrics: Metrics, *, exclude_kids_content: bool =
     bonus = (K.RISING_BONUS if metrics.rising else 0.0) + (K.TREND_BONUS if trend > K.TREND_THRESHOLD else 0.0)
 
     raw = K.FINAL_WEIGHTS["fit"] * fit + K.FINAL_WEIGHTS["health"] * metrics.health + bonus - K.RISK_WEIGHT * risk
+    if country_unknown:
+        raw *= K.COUNTRY_UNKNOWN_FACTOR
     final = round(100 * max(0.0, min(1.0, raw)), 1)
 
     drops: list[str] = []
@@ -96,6 +101,8 @@ def score_creator(j: Judgment, metrics: Metrics, *, exclude_kids_content: bool =
         flags.append("trend")
     if metrics.anomaly_score >= K.ANOMALY_RISK_FROM:
         flags.append("suspicious")
+    if country_unknown:
+        flags.append("country_unknown")
 
     return CreatorScore(
         fit=round(fit, 4),
