@@ -132,7 +132,7 @@ Known gaps in what's built:
 | K12 | Frontend bugs found while wiring the new engine: `getCountryCode` sends country names the backend can't map, and the brief form sends a hard-coded website. Fix in `results-ui` (F1.12) | next |
 | K13 | First live runs (Nov 3): most YouTube candidates fail the minimum-subscriber check (84 of 114), because channel search on sentence-like queries returns few channels. The top-up round (video search by views) doubled the leads (8 → 16). Next: shorter channel-search queries in the strategy prompt, and track pass rate per query | next |
 | K14 | No result reached "Strong Buy" in the first live runs (top 63.9, "Consider"). Check the label thresholds as part of K6 | next |
-| K15 | Neon branch names don't match what's live: the app uses the branch named `dev ` (trailing space, endpoint `ep-calm-sky`); the branch named `production` is stale (first migration only, unused since Sep 28). Rename in the Neon console when convenient; nothing is broken | later (user) |
+| K15 | Neon branches renamed (Nov 4): the live branch is now `production` (default, endpoint `ep-calm-sky`). The old root branch can't be deleted (Neon never deletes a project's root branch), so it's renamed `old-production-unused`; its data (April) is all in `production` | done |
 | K3 | Route models for `strategy`, `pitch`, `reply` are placeholders (current Gemini first); pick them with the LangSmith evals | next |
 
 ## Open questions waiting on the user
