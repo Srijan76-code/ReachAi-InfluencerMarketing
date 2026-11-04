@@ -7,14 +7,18 @@ description: The discovery engine, and the measured numbers behind it.
 
 Each step narrows the list before a more expensive one runs. AI only writes text for the creators you'll actually contact.
 
-<Flow steps={[
-  { title: "Understand the brief", detail: "Topics, buyer problems, short search terms.", tag: "LLM, once" },
-  { title: "Search", detail: "Every platform in parallel; results that several searches agree on rank first.", tag: "Platform API" },
-  { title: "Check & measure", detail: "Size and country first, then views, engagement, activity.", tag: "Code" },
-  { title: "Shortlist", detail: "Closest content to your brief.", tag: "Embeddings" },
-  { title: "Judge", detail: "Fit, audience, brand safety, real person.", tag: "Jev" },
-  { title: "Score & explain", detail: "Final score and fair price; a reason for the top picks.", tag: "Code · LLM" },
-]} />
+<Mermaid chart={`
+flowchart TD
+  A([Your brief]) --> S[Plan the search<br/>AI, once per brief]
+  S --> Y[YouTube] & X[X] & L[LinkedIn] & I[Instagram]
+  Y & X & L & I --> C{Right size<br/>and country?}
+  C -- no --> Z[Skipped, costs nothing more]
+  C -- yes --> M[Measure views,<br/>engagement, activity]
+  M --> H[Shortlist the<br/>closest content]
+  H --> J[Judge fit and risk<br/>Jev]
+  J --> F[Score and fair price]
+  F --> W([Your list, with a reason<br/>for the top picks])
+`} caption="X, Instagram and LinkedIn are coming soon; YouTube is live." />
 
 | Who does it | What it does | Why |
 |---|---|---|
@@ -29,11 +33,18 @@ Each step narrows the list before a more expensive one runs. AI only writes text
 - **Runs pick up where they stopped.** If anything fails, the retry continues from the last finished step.
 - **Repeat searches are faster.** Briefs, searches, judgments and creator data are remembered.
 
+<Mermaid chart={`
+flowchart LR
+  A[Step 1 done] --> B[Step 2 done] --> C[Step 3 fails]
+  C -- retry --> D[Resume at step 3<br/>steps 1-2 not redone]
+  D --> E([Finished])
+`} />
+
 ## The numbers
 
 <Stats items={[
-  { value: "$5 → <1¢", label: "AI cost per search", note: "v1 vs today, logged per call" },
-  { value: "4 min → <30 s", label: "search time", note: "v1 vs live runs today (10–30 s)" },
+  { value: "$5 → < $0.01", label: "AI cost per search", note: "v1 vs today, logged per call" },
+  { value: "< 30 s", label: "search time (was 4+ min)", note: "Live runs today: 10–30 s" },
   { value: "7.7 → 0.6 s", label: "first load after idle", note: "Production, measured" },
   { value: "233", label: "automated tests", note: "No live API calls in tests" },
 ]} />

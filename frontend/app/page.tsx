@@ -17,7 +17,7 @@ export default function Home() {
             Coming soon
           </h1>
           <p className="text-[15px] leading-relaxed text-zinc-500 dark:text-zinc-400 text-balance">
-            Creator marketing for founders. Find the creators who will actually convert for your product,
+            Influencer marketing for founders. Find the creators who will actually convert for your product,
             see what each one should cost, and reach them from one place.
           </p>
         </div>
