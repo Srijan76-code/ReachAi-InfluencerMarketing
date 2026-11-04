@@ -1,4 +1,16 @@
+"use client";
+
+import { useState } from "react";
 import { CreatorAvatar } from "@/components/CreatorAvatar";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+
+const PLATFORM_NAMES: Record<string, string> = { youtube: "YouTube", instagram: "Instagram", x: "X", linkedin: "LinkedIn" };
+
+/** A bigger version of a profile photo: YouTube photo links carry their size (=s88), so ask for 800px. */
+function largePhoto(url?: string | null): string | undefined {
+  if (!url) return undefined;
+  return /=s\d+/.test(url) ? url.replace(/=s\d+/, "=s800") : url;
+}
 import { CreatorBadges, badgeFlags } from "@/components/CreatorBadges";
 import { 
   SheetContent, 
@@ -53,6 +65,8 @@ export const InfluencerDetailSheet = ({
   const { metrics, socials, title, deal_status, score_breakdown } = influencer;
   // the creator's channel: stored URL (new engine) or built from the channel id (older results)
   const channelUrl = influencer.url || `https://www.youtube.com/channel/${influencer.id}`;
+  const platformName = PLATFORM_NAMES[(influencer.platform || "youtube").toLowerCase()] ?? "their channel";
+  const [photoOpen, setPhotoOpen] = useState(false);
   const fresh = influencer.data_expired ? null : freshness(influencer.data_as_of);
   const trend = influencer.data_expired ? null : trendLabel(influencer.trend);
   const parts = influencer.score_parts && typeof influencer.score_parts.fit === "number" ? influencer.score_parts : null;
@@ -78,11 +92,37 @@ export const InfluencerDetailSheet = ({
 
           <div className="flex items-start justify-between pr-8">
             <div className="flex items-start gap-4">
-              <CreatorAvatar
-                name={title}
-                src={influencer.avatar_url}
-                className="w-12 h-12 rounded bg-zinc-100 dark:bg-zinc-800/50 border border-zinc-300 dark:border-zinc-700/50 flex items-center justify-center text-lg font-medium text-zinc-600 dark:text-zinc-400 shrink-0"
-              />
+              {influencer.avatar_url ? (
+                <button
+                  type="button"
+                  onClick={() => setPhotoOpen(true)}
+                  aria-label={`Open ${title}'s photo`}
+                  title="Open photo"
+                  className="shrink-0 rounded cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
+                >
+                  <CreatorAvatar
+                    name={title}
+                    src={influencer.avatar_url}
+                    className="w-12 h-12 rounded bg-zinc-100 dark:bg-zinc-800/50 border border-zinc-300 dark:border-zinc-700/50 flex items-center justify-center text-lg font-medium text-zinc-600 dark:text-zinc-400 shrink-0 hover:opacity-90 transition-opacity"
+                  />
+                </button>
+              ) : (
+                <CreatorAvatar
+                  name={title}
+                  src={influencer.avatar_url}
+                  className="w-12 h-12 rounded bg-zinc-100 dark:bg-zinc-800/50 border border-zinc-300 dark:border-zinc-700/50 flex items-center justify-center text-lg font-medium text-zinc-600 dark:text-zinc-400 shrink-0"
+                />
+              )}
+              <Dialog open={photoOpen} onOpenChange={setPhotoOpen}>
+                <DialogContent className="sm:max-w-sm p-3 bg-white dark:bg-[#0c0d0e]">
+                  <DialogTitle className="sr-only">{title}</DialogTitle>
+                  {/* eslint-disable-next-line @next/next/no-img-element -- remote platform photo */}
+                  <img src={largePhoto(influencer.avatar_url)} alt={title} referrerPolicy="no-referrer" className="w-full aspect-square object-cover rounded-md bg-zinc-100 dark:bg-zinc-900" />
+                  <a href={channelUrl} target="_blank" rel="noopener noreferrer" className="text-center text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:underline">
+                    {title} on {platformName}
+                  </a>
+                </DialogContent>
+              </Dialog>
               
               <div className="flex flex-col gap-2 pt-0.5">
                 <div className="flex items-center gap-3">
@@ -210,57 +250,39 @@ export const InfluencerDetailSheet = ({
             </p>
           </section>
 
-          {/* BRAND FIT SCORING */}
+          {/* POSTS: the evidence right after the fit analysis */}
           <hr className="border-zinc-200/80 dark:border-zinc-800/60" />
           <section className="space-y-3">
-            <h3 className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-2">
-              <Target size={14} className="text-blue-500" />
-              Intelligence Diagnostics
-            </h3>
-            {parts && (
-              <div className="space-y-2">
-                <p className="text-[12px] text-zinc-500">Why this score</p>
-                <ScoreParts parts={parts} finalScore={influencer.final_score} />
+            <div className="flex items-center justify-between">
+              <h3 className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-2">
+                <PlayCircle size={14} className="text-amber-500" />
+                {posts.length > 0 ? "Posts" : "Recent Content"}
+              </h3>
+              <a href={platformName === "YouTube" ? `${channelUrl}/videos` : channelUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors flex items-center gap-1 group">
+                View on {platformName} <ExternalLink size={11} className="group-hover:translate-x-0.5 transition-transform" />
+              </a>
+            </div>
+            
+            {posts.length > 0 ? (
+              <PostTabs posts={posts} signals={influencer.signals} fallbackUrl={`${channelUrl}/videos`} />
+            ) : (
+              <div className="rounded border border-zinc-200/60 dark:border-zinc-800/60 bg-zinc-100 dark:bg-[#121314] overflow-hidden divide-y divide-zinc-800/60">
+                {influencer.recent_videos.slice(0, 5).map((video, i) => (
+                  <a key={i} href={video.url || `${channelUrl}/videos`} target="_blank" rel="noopener noreferrer" title={video.url ? "Watch on YouTube" : "Open the channel's videos"} className="flex items-center justify-between p-3 hover:bg-zinc-100/30 dark:hover:bg-zinc-800/30 transition-colors group cursor-pointer">
+                    <div className="flex items-center gap-3 overflow-hidden">
+                      <PlayCircle size={14} className="text-zinc-400 dark:text-zinc-600 group-hover:text-zinc-600 dark:group-hover:text-zinc-400 shrink-0 transition-colors" />
+                      <span className="text-[12px] text-zinc-700 dark:text-zinc-300 truncate group-hover:text-zinc-900 dark:group-hover:text-zinc-100 transition-colors">{video.title}</span>
+                    </div>
+                    <span className="font-mono text-[11px] text-zinc-500 shrink-0 ml-4 group-hover:text-zinc-600 dark:group-hover:text-zinc-400 transition-colors">
+                      {(video.views / 1000).toFixed(1)}k
+                    </span>
+                  </a>
+                ))}
               </div>
             )}
-            <div className="grid grid-cols-2 gap-4">
-              
-              <div className="space-y-2.5 bg-zinc-100 dark:bg-[#121314] p-3.5 rounded border border-zinc-200/60 dark:border-zinc-800/60">
-                 <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[12px] font-medium text-zinc-700 dark:text-zinc-300">Brand Fit</span>
-                      <Tooltip>
-                        <TooltipTrigger asChild><Info size={12} className="text-zinc-400 dark:text-zinc-600 cursor-help hover:text-zinc-600 dark:hover:text-zinc-400 transition-colors" /></TooltipTrigger>
-                        <TooltipContent side="top" className="bg-zinc-100 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700 text-xs shadow-xl max-w-[200px] text-zinc-700 dark:text-zinc-300">Tells you how perfectly this creator matches your specific campaign goals.</TooltipContent>
-                      </Tooltip>
-                    </div>
-                    <span className="text-[12px] font-mono font-medium text-zinc-600 dark:text-zinc-400">{score_breakdown.strategy_score}%</span>
-                 </div>
-                 <div className="h-1 w-full bg-zinc-100/80 dark:bg-zinc-800/80 rounded-full overflow-hidden">
-                    <div className="h-full bg-blue-500 rounded-full" style={{ width: `${score_breakdown.strategy_score}%` }} />
-                 </div>
-              </div>
-
-              <div className="space-y-2.5 bg-zinc-100 dark:bg-[#121314] p-3.5 rounded border border-zinc-200/60 dark:border-zinc-800/60">
-                 <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[12px] font-medium text-zinc-700 dark:text-zinc-300">Health</span>
-                      <Tooltip>
-                        <TooltipTrigger asChild><Info size={12} className="text-zinc-400 dark:text-zinc-600 cursor-help hover:text-zinc-600 dark:hover:text-zinc-400 transition-colors" /></TooltipTrigger>
-                        <TooltipContent side="top" className="bg-zinc-100 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700 text-xs shadow-xl max-w-[200px] text-zinc-700 dark:text-zinc-300">Tells you if their audience is authentic and safe from bots or fake engagement.</TooltipContent>
-                      </Tooltip>
-                    </div>
-                    <span className="text-[12px] font-mono font-medium text-zinc-600 dark:text-zinc-400">{score_breakdown.health_score}%</span>
-                 </div>
-                 <div className="h-1 w-full bg-zinc-100/80 dark:bg-zinc-800/80 rounded-full overflow-hidden">
-                    <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${score_breakdown.health_score}%` }} />
-                 </div>
-              </div>
-
-            </div>
           </section>
-
-          {/* ROI METRICS GRID */}
+          {/* METRICS */}
+          <hr className="border-zinc-200/80 dark:border-zinc-800/60" />
           <section className="space-y-3">
             <h3 className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-2">
               <BarChart2 size={14} className="text-indigo-400" />
@@ -322,37 +344,55 @@ export const InfluencerDetailSheet = ({
             </div>
           </section>
 
-          {/* RECENT PERFORMANCE LIST */}
+          {/* WHY THIS SCORE: detail for whoever wants it */}
           <hr className="border-zinc-200/80 dark:border-zinc-800/60" />
           <section className="space-y-3 pb-6">
-            <div className="flex items-center justify-between">
-              <h3 className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-2">
-                <PlayCircle size={14} className="text-amber-500" />
-                {posts.length > 0 ? "Posts" : "Recent Content"}
-              </h3>
-              <a href={`${channelUrl}/videos`} target="_blank" rel="noopener noreferrer" className="text-[11px] font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors flex items-center gap-1 group">
-                Full Analytics <ExternalLink size={11} className="group-hover:translate-x-0.5 transition-transform" />
-              </a>
-            </div>
-            
-            {posts.length > 0 ? (
-              <PostTabs posts={posts} signals={influencer.signals} fallbackUrl={`${channelUrl}/videos`} />
-            ) : (
-              <div className="rounded border border-zinc-200/60 dark:border-zinc-800/60 bg-zinc-100 dark:bg-[#121314] overflow-hidden divide-y divide-zinc-800/60">
-                {influencer.recent_videos.slice(0, 5).map((video, i) => (
-                  <a key={i} href={video.url || `${channelUrl}/videos`} target="_blank" rel="noopener noreferrer" title={video.url ? "Watch on YouTube" : "Open the channel's videos"} className="flex items-center justify-between p-3 hover:bg-zinc-100/30 dark:hover:bg-zinc-800/30 transition-colors group cursor-pointer">
-                    <div className="flex items-center gap-3 overflow-hidden">
-                      <PlayCircle size={14} className="text-zinc-400 dark:text-zinc-600 group-hover:text-zinc-600 dark:group-hover:text-zinc-400 shrink-0 transition-colors" />
-                      <span className="text-[12px] text-zinc-700 dark:text-zinc-300 truncate group-hover:text-zinc-900 dark:group-hover:text-zinc-100 transition-colors">{video.title}</span>
-                    </div>
-                    <span className="font-mono text-[11px] text-zinc-500 shrink-0 ml-4 group-hover:text-zinc-600 dark:group-hover:text-zinc-400 transition-colors">
-                      {(video.views / 1000).toFixed(1)}k
-                    </span>
-                  </a>
-                ))}
+            <h3 className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-2">
+              <Target size={14} className="text-blue-500" />
+              Why this score
+            </h3>
+            {parts && (
+              <div className="space-y-2">
+                <ScoreParts parts={parts} finalScore={influencer.final_score} />
               </div>
             )}
+            <div className="grid grid-cols-2 gap-4">
+              
+              <div className="space-y-2.5 bg-zinc-100 dark:bg-[#121314] p-3.5 rounded border border-zinc-200/60 dark:border-zinc-800/60">
+                 <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[12px] font-medium text-zinc-700 dark:text-zinc-300">Brand Fit</span>
+                      <Tooltip>
+                        <TooltipTrigger asChild><Info size={12} className="text-zinc-400 dark:text-zinc-600 cursor-help hover:text-zinc-600 dark:hover:text-zinc-400 transition-colors" /></TooltipTrigger>
+                        <TooltipContent side="top" className="bg-zinc-100 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700 text-xs shadow-xl max-w-[200px] text-zinc-700 dark:text-zinc-300">Tells you how perfectly this creator matches your specific campaign goals.</TooltipContent>
+                      </Tooltip>
+                    </div>
+                    <span className="text-[12px] font-mono font-medium text-zinc-600 dark:text-zinc-400">{score_breakdown.strategy_score}%</span>
+                 </div>
+                 <div className="h-1 w-full bg-zinc-100/80 dark:bg-zinc-800/80 rounded-full overflow-hidden">
+                    <div className="h-full bg-blue-500 rounded-full" style={{ width: `${score_breakdown.strategy_score}%` }} />
+                 </div>
+              </div>
+
+              <div className="space-y-2.5 bg-zinc-100 dark:bg-[#121314] p-3.5 rounded border border-zinc-200/60 dark:border-zinc-800/60">
+                 <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[12px] font-medium text-zinc-700 dark:text-zinc-300">Health</span>
+                      <Tooltip>
+                        <TooltipTrigger asChild><Info size={12} className="text-zinc-400 dark:text-zinc-600 cursor-help hover:text-zinc-600 dark:hover:text-zinc-400 transition-colors" /></TooltipTrigger>
+                        <TooltipContent side="top" className="bg-zinc-100 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700 text-xs shadow-xl max-w-[200px] text-zinc-700 dark:text-zinc-300">Tells you if their audience is authentic and safe from bots or fake engagement.</TooltipContent>
+                      </Tooltip>
+                    </div>
+                    <span className="text-[12px] font-mono font-medium text-zinc-600 dark:text-zinc-400">{score_breakdown.health_score}%</span>
+                 </div>
+                 <div className="h-1 w-full bg-zinc-100/80 dark:bg-zinc-800/80 rounded-full overflow-hidden">
+                    <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${score_breakdown.health_score}%` }} />
+                 </div>
+              </div>
+
+            </div>
           </section>
+
 
         </div>
       </SheetContent>

@@ -39,24 +39,37 @@ export function knownFlags(flags: string[] | undefined | null): string[] {
   return (flags ?? []).filter((f) => f in BADGES);
 }
 
-export function CreatorBadges({ flags, size = "sm" }: { flags?: string[] | null; size?: "sm" | "md" }) {
+/** `compact`: with many badges, show each as a small coloured icon (name and meaning on hover), so
+ *  every badge stays visible on one line. "auto" turns compact on at 3 or more badges. */
+export function CreatorBadges({ flags, size = "sm", compact = false }: {
+  flags?: string[] | null;
+  size?: "sm" | "md";
+  compact?: boolean | "auto";
+}) {
   const shown = knownFlags(flags);
   if (!shown.length) return null;
+  const iconOnly = compact === "auto" ? shown.length >= 3 : compact;
   const text = size === "sm" ? "text-[9px]" : "text-[11px]";
   return (
-    <span className="inline-flex flex-wrap items-center gap-1">
+    <span className={`inline-flex items-center gap-1 ${iconOnly ? "flex-nowrap" : "flex-wrap"}`}>
       {shown.map((f) => {
         const b = BADGES[f];
         const Icon = b.icon;
         return (
           <Tooltip key={f}>
             <TooltipTrigger asChild>
-              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[4px] border font-semibold tracking-wide cursor-help ${text} ${b.className}`}>
-                <Icon size={size === "sm" ? 9 : 11} aria-hidden />
-                {b.label}
+              <span
+                aria-label={b.label}
+                className={`inline-flex items-center gap-1 rounded-[4px] border font-semibold tracking-wide cursor-help whitespace-nowrap ${iconOnly ? "p-[3px]" : "px-1.5 py-0.5"} ${text} ${b.className}`}
+              >
+                <Icon size={size === "sm" ? (iconOnly ? 10 : 9) : 11} aria-hidden />
+                {!iconOnly && b.label}
               </span>
             </TooltipTrigger>
-            <TooltipContent side="top" className="max-w-[220px] text-xs">{b.help}</TooltipContent>
+            <TooltipContent side="top" className="max-w-[220px] text-xs">
+              {iconOnly && <span className="block font-semibold mb-0.5">{b.label}</span>}
+              {b.help}
+            </TooltipContent>
           </Tooltip>
         );
       })}

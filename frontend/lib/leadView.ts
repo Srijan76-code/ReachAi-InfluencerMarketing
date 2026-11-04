@@ -40,7 +40,7 @@ export const DEFAULT_VIEW: LeadView = {
   savedOnly: false,
 };
 
-/** Number of filters that differ from the default (sort and search are not counted). */
+/** Number of filters that differ from the default (sort, search and the All | Shortlist switch are not counted). */
 export function activeFilterCount(v: LeadView): number {
   return (
     Number(v.confidence !== "All") +
@@ -49,8 +49,7 @@ export function activeFilterCount(v: LeadView): number {
     Number(v.platforms.length > 0) +
     Number(v.rising) +
     Number(v.onTrend) +
-    Number(v.hideSuspicious) +
-    Number(v.savedOnly)
+    Number(v.hideSuspicious)
   );
 }
 

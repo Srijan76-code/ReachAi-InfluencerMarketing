@@ -238,7 +238,7 @@ export default function DemoCampaign() {
                     <Sheet key={lead.id}>
                       <SheetTrigger asChild>
                         <div>
-                          <InfluencerRow influencer={lead} rank={index + 1} />
+                          <InfluencerRow influencer={lead} rank={index + 1} readOnly />
                         </div>
                       </SheetTrigger>
                       <InfluencerDetailSheet influencer={lead} />

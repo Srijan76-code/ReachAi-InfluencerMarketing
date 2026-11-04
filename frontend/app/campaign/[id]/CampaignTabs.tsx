@@ -2,50 +2,29 @@
 
 import React from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
-  Search,
-  Sun,
   LayoutGrid,
   Users,
   Send,
-  PlusCircle,
 } from "lucide-react";
-import { HoverButton } from "@/components/buttons/HoverButton";
-import { useApi } from "@/lib/api";
 
 interface PageProps {
   id: string;
 }
 
+// One tab per step of a campaign (max 5: Brief, Creators, Outreach, then Deals and Results when they
+// ship). Things that span campaigns (New campaign, Docs, account) live in the main navbar.
 const NAV_ITEMS = [
-  { name: "Details", path: "details", icon: LayoutGrid },
-  { name: "Leads", path: "leads", icon: Users },
+  { name: "Brief", path: "details", icon: LayoutGrid },
+  { name: "Creators", path: "leads", icon: Users },
   { name: "Outreach", path: "outreach", icon: Send },
 ];
 
 const CampaignTabs = ({ id }: PageProps) => {
   const pathname = usePathname();
-  const router = useRouter();
-  const api = useApi();
 
-  const handleCreateNewCampaign = async () => {
-    try {
-      const res = await api("/api/campaigns/create", { method: "POST" });
-      if (res.data && res.data.campaign_id) {
-        router.push(`/campaign/${res.data.campaign_id}/details`);
-      }
-    } catch (err) {
-      console.error("Error creating new campaign:", err);
-      window.alert(
-        err instanceof Error
-          ? err.message
-          : "Unable to create campaign. Please refresh and sign in again.",
-      );
-    }
-  };
 
   return (
     <div className="fixed top-6 inset-x-0 bg-transparent z-30 h-16 flex px-0 pointer-events-none ">
@@ -141,10 +120,10 @@ const CampaignTabs = ({ id }: PageProps) => {
           </div>
 
           <div className="relative w-full h-full flex items-end justify-between pb-2.5 px-6">
-            <nav className="flex items-center gap-6 mb-0.5 border-r pr-8 mb-1">
+            <nav className="flex items-center gap-6 mb-1 mx-auto">
               {NAV_ITEMS.map((item) => {
                 const href = `/campaign/${id}/${item.path}`;
-                const isActive = pathname === href;
+                const isActive = pathname === href || pathname?.startsWith(`${href}/`);
                 return (
                   <Link
                     key={item.name}
@@ -176,23 +155,7 @@ const CampaignTabs = ({ id }: PageProps) => {
 
             </nav>
 
-            {/* <div className="flex text-xs justify-end items-center "> */}
-            <HoverButton
-              className="!bg-zinc-50 dark:!bg-[#08090a] z-50 border-neutral-200 dark:border-black text-neutral-900 dark:text-neutral-200 h-8 flex items-center justify-center px-3"
-              glowColor="rgba(255, 255, 255, 0.2)"
-              hoverTextColor="white"
 
-              onClick={handleCreateNewCampaign}>
-              <div className="flex justify-end items-center gap-2 text-xs">
-                <PlusCircle className="w-3 h-3" />
-                <p>New Campaign</p>
-              </div>
-            </HoverButton>
-            {/* <div className="h-4 w-[1px] bg-zinc-200 dark:bg-zinc-800" /> */}
-            {/* <button className="p-1.5 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors">
-                <Sun size={16} />
-              </button> */}
-            {/* </div> */}
           </div>
         </div>
 

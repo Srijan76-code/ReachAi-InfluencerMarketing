@@ -11,7 +11,6 @@ import {
   ArrowUpAZ,
   ArrowUpWideNarrow,
   Plus,
-  PlusCircle,
   Search,
   SlidersHorizontal,
   SlidersVertical,
@@ -29,7 +28,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { HoverButton } from "@/components/buttons/HoverButton";
 import { useApi } from "@/lib/api";
 
 type StatusFilter = "all" | CampaignStatus;
@@ -122,21 +120,6 @@ const CampaignPage: React.FC = () => {
     }
   };
 
-  const handleCreateCampaign = async () => {
-    try {
-      const res = await api("/api/campaigns/create", { method: "POST" });
-      if (res.data && res.data.campaign_id) {
-        router.push(`/campaign/${res.data.campaign_id}/details`);
-      }
-    } catch (err) {
-      console.error("Error creating campaign:", err);
-      window.alert(
-        err instanceof Error
-          ? err.message
-          : "Unable to create campaign. Please refresh and sign in again.",
-      );
-    }
-  };
 
   const filteredCampaigns = campaigns
     .filter((c) => {
@@ -249,20 +232,7 @@ const CampaignPage: React.FC = () => {
                 />
               </div>
             </div>
-            {/* New Campaign button */}
 
-            <HoverButton
-              onClick={handleCreateCampaign}
-              className="!bg-zinc-50 dark:!bg-[#08090a] border-neutral-200 dark:border-neutral-800/80 text-neutral-900 dark:text-neutral-200 rounded-lg shadow-sm h-8 flex items-center justify-center px-3"
-              glowColor="rgba(255, 255, 255, 0.2)"
-              hoverTextColor="white"
-
-            >
-              <div className="flex gap-2 text-xs py-0.5 items-center">
-                <PlusCircle className="w-3 h-3" />
-                <p>New Campaign</p>
-              </div>
-            </HoverButton>
           </div>
         </div>
 
