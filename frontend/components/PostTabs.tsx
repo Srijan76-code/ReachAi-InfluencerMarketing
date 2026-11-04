@@ -4,6 +4,7 @@ import type React from "react";
 import { useEffect, useState } from "react";
 import { PlayCircle, BadgeDollarSign, Eye, Target } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Segmented } from "@/components/ui/segmented";
 import type { PostCard, PostSignals } from "@/data/influencerList";
 import { ABOVE_USUAL_FROM, age, compact, defaultTab, postsFor, type PostTab } from "@/lib/posts";
 
@@ -80,20 +81,13 @@ export function PostTabs({ posts, signals, fallbackUrl }: { posts: PostCard[]; s
         </div>
       )}
 
-      <div role="tablist" aria-label="Posts" className="flex items-center gap-1 p-0.5 rounded-md bg-zinc-100 dark:bg-zinc-900/60 border border-zinc-200/60 dark:border-zinc-800/60 w-fit">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            role="tab"
-            type="button"
-            aria-selected={tab === t.key}
-            onClick={() => setTab(t.key)}
-            className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${tab === t.key ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-sm" : "text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"}`}
-          >
-            {t.label} <span className="font-mono opacity-60">{counts[t.key]}</span>
-          </button>
-        ))}
-      </div>
+      <Segmented
+        label="Posts"
+        size="sm"
+        value={tab}
+        onChange={setTab}
+        options={TABS.map((t) => ({ value: t.key, label: t.label, count: counts[t.key] }))}
+      />
 
       <div role="tabpanel" className="rounded border border-zinc-200/60 dark:border-zinc-800/60 bg-zinc-100 dark:bg-[#121314] overflow-hidden divide-y divide-zinc-200/60 dark:divide-zinc-800/60">
         {shown.length === 0 ? (

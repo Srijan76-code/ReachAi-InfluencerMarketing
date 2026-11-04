@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { SpeedInsights } from "@vercel/speed-insights/next"
 import { Analytics } from "@vercel/analytics/next"
 import Header from "@/components/Header";
+import { Feel } from "@/components/Feel";
 import {
   ClerkProvider,
   Show,
@@ -45,9 +46,11 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-            <Header />
+            <Feel>
+              <Header />
 
-            <div className="bg-zinc-50 dark:bg-[#08090a]">{children}</div>
+              <div className="bg-zinc-50 dark:bg-[#08090a]">{children}</div>
+            </Feel>
             <SpeedInsights />
             <Analytics />
           </ThemeProvider>
