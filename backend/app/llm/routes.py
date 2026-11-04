@@ -48,13 +48,13 @@ CEREBRAS_GPT_OSS = ModelSpec(
 )
 GEMINI_FLASH_LITE = ModelSpec(
     provider="google",
-    model="gemini-3.5-flash-lite",  # the model the current pipeline uses
+    model="gemini-3.5-flash-lite",  # the model outreach has used so far
     vendor="google",
     api_key_env="GOOGLE_API_KEY",
 )
 GEMINI_FLASH = ModelSpec(
     provider="google",
-    model="gemini-3.8-flash",  # the model the current outreach pipeline uses
+    model="gemini-3.8-flash",
     vendor="google",
     api_key_env="GOOGLE_API_KEY",
 )
@@ -64,9 +64,9 @@ GEMINI_FLASH = ModelSpec(
 ROUTES: dict[str, list[ModelSpec]] = {
     "strategy": [GEMINI_FLASH, GROQ_GPT_OSS, CEREBRAS_GPT_OSS],
     "brief": [GROQ_GPT_OSS, CEREBRAS_GPT_OSS, GEMINI_FLASH_LITE],
-    "pitch": [GEMINI_FLASH, GROQ_GPT_OSS],
+    "pitch": [GEMINI_FLASH_LITE, GROQ_GPT_OSS],  # unchanged model until K3's evals pick one
     "reply": [GEMINI_FLASH, GROQ_GPT_OSS],
-    "judge_eval": [GEMINI_FLASH],
+    "judge_eval": [GEMINI_FLASH_LITE],
     "fit_fallback": [GROQ_GPT_OSS, CEREBRAS_GPT_OSS, GEMINI_FLASH_LITE],
 }
 

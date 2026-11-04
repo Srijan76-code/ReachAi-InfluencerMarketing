@@ -123,7 +123,7 @@ Known gaps in what's built:
 | ID | Issue | Status |
 |---|---|---|
 | K1 | Eval test fixture had no "collaboration" wording and exposed package terms; fixed the fixture and added edge-case tests (`foundations`) | done |
-| K2 | Outreach nodes (`generate_creator_pitch`, `repair_creator_pitch`) and the eval judge still call `app/core/model.py` directly; move them to `app/llm` routes (`pitch`) with the K3 model choice, then delete `app/core/model.py` | next |
+| K2 | Outreach (`generate_creator_pitch`, `repair_creator_pitch`) and the eval judge now call `app/llm` (routes `pitch`, `judge_eval`) with cost logging per outreach job; `app/core/model.py` removed. Same model as before (gemini-3.5-flash-lite) until K3 picks one (`outreach-llm`) | done |
 | K6 | Tune Jev questions and thresholds on ~300 AI-labelled creators (user spot-checks 20%). First live check (3 real creators, Nov 3): `safety_risk` 1.43 for purely technical LLM videos (Ayush Singh) is a misread: reword the safety question with concrete examples; `posts_on_trend` ~0.6 for all three: raise `TREND_THRESHOLD` or tighten the question | next |
 | K7 | `outreach_pitches` index name differs between the old migration (`ix_outreach_pitches_job_id`) and the model (`ix_outreach_pitches_outreach_job_id`); `alembic check` reports it. Harmless; align with a tiny migration later | later |
 | K8 | Production database migrated to head (`e4b8c1d6a2f9`) on Nov 4 through the Neon connector. Vercel deploys don't run migrations: apply each new migration the same way | done |

@@ -4,7 +4,7 @@ from typing import Any, Dict, List
 
 from pydantic import BaseModel, Field
 
-from app.core.model import model
+from app.llm.client import achat
 
 
 class OutreachJudgeScore(BaseModel):
@@ -55,9 +55,7 @@ GENERATED OUTPUT:
 
 
 async def judge_pitch(case: Dict[str, Any], output: Dict[str, Any]) -> OutreachJudgeScore:
-    structured_model = model.with_structured_output(OutreachJudgeScore)
-    result = await asyncio.to_thread(structured_model.invoke, _judge_prompt(case, output))
-    return result if isinstance(result, OutreachJudgeScore) else OutreachJudgeScore.model_validate(result)
+    return await achat("judge_eval", _judge_prompt(case, output), OutreachJudgeScore)
 
 
 def aggregate_judge_score(score: OutreachJudgeScore) -> float:
