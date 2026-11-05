@@ -63,19 +63,19 @@ def verdict(r: Row, avg_cost_per: Optional[float], goal_kind: str, now: datetime
     result against the campaign's typical (median) cost per result."""
     live = [p for p in r.posts if p.get("live_at")]
     if not live or all((_age(p["live_at"], now) or 0) < T.TOO_EARLY_DAYS for p in live):
-        return "too_early", "Wait a few days after the post is live."
+        return "too_early", "Live for under 3 days"
     views = sum(p.get("views") or 0 for p in live)
     expected = (r.typical_views or 0) * len(live)
     ratio = views / expected if expected else None
     res = results_of(r, goal_kind)
     cost_per = r.cost / res if res else None
     if (ratio is not None and ratio >= T.REBOOK_VIEWS_RATIO) or (cost_per and avg_cost_per and cost_per <= T.REBOOK_COST_RATIO * avg_cost_per):
-        why = f"{ratio:.1f}× the views we expected" if ratio and ratio >= T.REBOOK_VIEWS_RATIO else "cheaper per result than your typical creator"
-        return "rebook", why[0].upper() + why[1:] + "."
+        why = f"{ratio:.1f}× expected views" if ratio and ratio >= T.REBOOK_VIEWS_RATIO else "Cheaper per result than most"
+        return "rebook", why[0].upper() + why[1:]
     if (ratio is not None and ratio < T.SKIP_VIEWS_RATIO) or (cost_per and avg_cost_per and cost_per >= T.SKIP_COST_RATIO * avg_cost_per):
-        why = f"only {ratio:.0%} of the views we expected" if ratio is not None and ratio < T.SKIP_VIEWS_RATIO else "costly per result next to your typical creator"
-        return "skip", why[0].upper() + why[1:] + "."
-    return "ok", "About what we expected."
+        why = f"{ratio:.0%} of expected views" if ratio is not None and ratio < T.SKIP_VIEWS_RATIO else "Costlier per result than most"
+        return "skip", why[0].upper() + why[1:]
+    return "ok", "On par with expected views"
 
 
 def build(rows: list[Row], goal: dict, series_rows: dict, now: Optional[datetime] = None) -> dict:
@@ -214,10 +214,10 @@ def insights(rows: list[Row], posts: list[dict], creators: list[dict], kind: str
     if late:
         names = ", ".join(sorted({p["name"] for p in late})[:3])
         out.append({"kind": "late", "tone": "bad", "action": "remind",
-                    "text": f"{len(late)} {'post is' if len(late) == 1 else 'posts are'} late ({names}). Send a reminder from their chat."})
+                    "text": f"{len(late)} {'post' if len(late) == 1 else 'posts'} late · {names}"})
     if kind in ("signups", "sales") and live and not conversions_seen:
         out.append({"kind": "setup", "tone": "plain", "action": "setup",
-                    "text": f"Posts are live but no {kind} are counted yet. Set up counting to see which creators bring them."})
+                    "text": f"{kind.capitalize()} aren't being counted yet"})
     # cost per 1,000 views by format (a deal's cost split evenly over its posts)
     cost_per_post = {r.deal_id: (r.cost / len(r.posts) if r.posts else 0) for r in rows}
     by_fmt: dict = {}
@@ -232,7 +232,7 @@ def insights(rows: list[Row], posts: list[dict], creators: list[dict], kind: str
         if c2 >= 1.5 * c1:
             label = {"integration": "sponsored segments", "dedicated": "dedicated videos", "short": "shorts", "post": "posts", "story": "stories"}
             out.append({"kind": "format", "tone": "good", "action": None,
-                        "text": f"{label.get(cheap, cheap).capitalize()} cost {_money(c1)} per 1,000 views, against {_money(c2)} for {label.get(dear, dear)}."})
+                        "text": f"{label.get(cheap, cheap).capitalize()}: {_money(c1)} CPM vs {_money(c2)} for {label.get(dear, dear)}"})
     # smaller vs bigger channels, cost per result
     if kind != "views":
         groups: dict = {"small": [0.0, 0], "big": [0.0, 0]}
@@ -249,7 +249,7 @@ def insights(rows: list[Row], posts: list[dict], creators: list[dict], kind: str
                 better, ratio = ("Smaller channels", big / small) if small < big else ("Bigger channels", small / big)
                 one = kind[:-1]
                 out.append({"kind": "size", "tone": "good", "action": None,
-                            "text": f"{better} brought {kind} {ratio:.1f}× cheaper ({_money(min(small, big))} per {one} vs {_money(max(small, big))})."})
+                            "text": f"{better}: {_money(min(small, big))} per {one} vs {_money(max(small, big))}"})
     # who converts best
     if kind in ("signups", "sales"):
         conv = [(r.name, sum(p.get("views") or 0 for p in r.posts) / results_of(r, kind)) for r in rows
@@ -257,13 +257,13 @@ def insights(rows: list[Row], posts: list[dict], creators: list[dict], kind: str
         if len(conv) >= 2:
             name, per = min(conv, key=lambda x: x[1])
             out.append({"kind": "converter", "tone": "good", "action": None,
-                        "text": f"{name}'s audience converts best: 1 {kind[:-1]} per {int(per):,} views."})
+                        "text": f"{name} converts best: 1 {kind[:-1]} per {int(per):,} views"})
     # the standout post
     hot = [p for p in live if p.get("vs_usual") and p["vs_usual"] >= T.TRENDING_FROM]
     if hot:
         top = max(hot, key=lambda p: p["vs_usual"])
         out.append({"kind": "trending", "tone": "good", "action": None,
-                    "text": f"{top['name']}'s post is at {top['vs_usual']:.1f}× their usual views."})
+                    "text": f"{top['name']}'s video: {top['vs_usual']:.1f}× their average views"})
     # price paid against the fair price
     fair = [(r.cost, (r.fair_low + r.fair_high) / 2) for r in rows if r.cost and r.fair_low and r.fair_high]
     if len(fair) >= 2:
@@ -271,5 +271,5 @@ def insights(rows: list[Row], posts: list[dict], creators: list[dict], kind: str
         diff = (paid - mid) / mid
         if abs(diff) >= 0.1:
             out.append({"kind": "price", "tone": "good" if diff < 0 else "plain", "action": None,
-                        "text": f"You're paying {abs(diff):.0%} {'under' if diff < 0 else 'over'} the fair price on average."})
+                        "text": f"Paying {abs(diff):.0%} {'under' if diff < 0 else 'over'} fair price on average"})
     return out

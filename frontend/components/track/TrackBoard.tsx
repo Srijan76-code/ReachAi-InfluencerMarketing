@@ -12,7 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Field } from "@/components/ui/field";
 import { Select } from "@/components/ui/select";
 import { Segmented } from "@/components/ui/segmented";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useApi } from "@/lib/api";
 import { btn, btnPrimary, control } from "@/lib/ui";
 import { money } from "@/data/deals";
@@ -82,9 +82,9 @@ function Tile({ label, value, sub, prefix, suffix, decimals = 0, delay = 0 }: { 
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay, type: "spring", stiffness: 300, damping: 30 }}
       className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#0c0d0e] px-4 py-3.5">
       <p className="text-[11px] text-zinc-500">{label}</p>
-      <p className="text-[22px] font-medium text-zinc-900 dark:text-zinc-100 mt-1 leading-none">
+      <div className="text-[22px] font-medium text-zinc-900 dark:text-zinc-100 mt-1 leading-none">
         {value == null ? "—" : <NumberFlow value={value} prefix={prefix} suffix={suffix} format={{ notation: value >= 100000 ? "compact" : "standard", maximumFractionDigits: decimals, minimumFractionDigits: decimals }} />}
-      </p>
+      </div>
       {sub && <p className="text-[11px] text-zinc-500 mt-1.5 truncate">{sub}</p>}
     </motion.div>
   );
@@ -150,7 +150,7 @@ export default function TrackBoard({ campaignId, apiOverride }: { campaignId: st
       <div className="flex flex-col items-center justify-center text-center py-24 rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-800">
         <TrendingUp size={22} className="text-zinc-400 mb-3" />
         <p className="text-[13px] font-medium text-zinc-900 dark:text-zinc-100">Nothing to track yet</p>
-        <p className="text-xs text-zinc-500 mt-1 mb-4 max-w-sm">When you agree with a creator in Outreach, their posts, views, clicks and signups show up here, with who to pay.</p>
+        <p className="text-xs text-zinc-500 mt-1 mb-4">Agreed creators show up here.</p>
         <Link href={`/campaign/${campaignId}/outreach`} className={btn}>Go to Outreach</Link>
       </div>
     );
@@ -172,14 +172,18 @@ export default function TrackBoard({ campaignId, apiOverride }: { campaignId: st
                 { value: "posts", label: "Posts", count: track.posts.length }]} />
           </div>
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => setSetupOpen(true)} className={btn} title="How signups are counted">
+            <button type="button" onClick={() => setSetupOpen(true)} className={btn}>
               {track.snippet.seen_at ? <CheckCircle2 size={12} className="text-emerald-500" /> : <Plug size={12} />}
-              <span className="hidden sm:inline">{track.snippet.seen_at ? "Counting signups" : "Count signups"}</span>
+              <span className="hidden sm:inline">Count signups</span>
             </button>
-            <span className="text-[11px] text-zinc-500 hidden sm:inline">{checking ? "Checking for new posts…" : track.refreshed_at ? `Checked ${updatedLabel(track.refreshed_at)}` : ""}</span>
-            <button type="button" onClick={() => check(true)} disabled={checking} aria-label="Check now" className={btn}>
-              <RefreshCw size={12} className={checking ? "animate-spin" : ""} /> <span className="hidden sm:inline">Check now</span>
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button type="button" onClick={() => check(true)} disabled={checking} aria-label="Check for new posts" className={`${btn} !px-0 w-[30px]`}>
+                  <RefreshCw size={13} className={`shrink-0 ${checking ? "animate-spin" : ""}`} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="text-xs">{checking ? "Checking…" : track.refreshed_at ? `Updated ${updatedLabel(track.refreshed_at)}` : "Check for new posts"}</TooltipContent>
+            </Tooltip>
             <a href={`${process.env.NEXT_PUBLIC_BACKEND_URL ?? ""}/api/campaigns/${campaignId}/track.csv`} onClick={async (e) => {
               e.preventDefault(); // the download needs the sign-in token, so fetch it and save the file
               const r = await api(`/api/campaigns/${campaignId}/track.csv`, { responseType: "blob" });
@@ -189,7 +193,7 @@ export default function TrackBoard({ campaignId, apiOverride }: { campaignId: st
               a.download = "results.csv";
               a.click();
               URL.revokeObjectURL(url);
-            }} className={btn}><Download size={12} /> Results</a>
+            }} className={btn}><Download size={12} /> <span className="hidden sm:inline">Export</span></a>
           </div>
         </div>
 
@@ -202,17 +206,17 @@ export default function TrackBoard({ campaignId, apiOverride }: { campaignId: st
                 <p className="text-[11px] text-zinc-500">{track.goal.count ? "Goal" : "So far"}</p>
                 <GoalEditor key={JSON.stringify(track.goal)} track={track} api={api} campaignId={campaignId} onSaved={load} />
               </div>
-              <p className="text-zinc-900 dark:text-zinc-100 flex items-baseline gap-2">
+              <div className="text-zinc-900 dark:text-zinc-100 flex items-baseline gap-2">
                 <span className="text-[40px] font-medium leading-none tracking-tight"><NumberFlow value={t.results} format={{ notation: t.results >= 100000 ? "compact" : "standard" }} /></span>
                 <span className="text-sm text-zinc-500">{track.goal.count ? `of ${track.goal.count.toLocaleString()} ${g.label.toLowerCase()}` : g.label.toLowerCase()}</span>
-              </p>
+              </div>
               {paceTo != null && track.forecast?.by && (
                 <p className="text-xs text-zinc-500 mt-2 flex items-center gap-1.5">
                   <TrendingUp size={12} className="text-blue-500" /> On pace for ~{paceTo.toLocaleString()} by {new Date(track.forecast.by + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-                  <span className="text-zinc-400">(estimate)</span>
+                  <span className="text-zinc-400">est.</span>
                 </p>
               )}
-              {!track.goal.count && <p className="text-[11px] text-zinc-500 mt-2">Set a goal with the pencil to see your progress.</p>}
+              
             </div>
             <Segmented label="Chart" size="sm" value={metric} onChange={setMetric}
               options={[{ value: "results", label: track.goal.kind === "views" || track.goal.kind === "clicks" ? "Goal" : g.label }, { value: "views", label: "Views" }, { value: "clicks", label: "Clicks" }]} />
@@ -235,21 +239,21 @@ export default function TrackBoard({ campaignId, apiOverride }: { campaignId: st
                 </EvilAreaChart.Area>
               </EvilAreaChart>
             ) : (
-              <p className="absolute inset-0 flex items-center justify-center text-xs text-zinc-500">The chart fills in as posts go live.</p>
+              <p className="absolute inset-0 flex items-center justify-center text-xs text-zinc-500">No data yet</p>
             )}
           </div>
         </motion.section>
 
         {/* the four numbers */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <Tile label="Spent" value={t.spent} prefix="$" sub={track.budget ? `of ${money(track.budget)} budget` : `${money(t.paid)} paid so far`} />
-          <Tile label="Views" value={t.views} sub={t.cost_per_1k_views != null ? `$${t.cost_per_1k_views.toFixed(2)} per 1,000` : "From YouTube, daily"} delay={0.05} />
-          <Tile label="Clicks" value={t.clicks} sub="On their tracking links" delay={0.1} />
+          <Tile label="Spent" value={t.spent} prefix="$" sub={track.budget ? `of ${money(track.budget)}` : undefined} />
+          <Tile label="Views" value={t.views} sub={t.cost_per_1k_views != null ? `$${t.cost_per_1k_views.toFixed(2)} CPM` : undefined} delay={0.05} />
+          <Tile label="Clicks" value={t.clicks} sub={t.views ? `${((t.clicks / t.views) * 100).toFixed(2)}% CTR` : undefined} delay={0.1} />
           {t.return != null ? (
-            <Tile label="Return" value={t.return} suffix="×" decimals={1} sub={`${money(t.value)} back from ${money(t.spent)}`} delay={0.15} />
+            <Tile label="ROI" value={t.return} suffix="×" decimals={1} sub={`${money(t.value)} value`} delay={0.15} />
           ) : (
             <Tile label={`Cost per ${track.goal.kind === "views" || track.goal.kind === "clicks" ? "signup" : g.one}`} value={t.cost_per_result} prefix="$" decimals={2}
-              sub={t.signups || t.code_uses ? `${t.signups} signups · ${t.code_uses} code uses` : "Add the snippet to count signups"} delay={0.15} />
+              sub={t.code_uses ? `${t.code_uses} code uses` : undefined} delay={0.15} />
           )}
         </div>
 

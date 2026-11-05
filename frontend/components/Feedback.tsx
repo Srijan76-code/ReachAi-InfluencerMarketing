@@ -143,7 +143,7 @@ export function ReviewBox({ value, onSave }: { value?: MyFeedback; onSave: (v: M
           {state === "saved" ? "Saved. The owner can see it." : state === "error" ? "Couldn't save. Try again." : "Only the person who shared this sees your feedback."}
         </span>
         <button type="button" onClick={save} disabled={state === "saving"}
-          className="h-8 px-3 text-xs font-medium rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 hover:opacity-90 disabled:opacity-50">
+          className="h-8 px-3 text-xs font-medium rounded-md bg-zinc-900 text-white dark:bg-zinc-300 dark:text-zinc-900 hover:opacity-90 disabled:opacity-50">
           {state === "saving" ? "Saving…" : "Save"}
         </button>
       </div>

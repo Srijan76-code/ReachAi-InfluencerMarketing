@@ -221,7 +221,7 @@ export function ShareManager({ campaignId, api, scopes, active, onChanged }: {
             className="flex-1 min-w-0 h-9 text-sm bg-transparent focus:outline-none placeholder:text-zinc-400"
           />
           <RoleMenu value={role} onChange={setRole} />
-          <button type="submit" disabled={busy || !email.trim()} className="h-7 px-3 text-xs font-medium rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 hover:opacity-90 disabled:opacity-40">
+          <button type="submit" disabled={busy || !email.trim()} className="h-7 px-3 text-xs font-medium rounded-md bg-zinc-900 text-white dark:bg-zinc-300 dark:text-zinc-900 hover:opacity-90 disabled:opacity-40">
             Invite
           </button>
         </form>

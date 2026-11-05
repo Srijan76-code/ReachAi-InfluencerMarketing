@@ -25,7 +25,7 @@ def test_verdicts_compare_with_expected_views_and_average_cost():
     v = {c["name"]: c["verdict"] for c in rep["creators"]}
     assert v == {"a": "rebook", "b": "skip", "c": "ok", "d": "too_early"}
     assert [c["name"] for c in rep["creators"]][0] == "a"  # best first
-    assert next(c for c in rep["creators"] if c["name"] == "a")["why"] == "2.0× the views we expected."
+    assert next(c for c in rep["creators"] if c["name"] == "a")["why"] == "2.0× expected views"
 
 
 def test_totals_forecast_and_to_pay():
@@ -74,11 +74,11 @@ def test_insights_only_when_backed_by_data():
     for r in rows:
         r.fair_low, r.fair_high = 80, 120
     text = " | ".join(i["text"] for i in R.build(rows, {"kind": "signups"}, {}, now=NOW)["insights"])
-    assert "1 post is late (late)" in text
-    assert "Shorts cost $1.11 per 1,000 views, against $22 for sponsored segments." in text
-    assert "Smaller channels brought signups 20.0× cheaper" in text
-    assert "s1's audience converts best: 1 signup per 1,000 views." in text
-    assert "s1's post is at 5.0× their usual views." in text
-    assert "You're paying 50% under the fair price on average." in text
+    assert "1 post late · late" in text
+    assert "Shorts: $1.11 CPM vs $22 for sponsored segments" in text
+    assert "Smaller channels: $1.11 per signup vs $22" in text
+    assert "s1 converts best: 1 signup per 1,000 views" in text
+    assert "s1's video: 5.0× their average views" in text
+    assert "Paying 50% under fair price on average" in text
     assert R.build([row("x", 10, 100, 1)], {"kind": "signups"}, {}, now=NOW)["insights"] == [
-        {"kind": "setup", "tone": "plain", "action": "setup", "text": "Posts are live but no signups are counted yet. Set up counting to see which creators bring them."}]
+        {"kind": "setup", "tone": "plain", "action": "setup", "text": "Signups aren't being counted yet"}]
