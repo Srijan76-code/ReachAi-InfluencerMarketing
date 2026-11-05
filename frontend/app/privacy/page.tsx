@@ -14,6 +14,7 @@ export default function Privacy() {
         <li><b>Your campaigns:</b> the briefs you write, the creators you save, your deals, notes and payments you record.</li>
         <li><b>Public creator data:</b> channel names, public stats, recent public posts and any contact details creators publish on their channels, from platform APIs such as YouTube.</li>
         <li><b>Gmail, only if you connect it:</b> see the next section.</li>
+        <li><b>Results:</b> visits through creators&apos; tracking links (a count and a time, not who visited) and, if you add our snippet to your site, one count per signup with the creator&apos;s code. The snippet keeps that code in the visitor&apos;s browser on your site for 30 days and sends nothing about the person.</li>
       </ul>
 
       <h2>Gmail</h2>

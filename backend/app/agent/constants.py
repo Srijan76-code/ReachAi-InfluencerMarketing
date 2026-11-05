@@ -13,7 +13,7 @@ KINDS = (
     "confirm_terms",  # after agreeing: what was agreed, their link and code (written by code)
 )
 MESSAGE_KINDS = ("send_counter", "agree", "follow_up", "chase_post", "mark_lost", "hold_terms", "pitch", "confirm_terms")  # approving one sends it
-CHAT_KINDS = ("send_counter", "agree", "mark_lost", "follow_up", "hold_terms", "pitch", "confirm_terms")  # drafts shown in the chat's message box
+CHAT_KINDS = ("send_counter", "agree", "mark_lost", "follow_up", "hold_terms", "pitch", "confirm_terms", "chase_post")  # drafts shown in the chat's message box
 OWN_KEYS = ("nego:", "pitch:", "confirm:")  # suggestions made outside the time-based generator: refresh leaves them alone
 
 FOLLOW_UP_AFTER_DAYS = 4  # no answer this long after our last message → suggest a follow-up

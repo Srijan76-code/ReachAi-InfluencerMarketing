@@ -8,10 +8,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useApi } from "@/lib/api";
 import { useInbox } from "@/lib/inbox";
 import { AddCreatorsDialog } from "@/components/deals/AddCreatorsDialog";
-import { ContentList } from "@/components/deals/ContentList";
 import { DealChat, askWords } from "@/components/deals/DealChat";
 import { CreatorAvatar } from "@/components/CreatorAvatar";
-import { Segmented } from "@/components/ui/segmented";
 import { GmailConnect, useGmail } from "@/components/GmailConnect";
 import { CHAT_KINDS, type Deal, type DealsSummary, type Proposal, money } from "@/data/deals";
 import { updatedLabel } from "@/types/campaign";
@@ -77,7 +75,6 @@ export default function DealsBoard({ campaignId, apiOverride }: {
   const [deals, setDeals] = useState<Deal[] | null>(null);
   const [summary, setSummary] = useState<DealsSummary | null>(null);
   const [proposals, setProposals] = useState<Proposal[]>([]);
-  const [view, setView] = useState<"talk" | "content">("talk");
   const [showLost, setShowLost] = useState(false);
   const [compact, setCompact] = useState(false);
   const [query, setQuery] = useState("");
@@ -177,7 +174,6 @@ export default function DealsBoard({ campaignId, apiOverride }: {
   const q = query.trim().toLowerCase();
   const all = (deals ?? []).filter((d) => !q || d.name.toLowerCase().includes(q));
   const talking = all.filter((d) => TALKING.includes(d.stage));
-  const content = (deals ?? []).filter((d) => CONTENT.includes(d.stage));
   const byLatest = (a: Deal, b: Deal) => (b.last_message?.at ?? b.updated_at ?? "").localeCompare(a.last_message?.at ?? a.updated_at ?? "");
   const yourTurn = (d: Deal) => drafts.has(d.id) || (d.unread ?? 0) > 0 || !!d.writing;
   const groups: Group[] = [
@@ -187,8 +183,6 @@ export default function DealsBoard({ campaignId, apiOverride }: {
     { key: "lost", label: "Lost", items: all.filter((d) => d.stage === "lost"), folded: !showLost && !q },
   ];
   const open = (deals ?? []).find((d) => d.id === openId) ?? groups[0].items[0] ?? groups[1].items[0] ?? groups[2].items[0] ?? null;
-  const contentDue = content.filter((d) => d.stage !== "paid").length;
-  const turnCount = groups[0].items.length;
 
   return (
     <TooltipProvider delayDuration={150}>
@@ -196,10 +190,6 @@ export default function DealsBoard({ campaignId, apiOverride }: {
         <div className="flex flex-wrap items-center justify-between gap-3 px-1">
           <div className="flex items-center gap-3 min-w-0">
             <h1 className="text-[14px] font-medium text-zinc-900 dark:text-zinc-100">Outreach</h1>
-            {deals && deals.length > 0 && (
-              <Segmented label="View" value={view} onChange={setView}
-                options={[{ value: "talk", label: "Chats", count: turnCount || undefined }, { value: "content", label: "Content", count: contentDue || undefined }]} />
-            )}
             {summary && deals && deals.length > 0 && (
               <span className={`hidden lg:inline-flex items-center gap-1.5 h-[30px] px-2.5 rounded-md text-[11px] ${summary.over_budget ? "text-rose-500" : "text-zinc-500"}`}>
                 <span className="font-mono text-zinc-900 dark:text-zinc-100">{summary.agreed}</span> agreed
@@ -237,11 +227,6 @@ export default function DealsBoard({ campaignId, apiOverride }: {
             <p className="text-[13px] font-medium text-zinc-900 dark:text-zinc-100">No one to talk to yet</p>
             <p className="text-xs text-zinc-500 mt-1 mb-4">Add creators from your shortlist. ReachAI drafts a first message for each, in their own chat.</p>
             <AddCreatorsDialog campaignId={campaignId} api={api} existing={existing} onAdded={() => load()} />
-          </div>
-        ) : view === "content" ? (
-          <div className="pt-2">
-            <ContentList deals={content} api={api} proposals={proposals} onChange={replace} onRemove={remove} onProposals={onProposals}
-              onOpenChat={(id) => { setOpenId(id); setView("talk"); }} />
           </div>
         ) : (
           <div className={`${HEIGHT} rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#0c0d0e] overflow-hidden grid grid-cols-1

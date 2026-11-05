@@ -168,7 +168,7 @@ export type Proposal = {
 type Offer = { fee: number | null; commission_pct: number | null };
 
 /** Suggestions that are a message in the chat (they show up in the message box). */
-export const CHAT_KINDS: Proposal["kind"][] = ["send_counter", "agree", "mark_lost", "follow_up", "hold_terms", "pitch", "confirm_terms"];
+export const CHAT_KINDS: Proposal["kind"][] = ["send_counter", "agree", "mark_lost", "follow_up", "hold_terms", "pitch", "confirm_terms", "chase_post"];
 
 export const PROPOSAL_ACTION: Record<Proposal["kind"], string> = {
   hold_terms: "Copy and mark sent",

@@ -17,7 +17,7 @@ from app.billing.costs import CostContext, CostRecord, record_cost
 BASE_URL = "https://www.googleapis.com/youtube/v3"
 
 # Quota units per call (YouTube Data API v3 quota table).
-QUOTA = {"search": 100, "channels": 1, "playlistItems": 1, "videos": 1}
+QUOTA = {"search": 100, "channels": 1, "playlistItems": 1, "videos": 1, "commentThreads": 1}
 
 
 class YouTubeAPIError(RuntimeError):
@@ -90,6 +90,9 @@ class HttpYouTubeAPI:
 
     async def videos(self, **params: Any) -> dict:
         return await self._get("videos", params)
+
+    async def comment_threads(self, **params: Any) -> dict:
+        return await self._get("commentThreads", params)
 
     async def aclose(self) -> None:
         await self._client.aclose()

@@ -2,6 +2,7 @@
 and no hidden extra work (results JSON not loaded for the list; no extra DB connection for /status).
 Needs real Postgres (jsonb functions): runs when PG_TEST_URL is set."""
 
+import json
 import os
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -34,7 +35,7 @@ async def client(tmp_path, monkeypatch):
     from tests.discovery.conftest import create_tables, make_engine
 
     engine, is_pg = make_engine(tmp_path)
-    await create_tables(engine, is_pg, ["users", "campaigns", "saved_leads", "run_candidates", "share_links", "share_feedback", "creator_deals", "deal_events", "share_events", "agent_proposals", "connected_accounts", "deal_posts", "tracking_links", "link_clicks", "outreach_jobs", "outreach_pitches"])
+    await create_tables(engine, is_pg, ["users", "campaigns", "saved_leads", "run_candidates", "share_links", "share_feedback", "creator_deals", "deal_events", "share_events", "agent_proposals", "connected_accounts", "deal_posts", "tracking_links", "link_clicks", "outreach_jobs", "outreach_pitches", "post_stats", "conversions"])
     sf = sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
     async with sf() as s:
         s.add_all([User(user_id="u1", clerk_id="clerk-1"), User(user_id="u2", clerk_id="clerk-2")])
@@ -785,8 +786,105 @@ async def test_pitches_land_in_chats_then_agree_sets_up_posts_link_and_code(clie
     assert deal["tracking_code"] in c["message"] and link["slug"] in c["message"] and "$12, paid when the post is live" in c["message"]
 
     # the link counts people, not bots; unknown links 404
-    assert (await client.get(f"/api/links/{link['slug']}")).json()["url"] == "https://acme.com"
+    assert (await client.get(f"/api/links/{link['slug']}")).json()["url"] == f"https://acme.com?ref={deal['tracking_code']}"
     await client.get(f"/api/links/{link['slug']}", headers={"user-agent": "Twitterbot/1.0"})
     assert (await client.get(f"/api/links/nope")).status_code == 404
     again = next(d for d in (await client.get("/api/campaigns/c1/deals")).json()["deals"] if d["id"] == d1["id"])
     assert again["link"]["clicks"] == 1
+
+
+@needs_pg
+@pytest.mark.asyncio
+async def test_track_finds_posts_counts_results_and_records_payments(client, monkeypatch):
+    """Agree → the daily check finds the post by its code, fetches views, reads comments after 3 days → Track
+    totals, verdicts and To pay; signups from the site snippet and a store CSV; Mark paid; the results CSV."""
+    from datetime import datetime, timedelta, timezone
+
+    from app.db import database
+    from app.judge import client as jc
+    from app.judge.client import Answer, Judgment
+    from app.tracking.find import refresh_campaign
+
+    await _set_leads(client, DEAL_LEADS)
+    d = (await client.post("/api/campaigns/c1/deals", json={"creator_ids": ["UC1"]})).json()["created"][0]
+    agreed = (await client.post(f"/api/deals/{d['id']}/agree", json={
+        "fee": 100, "pay_when": "on_live", "link_to": "acme.com", "posts": [{"deliverable": "integration", "due_on": "2026-11-20"}]})).json()["deal"]
+    code = agreed["tracking_code"]
+    published = (datetime.now(timezone.utc) + timedelta(minutes=1)).isoformat().replace("+00:00", "Z")
+
+    class FakeYT:
+        calls: list = []
+
+        async def playlist_items(self, **p):
+            self.calls.append(("uploads", p["playlistId"]))
+            return {"items": [
+                {"snippet": {"title": "My week vlog", "description": "no sponsor", "publishedAt": published}, "contentDetails": {"videoId": "AAAAAAAAAAA", "videoPublishedAt": published}},
+                {"snippet": {"title": "Best laptop setup", "description": f"Use code {code.lower()} for 10% off", "publishedAt": published,
+                             "thumbnails": {"medium": {"url": "https://i.ytimg.com/x.jpg"}}},
+                 "contentDetails": {"videoId": "BBBBBBBBBBB", "videoPublishedAt": published}}]}
+
+        async def videos(self, **p):
+            return {"items": [{"id": "BBBBBBBBBBB", "statistics": {"viewCount": "5000", "likeCount": "300", "commentCount": "40"}}]}
+
+        async def comment_threads(self, **p):
+            return {"items": [{"snippet": {"topLevelComment": {"snippet": {"textDisplay": t, "likeCount": n}}}}
+                              for t, n in (("Where can I get this?", 50), ("great video", 10))]}
+
+    asked = []
+
+    async def judge(state, questions, context=None, **k):
+        asked.append(set(questions))
+        if "is_sponsored_post" in questions:
+            return Judgment({"is_sponsored_post": Answer("noul", 0.1)}, "jev", "jev")
+        return Judgment({"sentiment": Answer("score", 3), "product_interest": Answer("noul", 0.9),
+                         "product_questions": Answer("noul", 0.8), "ad_backlash": Answer("noul", 0.1)}, "jev", "jev")
+    monkeypatch.setattr(jc, "judge", judge)
+
+    gen = client._transport.app.dependency_overrides[database.get_db]()
+    db = await gen.__anext__()
+    assert (await refresh_campaign(db, "c1", FakeYT(), user_id="u1"))["found"] == 1
+    assert (await refresh_campaign(db, "c1", FakeYT(), user_id="u1")).get("skipped")  # not again within minutes
+    assert {"sentiment", "product_interest", "product_questions", "ad_backlash"} not in asked  # too new to read comments
+    from sqlalchemy import update as sa_update
+
+    from app.models.deal import DealPost
+    await db.execute(sa_update(DealPost).values(live_at=datetime.now(timezone.utc) - timedelta(days=4)))
+    await db.commit()
+    await refresh_campaign(db, "c1", FakeYT(), user_id="u1", force=True)
+    await gen.aclose()
+    assert {"is_sponsored_post"} not in asked  # the code matched for free; Jev only read the comments
+
+    # results: snippet signup (by code), a store CSV, a manual count, a click
+    t = (await client.get("/api/campaigns/c1/track")).json()
+    key = t["snippet"]["key"]
+    assert t["posts"][0]["video_id"] == "BBBBBBBBBBB" and t["posts"][0]["found_by"] == "code" and t["posts"][0]["state"] == "live"
+    summary = t["posts"][0]["comment_summary"]
+    assert summary["sentiment"] == "Mostly positive" and summary["product_interest"] and not summary["ad_backlash"]
+    assert summary["top"][0] == "Where can I get this?"
+    for body in (json.dumps({"ref": code.lower()}), json.dumps({"ref": "NOPE"}), "garbage"):
+        assert (await client.post(f"/api/t/{key}", content=body, headers={"content-type": "text/plain"})).status_code == 204
+    r = (await client.post("/api/campaigns/c1/conversions/csv", json={"text": f"code,uses\n{code},3\nOTHER,9\n", "kind": "code_use"})).json()
+    assert r == {"added": 3, "unknown_codes": ["OTHER"]}
+    assert (await client.post(f"/api/deals/{d['id']}/conversions", json={"kind": "signup", "count": 4})).status_code == 200
+    await client.get(f"/api/links/{agreed['link']['slug']}")
+    await client.patch("/api/campaigns/c1/track", json={"goal_kind": "signups", "goal_count": 100, "value_each": 20})
+    assert (await client.patch("/api/campaigns/c1/track", json={"goal_kind": "followers"})).status_code == 422
+
+    t = (await client.get("/api/campaigns/c1/track")).json()
+    tot = t["totals"]
+    assert tot["views"] == 5000 and tot["clicks"] == 1 and tot["results"] == 5 and tot["code_uses"] == 3
+    assert tot["cost_per_result"] == 20 and tot["value"] == 100 and tot["return"] == 1.0
+    assert t["goal"] == {"kind": "signups", "count": 100, "value_each": 20}
+    assert t["forecast"]["estimate"] and t["forecast"]["views"] > 5000
+    assert t["creators"][0]["verdict"] in ("rebook", "ok", "skip") and t["to_pay"] == [
+        {"deal_id": d["id"], "name": "Creator 1", "avatar_url": None, "amount": 100.0, "why": "Post is live"}]
+
+    # pay, then the CSV
+    assert (await client.post(f"/api/deals/{d['id']}/paid", json={"amount": 100, "method": "cash"})).status_code == 422
+    await client.post(f"/api/deals/{d['id']}/paid", json={"amount": 100, "method": "paypal", "paid_on": "2026-11-25", "note": "INV-1"})
+    t = (await client.get("/api/campaigns/c1/track")).json()
+    assert t["to_pay"] == [] and t["paid"][0]["method"] == "paypal" and t["totals"]["paid"] == 100
+    csv_text = (await client.get("/api/campaigns/c1/track.csv")).text
+    assert csv_text.splitlines()[0].startswith("Creator,Price,Posts") and "Creator 1,100.0,1,https://www.youtube.com/watch?v=BBBBBBBBBBB,5000,1,5,3,5" in csv_text
+    assert "paypal" in csv_text and "2026-11-25" in csv_text
+    assert (await client.get("/api/campaigns/c3/track")).status_code == 404
