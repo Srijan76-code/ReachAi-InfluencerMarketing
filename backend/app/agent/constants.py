@@ -9,9 +9,12 @@ KINDS = (
     "mark_paid",  # the post is live: record the payment once the founder has paid
     "mark_lost",  # the agent: they turned it down, or it's not worth it (with a polite closing message)
     "hold_terms",  # the agent: after you agreed they ask for more; a kind reply keeping the agreed price
+    "pitch",  # the first message to a creator, from a pitch run (one text per channel)
+    "confirm_terms",  # after agreeing: what was agreed, their link and code (written by code)
 )
-MESSAGE_KINDS = ("send_counter", "agree", "follow_up", "chase_post", "mark_lost", "hold_terms")  # approving one sends it
-CHAT_KINDS = ("send_counter", "agree", "mark_lost", "follow_up", "hold_terms")  # drafts shown in the chat's message box
+MESSAGE_KINDS = ("send_counter", "agree", "follow_up", "chase_post", "mark_lost", "hold_terms", "pitch", "confirm_terms")  # approving one sends it
+CHAT_KINDS = ("send_counter", "agree", "mark_lost", "follow_up", "hold_terms", "pitch", "confirm_terms")  # drafts shown in the chat's message box
+OWN_KEYS = ("nego:", "pitch:", "confirm:")  # suggestions made outside the time-based generator: refresh leaves them alone
 
 FOLLOW_UP_AFTER_DAYS = 4  # no answer this long after our last message → suggest a follow-up
 MAX_FOLLOW_UPS = 2  # then stop (the second is a polite close)

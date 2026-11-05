@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from "motion/react";
-import { ChevronDown, Handshake, PanelLeftClose, PanelLeftOpen, Search } from "lucide-react";
+import { ChevronDown, Loader2, PanelLeftClose, PanelLeftOpen, Search, Send } from "lucide-react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useApi } from "@/lib/api";
 import { useInbox } from "@/lib/inbox";
@@ -22,11 +22,12 @@ const HEIGHT = "h-[calc(100dvh-200px)] md:h-[calc(100dvh-178px)] min-h-[480px]";
 
 type Group = { key: string; label: string; items: Deal[]; folded?: boolean };
 
-function ListItem({ d, active, draft, compact, onOpen }: { d: Deal; active: boolean; draft: boolean; compact: boolean; onOpen: () => void }) {
+function ListItem({ d, active, draft, compact, onOpen }: { d: Deal; active: boolean; draft: Proposal | undefined; compact: boolean; onOpen: () => void }) {
   const reduce = useReducedMotion();
   const last = d.last_message;
   const unread = d.unread ?? 0;
-  const sub = draft && !unread ? "ReachAI drafted a reply"
+  const sub = d.writing && !draft ? "Writing a first message…"
+    : draft && !unread ? (draft.kind === "pitch" ? "First message ready to check" : draft.kind === "confirm_terms" ? "Confirmation ready to send" : "ReachAI drafted a reply")
     : last ? `${last.who === "you" ? "You: " : ""}${last.text}`
     : d.quoted_rate != null ? `Asked ${askWords(d.quoted_rate, d.quoted_commission_pct)}` : "No messages yet";
   return (
@@ -81,6 +82,9 @@ export default function DealsBoard({ campaignId, apiOverride }: {
   const [compact, setCompact] = useState(false);
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [website, setWebsite] = useState<string | null>(null);
+  const [bulk, setBulk] = useState<"idle" | "busy">("idle");
+  const [bulkNote, setBulkNote] = useState<string | null>(null);
   const gmail = useGmail(apiOverride);
   const openId = params?.get("chat") ?? null;
   const waiting = useInbox().by_campaign[campaignId];
@@ -95,8 +99,9 @@ export default function DealsBoard({ campaignId, apiOverride }: {
   const load = () =>
     api(`/api/campaigns/${campaignId}/deals`)
       .then((r) => {
-        const d = r.data as { deals: Deal[]; summary: DealsSummary; proposals?: Proposal[] };
+        const d = r.data as { deals: Deal[]; summary: DealsSummary; proposals?: Proposal[]; website?: string | null };
         setDeals(d.deals);
+        setWebsite(d.website ?? null);
         setSummary(d.summary);
         setProposals(d.proposals ?? []);
         setError(null);
@@ -113,6 +118,15 @@ export default function DealsBoard({ campaignId, apiOverride }: {
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps -- api changes every render
   }, [campaignId]);
+
+  // first messages being written: check every few seconds until they land
+  const writingNow = (deals ?? []).some((d) => d.writing);
+  useEffect(() => {
+    if (!writingNow) return;
+    const t = setInterval(load, 5000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- api changes every render
+  }, [writingNow]);
 
   // a new reply found by the background check (the bell's poll): show it
   const unreadNow = waiting?.unread ?? 0;
@@ -140,13 +154,32 @@ export default function DealsBoard({ campaignId, apiOverride }: {
   };
 
   const existing = useMemo(() => new Set((deals ?? []).map((d) => d.creator_id)), [deals]);
-  const drafts = new Set(proposals.filter((p) => CHAT_KINDS.includes(p.kind)).map((p) => p.deal_id));
+  const draftOf = new Map(proposals.filter((p) => CHAT_KINDS.includes(p.kind)).map((p) => [p.deal_id, p] as const));
+  const drafts = new Set(draftOf.keys());
+  const byId = new Map((deals ?? []).map((d) => [d.id, d] as const));
+  // first emails you've opened and looked at: "Send N reviewed" sends them from Gmail in one go
+  const reviewed = proposals.filter((p) => p.kind === "pitch" && p.seen && p.can_send && byId.get(p.deal_id)?.channel === "email");
+  const sendReviewed = async () => {
+    setBulk("busy");
+    setBulkNote(null);
+    try {
+      const r = (await api(`/api/campaigns/${campaignId}/pitches/send`, { method: "POST", data: { proposal_ids: reviewed.map((p) => p.id) } })).data as
+        { sent: number; skipped: { name: string; why: string }[]; proposals?: Proposal[] };
+      setBulkNote(`Sent ${r.sent}${r.skipped.length ? `. Not sent: ${r.skipped.map((x) => `${x.name} (${x.why.replace(/\.$/, "")})`).join(", ")}` : ""}`);
+      onProposals(r);
+    } catch (e) {
+      const d = (e as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
+      setBulkNote(typeof d === "string" ? d : "Couldn't send. Try again");
+    } finally {
+      setBulk("idle");
+    }
+  };
   const q = query.trim().toLowerCase();
   const all = (deals ?? []).filter((d) => !q || d.name.toLowerCase().includes(q));
   const talking = all.filter((d) => TALKING.includes(d.stage));
   const content = (deals ?? []).filter((d) => CONTENT.includes(d.stage));
   const byLatest = (a: Deal, b: Deal) => (b.last_message?.at ?? b.updated_at ?? "").localeCompare(a.last_message?.at ?? a.updated_at ?? "");
-  const yourTurn = (d: Deal) => drafts.has(d.id) || (d.unread ?? 0) > 0;
+  const yourTurn = (d: Deal) => drafts.has(d.id) || (d.unread ?? 0) > 0 || !!d.writing;
   const groups: Group[] = [
     { key: "turn", label: "Your turn", items: all.filter((d) => d.stage !== "lost" && yourTurn(d)).sort(byLatest) },
     { key: "waiting", label: "Waiting for them", items: talking.filter((d) => !yourTurn(d)).sort(byLatest) },
@@ -162,10 +195,10 @@ export default function DealsBoard({ campaignId, apiOverride }: {
       <div className="space-y-3 md:-mx-8 md:-mt-8">
         <div className="flex flex-wrap items-center justify-between gap-3 px-1">
           <div className="flex items-center gap-3 min-w-0">
-            <h1 className="text-[14px] font-medium text-zinc-900 dark:text-zinc-100">Deals</h1>
+            <h1 className="text-[14px] font-medium text-zinc-900 dark:text-zinc-100">Outreach</h1>
             {deals && deals.length > 0 && (
               <Segmented label="View" value={view} onChange={setView}
-                options={[{ value: "talk", label: "Negotiating", count: turnCount || undefined }, { value: "content", label: "Content", count: contentDue || undefined }]} />
+                options={[{ value: "talk", label: "Chats", count: turnCount || undefined }, { value: "content", label: "Content", count: contentDue || undefined }]} />
             )}
             {summary && deals && deals.length > 0 && (
               <span className={`hidden lg:inline-flex items-center gap-1.5 h-[30px] px-2.5 rounded-md text-[11px] ${summary.over_budget ? "text-rose-500" : "text-zinc-500"}`}>
@@ -177,6 +210,13 @@ export default function DealsBoard({ campaignId, apiOverride }: {
             )}
           </div>
           <div className="flex items-center gap-2">
+            {bulkNote && <span className="text-[11px] text-zinc-500 max-w-[280px] truncate" title={bulkNote}>{bulkNote}</span>}
+            {reviewed.length > 1 && (
+              <button type="button" onClick={sendReviewed} disabled={bulk === "busy"} className="inline-flex items-center gap-1.5 h-[30px] px-3 text-xs font-medium rounded-md border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-40"
+                title="Sends the first emails you've opened and checked, from your Gmail">
+                {bulk === "busy" ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />} Send {reviewed.length} checked
+              </button>
+            )}
             <GmailConnect gmail={gmail} />
             <AddCreatorsDialog campaignId={campaignId} api={api} existing={existing} onAdded={() => load()} />
           </div>
@@ -193,9 +233,9 @@ export default function DealsBoard({ campaignId, apiOverride }: {
           </div>
         ) : deals.length === 0 ? (
           <div className="flex flex-col items-center justify-center text-center py-20 rounded-xl border border-dashed border-zinc-200 dark:border-zinc-800">
-            <Handshake size={22} className="text-zinc-400 mb-3" />
-            <p className="text-[13px] font-medium text-zinc-900 dark:text-zinc-100">No deals yet</p>
-            <p className="text-xs text-zinc-500 mt-1 mb-4">Send a pitch from Outreach, or add the creators you&apos;re talking to.</p>
+            <Send size={22} className="text-zinc-400 mb-3" />
+            <p className="text-[13px] font-medium text-zinc-900 dark:text-zinc-100">No one to talk to yet</p>
+            <p className="text-xs text-zinc-500 mt-1 mb-4">Add creators from your shortlist. ReachAI drafts a first message for each, in their own chat.</p>
             <AddCreatorsDialog campaignId={campaignId} api={api} existing={existing} onAdded={() => load()} />
           </div>
         ) : view === "content" ? (
@@ -236,7 +276,7 @@ export default function DealsBoard({ campaignId, apiOverride }: {
                       {!g.folded && (
                         <ul className="space-y-0.5">
                           {g.items.map((d) => (
-                            <ListItem key={d.id} d={d} active={open?.id === d.id} draft={drafts.has(d.id)} compact={compact} onOpen={() => setOpenId(d.id)} />
+                            <ListItem key={d.id} d={d} active={open?.id === d.id} draft={draftOf.get(d.id)} compact={compact} onOpen={() => setOpenId(d.id)} />
                           ))}
                         </ul>
                       )}
@@ -251,7 +291,7 @@ export default function DealsBoard({ campaignId, apiOverride }: {
               <AnimatePresence mode="wait" initial={false}>
                 {open ? (
                   <motion.div key={open.id} className="h-full" initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}>
-                    <DealChat deal={open} api={api} gmailReady={gmail.ready} onReconnect={() => gmail.connect()}
+                    <DealChat deal={open} api={api} gmailReady={gmail.ready} website={website} onReconnect={() => gmail.connect()}
                       proposals={proposals.filter((p) => p.deal_id === open.id && CHAT_KINDS.includes(p.kind))}
                       onChange={replace} onProposals={onProposals} onRemove={() => remove(open)} onBack={() => setOpenId(null)}
                       onRead={() => setDeals((ds) => ds?.map((x) => (x.id === open.id ? { ...x, unread: 0 } : x)) ?? ds)} />

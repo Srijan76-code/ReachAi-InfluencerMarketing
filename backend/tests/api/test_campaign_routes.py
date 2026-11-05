@@ -28,12 +28,13 @@ async def client(tmp_path, monkeypatch):
     from app.models.discovery_run import RunCandidate  # noqa: F401  (registers the table)
     from app.models.share_link import ShareLink  # noqa: F401
     from app.models.deal import CreatorDeal  # noqa: F401
+    from app.models.outreach import OutreachJob  # noqa: F401
     from app.models.saved_lead import SavedLead
     from app.models.user import User
     from tests.discovery.conftest import create_tables, make_engine
 
     engine, is_pg = make_engine(tmp_path)
-    await create_tables(engine, is_pg, ["users", "campaigns", "saved_leads", "run_candidates", "share_links", "share_feedback", "creator_deals", "deal_events", "share_events", "agent_proposals", "connected_accounts"])
+    await create_tables(engine, is_pg, ["users", "campaigns", "saved_leads", "run_candidates", "share_links", "share_feedback", "creator_deals", "deal_events", "share_events", "agent_proposals", "connected_accounts", "deal_posts", "tracking_links", "link_clicks", "outreach_jobs", "outreach_pitches"])
     sf = sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
     async with sf() as s:
         s.add_all([User(user_id="u1", clerk_id="clerk-1"), User(user_id="u2", clerk_id="clerk-2")])
@@ -729,3 +730,63 @@ async def test_asking_more_after_agreeing_is_flagged_and_chats_track_unread(clie
     a = (await client.post(f"/api/proposals/{p['id']}/accept-change")).json()
     assert a["deal"]["agreed_rate"] == 22 and a["deal"]["stage"] == "agreed" and a["proposals"] == []
     assert (await client.get("/api/inbox")).json()["items"] == []
+
+
+@needs_pg
+@pytest.mark.asyncio
+async def test_pitches_land_in_chats_then_agree_sets_up_posts_link_and_code(client):
+    """Writing pitches creates each creator's chat; the first message arrives as a draft per channel; switching
+    to a DM copies instead of sending; agreeing saves the posts, makes a link and code, and drafts the confirmation."""
+    from app.db import database
+    from app.models.outreach import OutreachJob
+    from app.outreach.drafts import drafts_from_job
+
+    await _set_leads(client, [{**l, "socials": {"instagram": "https://instagram.com/c1"}} for l in DEAL_LEADS])
+    job = (await client.post("/api/outreach/campaigns/c1/jobs", json={"selected_creator_ids": ["UC1", "UC2"], "auto_start": False})).json()
+    board = (await client.get("/api/campaigns/c1/deals")).json()
+    assert {d["creator_id"] for d in board["deals"]} == {"UC1", "UC2"} and board["deals"][0]["channel"] == "instagram"
+
+    gen = client._transport.app.dependency_overrides[database.get_db]()
+    db = await gen.__anext__()
+    j = await db.get(OutreachJob, job["outreach_job_id"])
+    bundle = {"pitch_angle": "Their M4 review", "email": {"subject": "Your M4 review", "body": "Hi there, loved the review."},
+              "instagram": {"body": "Loved the M4 review!"}}
+    assert await drafts_from_job(db, j, {"UC1": {"pitch_bundle": bundle}, "UC2": {"pitch_bundle": {}}}, {}) == 1
+    await db.commit()
+    await gen.aclose()
+
+    board = (await client.get("/api/campaigns/c1/deals")).json()
+    [p] = [p for p in board["proposals"] if p["kind"] == "pitch"]
+    d1 = next(d for d in board["deals"] if d["creator_id"] == "UC1")
+    assert p["deal_id"] == d1["id"] and p["message"] == "Loved the M4 review!" and p["subject"] == "Your M4 review"
+    assert p["texts"]["email"]["body"] == "Hi there, loved the review." and p["can_send"] is False and p["seen"] is False
+    await client.post(f"/api/proposals/{p['id']}/seen")
+    assert (await client.post(f"/api/campaigns/c1/pitches/send", json={})).status_code == 409  # no Gmail connected
+
+    assert (await client.patch(f"/api/deals/{d1['id']}", json={"channel": "fax"})).status_code == 422
+    sent = (await client.post(f"/api/proposals/{p['id']}/approve", json={"message": "Loved the M4 review!", "via": "copy"})).json()
+    assert sent["sent"] is False
+    ev = (await client.get(f"/api/deals/{d1['id']}/events")).json()
+    assert ev[0]["type"] == "message_sent" and ev[0]["payload"]["kind"] == "pitch"
+
+    # agree: two posts, paid when live, link to the founder's site
+    bad = await client.post(f"/api/deals/{d1['id']}/agree", json={"fee": 12, "posts": []})
+    assert bad.status_code == 422
+    r = (await client.post(f"/api/deals/{d1['id']}/agree", json={
+        "fee": 12, "pay_when": "on_live", "link_to": "acme.com",
+        "posts": [{"deliverable": "integration", "due_on": "2026-11-20"}, {"deliverable": "short", "due_on": "2026-11-25"}]})).json()
+    deal = r["deal"]
+    assert deal["stage"] == "agreed" and deal["agreed_rate"] == 12 and deal["post_by"] == "2026-11-20" and deal["pay_when"] == "on_live"
+    assert [p["deliverable"] for p in deal["posts"]] == ["integration", "short"] and deal["tracking_code"].startswith("CREATOR")
+    link = deal["link"]
+    assert link["target"] == "https://acme.com" and link["url"].endswith(f"/r/{link['slug']}") and link["clicks"] == 0
+    [c] = [p for p in r["proposals"] if p["kind"] == "confirm_terms"]
+    assert "1 sponsored segment by Nov 20" in c["message"] and "1 short by Nov 25" in c["message"]
+    assert deal["tracking_code"] in c["message"] and link["slug"] in c["message"] and "$12, paid when the post is live" in c["message"]
+
+    # the link counts people, not bots; unknown links 404
+    assert (await client.get(f"/api/links/{link['slug']}")).json()["url"] == "https://acme.com"
+    await client.get(f"/api/links/{link['slug']}", headers={"user-agent": "Twitterbot/1.0"})
+    assert (await client.get(f"/api/links/nope")).status_code == 404
+    again = next(d for d in (await client.get("/api/campaigns/c1/deals")).json()["deals"] if d["id"] == d1["id"])
+    assert again["link"]["clicks"] == 1

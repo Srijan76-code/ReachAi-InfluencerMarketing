@@ -10,20 +10,18 @@ import {
   LayoutGrid,
   Users,
   Send,
-  Handshake,
 } from "lucide-react";
 
 interface PageProps {
   id: string;
 }
 
-// One tab per step of a campaign (max 5: Brief, Creators, Outreach, Deals, then Results when it
-// ships). Things that span campaigns (New campaign, Docs, account) live in the main navbar.
+// One tab per step of a campaign: Brief, Creators, Outreach (one chat per creator, first message to
+// agreed), then Track when it ships. Things that span campaigns (New campaign, Docs, account) live in the main navbar.
 const NAV_ITEMS = [
   { name: "Brief", path: "details", icon: LayoutGrid },
   { name: "Creators", path: "leads", icon: Users },
   { name: "Outreach", path: "outreach", icon: Send },
-  { name: "Deals", path: "deals", icon: Handshake },
 ];
 
 const CampaignTabs = ({ id }: PageProps) => {
@@ -149,7 +147,7 @@ const CampaignTabs = ({ id }: PageProps) => {
                     />
                     <span>{item.name}</span>
                     <AnimatePresence>
-                      {item.path === "deals" && waiting && (waiting.unread || waiting.waiting) > 0 && (
+                      {item.path === "outreach" && waiting && (waiting.unread || waiting.waiting) > 0 && (
                         <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} transition={{ type: "spring", stiffness: 500, damping: 25 }}
                           aria-label={`${waiting.unread || waiting.waiting} waiting`}
                           className={`min-w-4 h-4 px-1 rounded-full text-[10px] font-medium flex items-center justify-center ${waiting.unread ? "bg-blue-500 text-white" : "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"}`}>

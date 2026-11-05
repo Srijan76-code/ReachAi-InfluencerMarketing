@@ -34,3 +34,16 @@ BASE_SHARE_WITH_COMMISSION = 0.7  # the base when offering base + commission, as
 MAX_RATE = 10_000_000
 MAX_NOTES_CHARS = 4000
 MAX_REPLY_CHARS = 3000  # pasted creator reply sent to Jev
+
+# How the founder reaches the creator (F7.10c). Email sends from Gmail; the others are copied and opened.
+CHANNELS = ("email", "instagram", "twitter", "whatsapp", "other")
+# When the creator gets paid, as agreed (words for the confirmation message)
+PAY_WHEN = {
+    "on_live": "when the post is live",
+    "half_half": "half now, half when the post is live",
+    "upfront": "before you post",
+    "net_7": "within 7 days of the post going live",
+}
+MAX_POSTS = 10  # deliverables in one deal
+TRACKING_SLUG_CHARS = 7
+TRACKING_CODE_DIGITS = 2

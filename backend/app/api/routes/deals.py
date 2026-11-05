@@ -6,7 +6,9 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+import os
+
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,7 +20,7 @@ from app.deals import constants as C
 from app.deals import negotiation as N
 from app.deals.changes import apply_change
 from app.models.campaign import Campaign
-from app.models.deal import CreatorDeal, DealEvent
+from app.models.deal import CreatorDeal, DealEvent, DealPost, LinkClick, TrackingLink
 from app.models.user import User
 
 router = APIRouter()
@@ -62,8 +64,11 @@ def _advice(d: CreatorDeal) -> N.Advice:
                     deliverable=d.deliverable, usage_rights=d.usage_rights, exclusivity_days=d.exclusivity_days or 0)
 
 
-def _out(d: CreatorDeal, lead: Optional[dict], today: date) -> dict:
+def _out(d: CreatorDeal, lead: Optional[dict], today: date, extras: Optional[dict] = None) -> dict:
+    from app.outreach.drafts import auto_channel
+
     lead = lead or {}
+    socials = lead.get("socials") or {}
     metrics = lead.get("metrics") or {}
     overdue = bool(d.post_by and d.post_by < today and d.stage in C.POST_DUE_STAGES)
     return {
@@ -84,8 +89,44 @@ def _out(d: CreatorDeal, lead: Optional[dict], today: date) -> dict:
         "payment_ref": d.payment_ref, "notes": d.notes, "overdue": overdue,
         "contact_email": d.contact_email, "emailing": bool(d.gmail_thread_id),
         "last_read_at": d.last_read_at.isoformat() if d.last_read_at else None,
+        "channel": auto_channel(d, lead), "channel_set": bool(d.channel),
+        "socials": {k: socials.get(k) for k in ("instagram", "twitter", "linkedin") if socials.get(k)},
+        "pay_when": d.pay_when, "tracking_code": d.tracking_code,
+        **(extras or {}),  # posts and link: only when loaded (single-deal answers leave the list's copy as it is)
         "updated_at": d.updated_at.isoformat() if d.updated_at else None,
     }
+
+
+def app_url(request: Optional[Request]) -> str:
+    """Where ReachAI is served (tracking links point here): APP_URL, else the address this request came to."""
+    if os.getenv("APP_URL"):
+        return os.environ["APP_URL"].rstrip("/")
+    if request is None:
+        return ""
+    host = request.headers.get("x-forwarded-host") or request.url.netloc
+    proto = request.headers.get("x-forwarded-proto") or request.url.scheme
+    return f"{proto}://{host}"
+
+
+async def _extras(db: AsyncSession, deals: list[CreatorDeal], base: str = "") -> dict:
+    """{deal_id: {"posts": [...], "link": {...}}}: the planned posts and the tracking link with its clicks."""
+    ids = [d.deal_id for d in deals]
+    out = {i: {"posts": [], "link": None} for i in ids}
+    if not ids:
+        return out
+    for p in (await db.execute(select(DealPost).where(DealPost.deal_id.in_(ids)).order_by(DealPost.position))).scalars():
+        out[p.deal_id]["posts"].append({"id": p.post_id, "deliverable": p.deliverable, "due_on": p.due_on.isoformat() if p.due_on else None,
+                                        "post_url": p.post_url, "live_at": p.live_at.isoformat() if p.live_at else None})
+    links = list((await db.execute(select(TrackingLink).where(TrackingLink.deal_id.in_(ids)))).scalars())
+    clicks = dict((await db.execute(select(LinkClick.slug, func.count()).where(LinkClick.slug.in_([l.slug for l in links]))
+                                    .group_by(LinkClick.slug))).all()) if links else {}
+    for l in links:
+        out[l.deal_id]["link"] = {"url": f"{base}/r/{l.slug}", "slug": l.slug, "target": l.target_url, "clicks": clicks.get(l.slug, 0)}
+    return out
+
+
+async def _full(db: AsyncSession, d: CreatorDeal, lead: Optional[dict], request: Optional[Request] = None) -> dict:
+    return _out(d, lead, date.today(), (await _extras(db, [d], app_url(request)))[d.deal_id])
 
 
 async def _proposals(db: AsyncSession, deals: list[CreatorDeal], camp, user: User) -> list[dict]:
@@ -99,9 +140,12 @@ async def _proposals(db: AsyncSession, deals: list[CreatorDeal], camp, user: Use
     by_id = {d.deal_id: d for d in deals}
     from app.gmail.service import account_for, usable
 
+    from app.outreach.drafts import auto_channel
+
     gmail = usable(await account_for(db, user.user_id))
     return [Q.out(p, names.get(p.deal_id) or by_id[p.deal_id].creator_name or "", lead[p.deal_id].get("avatar_url"),
-                  can_send=gmail and bool(by_id[p.deal_id].contact_email)) for p in pending]
+                  can_send=gmail and bool(by_id[p.deal_id].contact_email) and auto_channel(by_id[p.deal_id], lead[p.deal_id]) == "email")
+            for p in pending]
 
 
 async def _campaign_proposals(db: AsyncSession, campaign_id: str, camp, user: User) -> list[dict]:
@@ -126,14 +170,21 @@ def _summary(deals: list[CreatorDeal], details) -> dict:
 # --- list / create ------------------------------------------------------------------------------
 
 @router.get("/api/campaigns/{campaign_id}/deals")
-async def list_deals(campaign_id: str, user: User = Depends(get_db_user), db: AsyncSession = Depends(get_db)):
+async def list_deals(campaign_id: str, request: Request, user: User = Depends(get_db_user), db: AsyncSession = Depends(get_db)):
+    from app.models.outreach import OutreachJob, OutreachPitch
+
     camp = await _campaign(db, campaign_id, user)
     deals = (await db.execute(
         select(CreatorDeal).where(CreatorDeal.campaign_id == campaign_id).order_by(CreatorDeal.position, CreatorDeal.created_at)
     )).scalars().all()
     leads, today = _leads_by_id(camp.campaign_leads), date.today()
-    body = {"deals": [_out(d, leads.get(d.creator_id), today) for d in deals], "summary": _summary(list(deals), camp.campaign_details),
-            "goal": _goal(camp.campaign_details), "suggested_deal_type": N.suggest_deal_type(_goal(camp.campaign_details))}
+    extras = await _extras(db, list(deals), app_url(request))
+    # creators whose first message is still being written
+    writing = set((await db.execute(select(OutreachPitch.creator_id).join(OutreachJob, OutreachJob.outreach_job_id == OutreachPitch.outreach_job_id)
+                                    .where(OutreachJob.campaign_id == campaign_id, OutreachJob.status == "PENDING"))).scalars())
+    body = {"deals": [{**_out(d, leads.get(d.creator_id), today, extras[d.deal_id]), "writing": d.creator_id in writing} for d in deals], "summary": _summary(list(deals), camp.campaign_details),
+            "goal": _goal(camp.campaign_details), "website": ((camp.campaign_details or {}).get("brand") or {}).get("website"),
+            "suggested_deal_type": N.suggest_deal_type(_goal(camp.campaign_details))}
     body["proposals"] = await _proposals(db, list(deals), camp, user)
     # the inbox list shows each deal's latest message (who wrote it, a short preview, when)
     last: dict = {}
@@ -285,6 +336,8 @@ class DealChange(BaseModel):
     contact_email: Optional[str] = None
     fair_low: Optional[float] = None  # the founder's own fair range, when ReachAI has none (or they disagree)
     fair_high: Optional[float] = None
+    channel: Optional[str] = None  # how you reach them: email, instagram, twitter, whatsapp, other
+    pay_when: Optional[str] = None
 
 
 _NO_MERGE = object()
@@ -408,7 +461,9 @@ async def send_own_message(deal_id: str, body: MessageIn, user: User = Depends(g
         raise HTTPException(422, "That message is too long.")
     d, row = await _deal(db, deal_id, user)
     via = None
-    if body.via != "copy" and d.contact_email:
+    from app.outreach.drafts import auto_channel
+
+    if body.via != "copy" and d.contact_email and auto_channel(d, _leads_by_id(row.campaign_leads).get(d.creator_id)) == "email":
         account = await account_for(db, user.user_id)
         if usable(account):
             subject = None if d.gmail_thread_id else f"{(row.campaign_details or {}).get('brand', {}).get('name') or 'Working together'}"
@@ -443,6 +498,7 @@ async def _proposal(db: AsyncSession, proposal_id: str, user: User):
 class ApproveIn(BaseModel):
     message: Optional[str] = None  # the founder's edited message, if they changed it
     via: str = "gmail"  # "gmail" sends it when Gmail is connected and we have their email; "copy" only records it
+    subject: Optional[str] = None  # a first email's subject line (edited)
 
 
 @router.post("/api/proposals/{proposal_id}/approve")
@@ -454,19 +510,162 @@ async def approve_proposal(proposal_id: str, body: ApproveIn, user: User = Depen
     p, d = row[0], row[1]
     if body.message and len(body.message) > MAX_MESSAGE_CHARS * 3:
         raise HTTPException(422, "That message is too long.")
+    from app.outreach.drafts import auto_channel
+
+    lead = _leads_by_id(row.campaign_leads).get(d.creator_id)
+    subject = ((body.subject or (p.payload or {}).get("subject") or "").strip()[:200] or None) if not d.gmail_thread_id else None
     send = None
-    if body.via != "copy" and d.contact_email:
+    if body.via != "copy" and d.contact_email and auto_channel(d, lead) == "email":
         from app.gmail.service import account_for, send_for_deal, usable
 
         account = await account_for(db, user.user_id)
         if usable(account):
             async def send(text: str) -> dict:
-                return await send_for_deal(db, account, d, text)
-    result = await Q.approve(db, p, d, body.message, send=send)
+                return await send_for_deal(db, account, d, text, subject=subject or _default_subject(row))
+    result = await Q.approve(db, p, d, body.message, send=send, subject=subject)
     await db.commit()
     await db.refresh(d)
-    deal = _out(d, _leads_by_id(row.campaign_leads).get(d.creator_id), date.today())
+    deal = _out(d, lead, date.today())
     return {"deal": deal, "sent": bool(result.get("sent")), "proposals": await _campaign_proposals(db, d.campaign_id, row, user)}
+
+
+def _default_subject(row) -> str:
+    return ((row.campaign_details or {}).get("brand") or {}).get("name") or "Working together"
+
+
+@router.post("/api/proposals/{proposal_id}/seen")
+async def proposal_seen(proposal_id: str, user: User = Depends(get_db_user), db: AsyncSession = Depends(get_db)):
+    """The founder looked at this draft (first messages: "Send all reviewed" sends only these)."""
+    row = await _proposal(db, proposal_id, user)
+    row[0].payload = {**(row[0].payload or {}), "seen": True}
+    await db.commit()
+    return {"seen": proposal_id}
+
+
+class SendAll(BaseModel):
+    proposal_ids: Optional[list[str]] = None  # default: every first message you've looked at
+
+
+@router.post("/api/campaigns/{campaign_id}/pitches/send")
+async def send_reviewed_pitches(campaign_id: str, body: SendAll, user: User = Depends(get_db_user), db: AsyncSession = Depends(get_db)):
+    """Sends the reviewed first emails from the founder's Gmail, one by one, until the daily limit. DMs are
+    left for the founder to send by hand. → {"sent", "skipped": [{name, why}]}"""
+    from app.agent import queue as Q
+    from app.gmail.service import account_for, send_for_deal, usable
+    from app.models.deal import AgentProposal
+    from app.outreach.drafts import auto_channel
+
+    camp = await _campaign(db, campaign_id, user)
+    account = await account_for(db, user.user_id)
+    if not usable(account):
+        raise HTTPException(409, "Connect Gmail first.")
+    q = select(AgentProposal, CreatorDeal).join(CreatorDeal, CreatorDeal.deal_id == AgentProposal.deal_id).where(
+        AgentProposal.campaign_id == campaign_id, AgentProposal.kind == "pitch", AgentProposal.status == "pending")
+    if body.proposal_ids:
+        q = q.where(AgentProposal.proposal_id.in_(body.proposal_ids))
+    leads = _leads_by_id(camp.campaign_leads)
+    sent, skipped = 0, []
+    for p, d in (await db.execute(q.order_by(AgentProposal.created_at))).all():
+        name = (leads.get(d.creator_id) or {}).get("title") or d.creator_name or "?"
+        if not body.proposal_ids and not (p.payload or {}).get("seen"):
+            continue
+        if auto_channel(d, leads.get(d.creator_id)) != "email" or not d.contact_email:
+            skipped.append({"name": name, "why": "Not by email: send it yourself"})
+            continue
+        subject = (p.payload or {}).get("subject") or _default_subject(camp)
+        try:
+            async def send(text: str, d=d, subject=subject) -> dict:
+                return await send_for_deal(db, account, d, text, subject=subject)
+            await Q.approve(db, p, d, None, send=send, subject=subject)
+            await db.commit()
+            sent += 1
+        except HTTPException as e:
+            await db.rollback()
+            skipped.append({"name": name, "why": str(e.detail)})
+            if e.status_code == 429:
+                break
+    return {"sent": sent, "skipped": skipped, "proposals": await _campaign_proposals(db, campaign_id, camp, user)}
+
+
+class PostIn(BaseModel):
+    deliverable: str
+    due_on: Optional[date] = None
+
+
+class AgreeIn(BaseModel):
+    fee: Optional[float] = None
+    commission_pct: Optional[float] = None
+    posts: list[PostIn]
+    pay_when: Optional[str] = None
+    link_to: Optional[str] = None  # the founder's site for the tracking link (remembered for the campaign)
+
+
+@router.post("/api/deals/{deal_id}/agree")
+async def agree_deal(deal_id: str, body: AgreeIn, request: Request, user: User = Depends(get_db_user), db: AsyncSession = Depends(get_db)):
+    """Sets up an agreed deal: price, the posts (each with a date), when they're paid, their tracking link and
+    code; drafts the confirmation message in the chat. Running it again updates the terms."""
+    from sqlalchemy import update
+
+    from app.agent import constants as A
+    from app.deals import agreement as AG
+    from app.deals.changes import validate
+    from app.models.deal import AgentProposal
+
+    d, row = await _deal(db, deal_id, user)
+    lead = _leads_by_id(row.campaign_leads).get(d.creator_id) or {}
+    fee = body.fee if body.fee is not None else d.agreed_rate
+    pct = body.commission_pct or None
+    if fee is None and not pct:
+        raise HTTPException(422, "Add the price you agreed.")
+    deal_type = "affiliate" if not fee and pct else "base_plus_commission" if pct else "flat"
+    ch = {"agreed_rate": float(fee or 0), "deal_type": deal_type, "commission_pct": pct, "pay_when": body.pay_when}
+    if d.stage not in C.COMMITTED_STAGES:
+        ch["stage"] = "agreed"
+    validate(d, ch)
+    target = AG.clean_url(body.link_to) or ((row.campaign_details or {}).get("brand") or {}).get("website")
+    posts = await AG.save_posts(db, d, [p.model_dump() for p in body.posts])
+    apply_change(db, d, ch)
+    name = lead.get("title") or d.creator_name or ""
+    link, code = await AG.ensure_tracking(db, d, name, target)
+    if body.link_to:  # remember the site for this campaign's next deals
+        details = dict(row.campaign_details or {})
+        details["brand"] = {**(details.get("brand") or {}), "website": target}
+        await db.execute(update(Campaign).where(Campaign.campaign_id == d.campaign_id).values(campaign_details=details))
+    url = f"{app_url(request)}/r/{link.slug}" if link else None
+    from app.negotiation.context import Offer
+
+    price = Offer(int(round(fee)) if fee else None, float(pct or 0)).words()
+    text = AG.confirmation(N.greeting_name(name), price, posts, body.pay_when, url, code)
+    for p in (await db.execute(select(AgentProposal).where(AgentProposal.deal_id == d.deal_id, AgentProposal.status == "pending",
+                                                           AgentProposal.kind.in_(A.CHAT_KINDS)))).scalars():
+        p.status = "stale"
+    db.add(DealEvent(deal_id=d.deal_id, type="agreed_terms", payload={"posts": [[k, v.isoformat() if v else None] for k, v in posts],
+                                                                       "fee": fee, "commission_pct": pct, "pay_when": body.pay_when, "code": code}))
+    db.add(AgentProposal(campaign_id=d.campaign_id, deal_id=d.deal_id, key=f"confirm:{secrets_token()}", kind="confirm_terms", status="pending",
+                         title="Confirm what you agreed", reason="Written from the terms you set: the posts, dates, price, link and code.",
+                         payload={"message": text, "source": "template"}))
+    await db.commit()
+    await db.refresh(d)
+    return {"deal": await _full(db, d, lead, request), "proposals": await _campaign_proposals(db, d.campaign_id, row, user)}
+
+
+def secrets_token() -> str:
+    import secrets
+
+    return secrets.token_hex(6)  # a fresh key each time: agreeing again drafts a new confirmation
+
+
+@router.get("/api/links/{slug}")
+async def follow_link(slug: str, request: Request, db: AsyncSession = Depends(get_db)):
+    """Public: where a creator's tracking link goes. Counts the visit (not bots or link previews)."""
+    link = (await db.execute(select(TrackingLink).where(TrackingLink.slug == slug))).scalar_one_or_none()
+    if link is None:
+        raise HTTPException(404, "Link not found")
+    ua = (request.headers.get("user-agent") or "").lower()
+    if not any(b in ua for b in ("bot", "crawler", "spider", "preview", "facebookexternalhit", "slurp")) and request.method == "GET":
+        db.add(LinkClick(slug=slug))
+        await db.commit()
+    return {"url": link.target_url}
 
 
 @router.post("/api/proposals/{proposal_id}/skip")

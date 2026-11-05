@@ -55,6 +55,9 @@ class CreatorDeal(Base):
     gmail_last_message_id = Column(String, nullable=True)  # the RFC 822 Message-ID our next reply answers
     gmail_synced_at = Column(DateTime(timezone=True), nullable=True)
     last_read_at = Column(DateTime(timezone=True), nullable=True)  # when the founder last opened the chat (unread counts)
+    channel = Column(String, nullable=True)  # how we reach them (constants.CHANNELS); empty = picked from what we have
+    tracking_code = Column(String, nullable=True)  # their discount code, made when the deal is agreed
+    pay_when = Column(String, nullable=True)  # constants.PAY_WHEN
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -112,3 +115,38 @@ class ConnectedAccount(Base):
     sent_today = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class DealPost(Base):
+    """One thing the creator agreed to post (a deal can have several), with its due date and, once up, its link."""
+
+    __tablename__ = "deal_posts"
+
+    post_id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    deal_id = Column(String, ForeignKey("creator_deals.deal_id", ondelete="CASCADE"), nullable=False, index=True)
+    deliverable = Column(String, nullable=False, default="integration")
+    due_on = Column(Date, nullable=True)
+    post_url = Column(String, nullable=True)
+    live_at = Column(DateTime(timezone=True), nullable=True)
+    position = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class TrackingLink(Base):
+    """A creator's short link (/r/<slug>) to the founder's site; every visit is counted (Track, F7.11)."""
+
+    __tablename__ = "tracking_links"
+
+    slug = Column(String, primary_key=True)
+    deal_id = Column(String, ForeignKey("creator_deals.deal_id", ondelete="CASCADE"), nullable=False, index=True)
+    campaign_id = Column(String, ForeignKey("campaigns.campaign_id", ondelete="CASCADE"), nullable=False, index=True)
+    target_url = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class LinkClick(Base):
+    __tablename__ = "link_clicks"
+
+    click_id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    slug = Column(String, ForeignKey("tracking_links.slug", ondelete="CASCADE"), nullable=False, index=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)

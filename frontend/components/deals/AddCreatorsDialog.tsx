@@ -11,7 +11,8 @@ import type { Influencer } from "@/data/influencerList";
 
 type Api = (url: string, options?: Record<string, unknown>) => Promise<{ data: unknown }>;
 
-/** Pick creators from this campaign (shortlist first) to start deals with. */
+/** Pick creators from this campaign (shortlist first) to talk to. Each gets a chat in Outreach and, unless you
+ * untick it, ReachAI drafts a first message there for you to check and send. */
 export function AddCreatorsDialog({ campaignId, api, existing, onAdded, trigger }: {
   campaignId: string;
   api: Api;
@@ -29,6 +30,17 @@ export function AddCreatorsDialog({ campaignId, api, existing, onAdded, trigger 
   const [link, setLink] = useState("");
   const [linkEmail, setLinkEmail] = useState("");
   const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState(true);
+
+  // the chats are made right away; drafts land in them when they're written (a minute or two)
+  const start = async (ids: string[]) => {
+    if (draft) {
+      await api(`/api/outreach/campaigns/${campaignId}/jobs`, { method: "POST", data: { selected_creator_ids: ids, collaboration_type: "sponsored_video", deliverables: [], auto_start: true } });
+      return [];
+    }
+    const d = await api(`/api/campaigns/${campaignId}/deals`, { method: "POST", data: { creator_ids: ids } });
+    return ((d.data as { created?: unknown[] })?.created) ?? [];
+  };
 
   // a creator you already know: measured from their channel (no search needed), then added to deals
   const addByLink = async () => {
@@ -36,8 +48,7 @@ export function AddCreatorsDialog({ campaignId, api, existing, onAdded, trigger 
     setError(null);
     try {
       const r = (await api(`/api/campaigns/${campaignId}/creators/by-link`, { method: "POST", data: { link, email: linkEmail || null } })).data as { lead: { id: string } };
-      const d = await api(`/api/campaigns/${campaignId}/deals`, { method: "POST", data: { creator_ids: [r.lead.id] } });
-      onAdded(((d.data as { created?: unknown[] })?.created) ?? []);
+      onAdded(await start([r.lead.id]));
       setLink("");
       setLinkEmail("");
       setOpen(false);
@@ -78,8 +89,7 @@ export function AddCreatorsDialog({ campaignId, api, existing, onAdded, trigger 
     setBusy(true);
     setError(null);
     try {
-      const r = await api(`/api/campaigns/${campaignId}/deals`, { method: "POST", data: { creator_ids: [...picked] } });
-      onAdded(((r.data as { created?: unknown[] })?.created) ?? []);
+      onAdded(await start([...picked]));
       setOpen(false);
     } catch {
       setError("Couldn't add them. Try again.");
@@ -99,8 +109,8 @@ export function AddCreatorsDialog({ campaignId, api, existing, onAdded, trigger 
       </DialogTrigger>
       <DialogContent className="sm:max-w-md gap-4 bg-white dark:bg-[#0c0d0e]">
         <DialogHeader className="space-y-1">
-          <DialogTitle className="text-[14px] font-medium">Add creators to deals</DialogTitle>
-          <DialogDescription className="text-xs">Pick who you&apos;re talking to. They start in Contacted.</DialogDescription>
+          <DialogTitle className="text-[14px] font-medium">Add creators</DialogTitle>
+          <DialogDescription className="text-xs">Each gets a chat here. Pick from your shortlist, or add one by link.</DialogDescription>
         </DialogHeader>
         <Segmented
           label="Which creators"
@@ -115,7 +125,7 @@ export function AddCreatorsDialog({ campaignId, api, existing, onAdded, trigger 
         <ul className="max-h-72 overflow-y-auto -mx-1 space-y-0.5">
           {shown.length === 0 ? (
             <li className="px-1 py-6 text-center text-xs text-zinc-500">
-              {view === "shortlist" ? "Everyone on your shortlist is already in deals, or the shortlist is empty." : "Everyone is already in deals."}
+              {view === "shortlist" ? "Everyone on your shortlist already has a chat, or the shortlist is empty." : "Everyone already has a chat."}
             </li>
           ) : (
             shown.map((l) => (
@@ -146,9 +156,13 @@ export function AddCreatorsDialog({ campaignId, api, existing, onAdded, trigger 
           </div>
         </div>
         {error && <p className="text-xs text-rose-500">{error}</p>}
-        <div className="flex justify-end">
+        <div className="flex items-center justify-between gap-3">
+          <label className="flex items-center gap-2 text-xs text-zinc-700 dark:text-zinc-300">
+            <input type="checkbox" checked={draft} onChange={(e) => setDraft(e.target.checked)} className="accent-zinc-900 dark:accent-zinc-100" />
+            Draft a first message for each
+          </label>
           <button type="button" onClick={add} disabled={busy || !picked.size} className={btnPrimary}>
-            {busy ? "Adding…" : `Add ${picked.size || ""} to deals`}
+            {busy ? "Adding…" : `Add ${picked.size || ""}`}
           </button>
         </div>
       </DialogContent>

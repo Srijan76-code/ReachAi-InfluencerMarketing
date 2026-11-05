@@ -193,11 +193,11 @@ export function SharingPanel({ campaignId, api, scopes, savedIds, onOpenCreator,
                       disabled={!approved.length}
                       onClick={async () => {
                         const added = await onAddToDeals(approved);
-                        setNotice(added ? `${added} added to Deals` : "They're already in Deals");
+                        setNotice(added ? `${added} added to Outreach` : "They're already in Outreach");
                       }}
                       className="h-8 px-3 text-xs font-medium rounded-md border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-40 flex items-center gap-1.5"
                     >
-                      <Handshake size={12} /> Add approved to deals ({approved.length})
+                      <Handshake size={12} /> Add approved to outreach ({approved.length})
                     </button>
                     <label className="ml-auto flex items-center gap-1.5 text-[11px] text-zinc-500">
                       <input type="checkbox" checked={onlyComments} onChange={(e) => setOnlyComments(e.target.checked)} className="accent-zinc-900 dark:accent-zinc-100" />
