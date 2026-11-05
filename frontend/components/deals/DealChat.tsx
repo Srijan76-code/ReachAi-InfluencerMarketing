@@ -435,13 +435,11 @@ export function DealChat({ deal, api, proposals, gmailReady, website, onReconnec
                 {deal.writing && !draft ? (
                   <>
                     <p className="text-[13px] flex items-center justify-center gap-2"><TypingDots /> <Shimmer>{`Writing a first message for ${name}`}</Shimmer></p>
-                    <p className="text-xs text-zinc-500 mt-1.5">It lands in the box below in a minute or two.</p>
-                  </>
+                                      </>
                 ) : draft?.kind === "pitch" ? (
                   <>
                     <p className="text-[13px] text-zinc-900 dark:text-zinc-100">Your first message to {name} is ready</p>
-                    <p className="text-xs text-zinc-500 mt-1">Check it below, change anything, then send.</p>
-                  </>
+                                      </>
                 ) : (
                   <>
                     <p className="text-[13px] text-zinc-900 dark:text-zinc-100">No messages yet</p>
@@ -501,8 +499,7 @@ export function DealChat({ deal, api, proposals, gmailReady, website, onReconnec
             <div className="mb-2 rounded-xl border border-emerald-300/60 dark:border-emerald-500/25 bg-emerald-50/50 dark:bg-emerald-500/5 px-3.5 py-2.5 flex flex-wrap items-center gap-x-3 gap-y-2">
               <p className="text-xs text-zinc-800 dark:text-zinc-200 flex-1 min-w-[200px]">
                 <span className="font-medium">You agreed {agreedWords}.</span>
-                <span className="block text-[11px] text-zinc-500">Next: what they&apos;ll post and when, plus their link and code.</span>
-              </p>
+                              </p>
               <button type="button" onClick={() => setAgreeOpen(true)} className={btn}><Handshake size={12} /> Set up the deal</button>
             </div>
           </motion.div>
@@ -517,8 +514,7 @@ export function DealChat({ deal, api, proposals, gmailReady, website, onReconnec
               <p className="text-xs text-zinc-800 dark:text-zinc-200 flex-1 min-w-[200px]">
                 <span className="font-medium">Wants to change the deal:</span>{" "}
                 <span className="font-mono">{askWords(change.from.fee, change.from.commission_pct)}</span> → <span className="font-mono">{askWords(change.to.fee, change.to.commission_pct)}</span>
-                <span className="block text-[11px] text-zinc-500">Send the reply below to keep the agreed price, or accept the new one.</span>
-              </p>
+                              </p>
               <button type="button" onClick={() => call("accept")} disabled={!!busy} className={btn}>
                 {busy === "accept" && <Loader2 size={12} className="animate-spin" />} Accept {askWords(change.to.fee, change.to.commission_pct)}
               </button>
@@ -562,7 +558,7 @@ export function DealChat({ deal, api, proposals, gmailReady, website, onReconnec
                 )}
                 {who === "them" && (
                   <motion.span key="paste" initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="text-[11px] text-zinc-500 truncate">
-                    Paste what {name} said by DM. ReachAI reads it and drafts a reply.
+                    Paste their reply
                   </motion.span>
                 )}
               </AnimatePresence>
@@ -583,7 +579,7 @@ export function DealChat({ deal, api, proposals, gmailReady, website, onReconnec
               }}
               rows={2}
               aria-label={who === "you" ? "Your message" : `What ${name} said`}
-              placeholder={who === "you" ? `Write to ${name}…` : `Paste ${name}'s reply, or type their ask, like $20 + 10%`}
+              placeholder={who === "you" ? `Write to ${name}…` : `Paste ${name}'s reply`}
               className="block w-full resize-none bg-transparent px-3.5 pt-2 pb-1 text-[13.5px] leading-relaxed text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none max-h-[200px]"
             />
             <div className="flex items-center gap-1.5 px-2.5 pb-2.5">
@@ -594,9 +590,9 @@ export function DealChat({ deal, api, proposals, gmailReady, website, onReconnec
                     {note.action === "reconnect" && <button type="button" onClick={onReconnect} className="underline">Reconnect</button>}
                   </span>
                 ) : who === "you" ? (canSend ? `From your Gmail to ${deal.contact_email}`
-                  : channel === "email" ? (deal.contact_email ? "Connect Gmail to send from here" : "Add their email in Details to send from here")
-                  : `Copies it${PROFILE[channel]?.(deal) ? " and opens their profile" : ""}. Paste it there`)
-                  : "⌘ Enter to add"}
+                  : channel === "email" ? (deal.contact_email ? "Connect Gmail to send" : "Add their email in Details")
+                  : PROFILE[channel]?.(deal) ? "Copies and opens their profile" : "Copies the message")
+                  : "⌘ Enter"}
               </span>
               <div className="ml-auto flex items-center gap-1">
                 {who === "you" && draft?.can_reword && (
@@ -613,7 +609,7 @@ export function DealChat({ deal, api, proposals, gmailReady, website, onReconnec
                 <motion.button type="button" onClick={send} whileTap={{ scale: 0.92 }}
                   disabled={!texts[who].trim() || pending.some((p) => p.status === "sending")}
                   className={`h-8 rounded-full flex items-center justify-center gap-1.5 text-xs font-medium transition-opacity disabled:opacity-30
-                    ${sendLabel.length > 4 ? "px-3" : "w-8"} ${who === "them" ? "bg-blue-500 text-white" : "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"}`}
+                    ${sendLabel.length > 4 ? "px-3" : "w-8"} ${who === "them" ? "bg-blue-500 text-white" : "bg-zinc-900 text-white dark:bg-zinc-300 dark:text-zinc-900"}`}
                   aria-label={sendLabel}>
                   {sendLabel.length > 4 ? <>{draft?.kind === "agree" ? <Check size={13} /> : <ArrowUp size={14} />} {sendLabel}</> : <ArrowUp size={15} />}
                 </motion.button>

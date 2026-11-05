@@ -162,7 +162,7 @@ export default function DemoCampaign() {
           </div>
           <Show when="signed-out">
             <SignUpButton>
-              <button className="group text-[13px] font-medium bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 px-4 py-2 rounded-full flex items-center gap-1.5 hover:opacity-90 transition-all shadow-sm">
+              <button className="group text-[13px] font-medium bg-zinc-900 text-white dark:bg-zinc-300 dark:text-zinc-900 px-4 py-2 rounded-full flex items-center gap-1.5 hover:opacity-90 transition-all shadow-sm">
                 Run your own campaign
                 <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
               </button>
@@ -171,7 +171,7 @@ export default function DemoCampaign() {
           <Show when="signed-in">
             <Link
               href="/campaign"
-              className="group text-[13px] font-medium bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 px-4 py-2 rounded-full flex items-center gap-1.5 hover:opacity-90 transition-all shadow-sm"
+              className="group text-[13px] font-medium bg-zinc-900 text-white dark:bg-zinc-300 dark:text-zinc-900 px-4 py-2 rounded-full flex items-center gap-1.5 hover:opacity-90 transition-all shadow-sm"
             >
               Run your own campaign
               <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />

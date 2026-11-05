@@ -333,7 +333,7 @@ const InfluencerPage = ({ campaignId }: InfluencerPageProps) => {
         {campaignId && (
           <Link
             href={`/campaign/${campaignId}/details`}
-            className="px-4 py-2 text-xs font-medium rounded-lg bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 hover:opacity-90 transition-opacity"
+            className="px-4 py-2 text-xs font-medium rounded-lg bg-zinc-900 text-white dark:bg-zinc-300 dark:text-zinc-900 hover:opacity-90 transition-opacity"
           >
             Configure Campaign Details
           </Link>
@@ -448,7 +448,7 @@ const InfluencerPage = ({ campaignId }: InfluencerPageProps) => {
                       <ListFilter size={14} />
                       Filter
                       {filterCount > 0 && (
-                        <span className="min-w-4 h-4 px-1 rounded-full bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 text-[10px] font-semibold leading-4 text-center">
+                        <span className="min-w-4 h-4 px-1 rounded-full bg-zinc-900 text-white dark:bg-zinc-300 dark:text-zinc-900 text-[10px] font-semibold leading-4 text-center">
                           {filterCount}
                         </span>
                       )}
@@ -570,7 +570,7 @@ const InfluencerPage = ({ campaignId }: InfluencerPageProps) => {
                       <button
                         type="button"
                         disabled={actionTargets.length === 0}
-                        className="flex items-center gap-2 h-[30px] px-3 text-xs font-medium rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 hover:opacity-90 disabled:opacity-40 transition-opacity whitespace-nowrap"
+                        className="flex items-center gap-2 h-[30px] px-3 text-xs font-medium rounded-md bg-zinc-900 text-white dark:bg-zinc-300 dark:text-zinc-900 hover:opacity-90 disabled:opacity-40 transition-opacity whitespace-nowrap"
                       >
                         <Send size={13} />
                         Start outreach
@@ -633,7 +633,7 @@ const InfluencerPage = ({ campaignId }: InfluencerPageProps) => {
                             onClick={() =>
                               set("platforms", platform === "all" ? [] : on ? view.platforms.filter((p) => p !== platform) : [...view.platforms, platform])
                             }
-                            className={`px-2 py-0.5 rounded-md border text-[11px] font-medium transition-colors ${on ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900" : "border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800"}`}
+                            className={`px-2 py-0.5 rounded-md border text-[11px] font-medium transition-colors ${on ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-300 dark:text-zinc-900" : "border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800"}`}
                           >
                             {PLATFORM_NAMES[platform] ?? platform} <span className="font-mono opacity-60">{count}</span>
                           </button>

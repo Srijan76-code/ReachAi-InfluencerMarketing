@@ -87,7 +87,7 @@ export default function Header() {
               </SignInButton>
 
               <SignUpButton>
-                <button className="group text-[13px] font-medium bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 px-4 py-1.5 rounded-full flex items-center gap-1.5 hover:opacity-90 transition-all shadow-sm">
+                <button className="group text-[13px] font-medium bg-zinc-900 text-white dark:bg-zinc-300 dark:text-zinc-900 px-4 py-1.5 rounded-full flex items-center gap-1.5 hover:opacity-90 transition-all shadow-sm">
                   Sign up
                   <ArrowRight
                     size={14}
@@ -116,15 +116,18 @@ export default function Header() {
                   <p>Campaigns</p>
                 </div>
               </HoverButton>
-              <button
-                type="button"
+              <HoverButton
                 onClick={createCampaign}
                 disabled={creating}
-                className="flex items-center gap-1.5 h-8 px-3 text-xs font-medium rounded-lg bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 hover:opacity-90 disabled:opacity-60 transition-opacity shadow-sm"
+                className="!bg-zinc-50 dark:!bg-[#08090a] border-neutral-200 dark:border-neutral-800/80 text-neutral-900 dark:text-neutral-200 rounded-lg shadow-sm h-8 flex items-center justify-center px-3 disabled:opacity-60"
+                glowColor="rgba(255, 255, 255, 0.2)"
+                hoverTextColor="white"
               >
-                <PlusCircle className="w-3 h-3" />
-                {creating ? "Creating…" : "New campaign"}
-              </button>
+                <div className="flex gap-2 text-xs py-0.5 items-center">
+                  <PlusCircle className="w-3 h-3" />
+                  <p>{creating ? "Creating…" : "New campaign"}</p>
+                </div>
+              </HoverButton>
               <Suspense fallback={null}>
                 <InboxBell />
               </Suspense>
@@ -209,7 +212,7 @@ export default function Header() {
                   <button className="w-full text-center py-2 text-sm font-medium border border-zinc-200 dark:border-zinc-800 rounded-lg">
                     Log in
                   </button>
-                  <button className="w-full text-center py-2 text-sm font-medium bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 rounded-lg">
+                  <button className="w-full text-center py-2 text-sm font-medium bg-zinc-900 text-white dark:bg-zinc-300 dark:text-zinc-900 rounded-lg">
                     Sign up
                   </button>
                 </div>

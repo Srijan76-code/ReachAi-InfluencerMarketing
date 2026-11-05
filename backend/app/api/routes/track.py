@@ -100,8 +100,17 @@ async def _rows(db: AsyncSession, camp, base: str) -> tuple[list[R.Row], dict, l
                           cost=float(d.agreed_rate or 0), stage=d.stage, pay_when=d.pay_when, paid_amount=d.paid_amount,
                           paid_at=d.paid_at, pay_method=d.pay_method, typical_views=d.typical_views, code=d.tracking_code,
                           link={"url": f"{base}/r/{l.slug}", "target": l.target_url} if l else None,
-                          posts=by_deal.get(d.deal_id, []), clicks=clicks.get(d.deal_id, 0), conversions=conv.get(d.deal_id, {})))
+                          posts=by_deal.get(d.deal_id, []), clicks=clicks.get(d.deal_id, 0), conversions=conv.get(d.deal_id, {}),
+                          fair_low=d.fair_low, fair_high=d.fair_high, engagement_usual=_usual_engagement(lead)))
     return rows, series, deals
+
+
+def _usual_engagement(lead: dict) -> Optional[float]:
+    """The creator's usual (likes + comments) per view, as a fraction (older results stored it as a %)."""
+    er = (lead.get("metrics") or {}).get("engagement_rate")
+    if not er:
+        return None
+    return float(er) / 100 if er > 1 else float(er)
 
 
 async def _ensure_key(db: AsyncSession, camp) -> str:
@@ -125,7 +134,10 @@ async def get_track(campaign_id: str, request: Request, user: User = Depends(get
     t = _track(camp.campaign_details)
     goal_kind = t.get("goal_kind") or ("sales" if ((camp.campaign_details or {}).get("campaign") or {}).get("goal") == "sales" else "signups")
     out = R.build(rows, {"kind": goal_kind, "count": t.get("goal_count"), "value_each": t.get("value_each")}, series)
-    out.update({"snippet": {"key": key, "src": f"{base}/t.js"}, "refreshed_at": t.get("refreshed_at"),
+    out.update({"snippet": {"key": key, "src": f"{base}/t.js", "endpoint": f"{base}/api/t/{key}", "seen_at": t.get("snippet_seen_at"),
+                            "last_conversion_at": t.get("last_conversion_at"),
+                            "site": ((camp.campaign_details or {}).get("brand") or {}).get("website")},
+                "refreshed_at": t.get("refreshed_at"),
                 "budget": ((camp.campaign_details or {}).get("campaign") or {}).get("budget_total")})
     return out
 
@@ -311,14 +323,27 @@ async def snippet_signup(key: str, request: Request, db: AsyncSession = Depends(
     except ValueError:
         body = {}
     ref = str(body.get("ref") or "").strip().upper()[:32]
-    kind = body.get("kind") if body.get("kind") in ("signup", "sale") else "signup"
-    camp_id = (await db.execute(select(Campaign.campaign_id).where(
-        Campaign.campaign_details["track"]["key"].astext == key))).scalar_one_or_none()
-    if camp_id is None or not ref:
-        return Response(status_code=204)
-    deal_id = (await db.execute(select(CreatorDeal.deal_id).where(CreatorDeal.campaign_id == camp_id,
-                                                                  func.upper(CreatorDeal.tracking_code) == ref))).scalar_one_or_none()
-    if deal_id:
-        db.add(Conversion(campaign_id=camp_id, deal_id=deal_id, kind=kind, source="snippet", count=1, day=date.today()))
-        await db.commit()
-    return Response(status_code=204, headers={"Access-Control-Allow-Origin": "*"})
+    kind = body.get("kind") if body.get("kind") in ("signup", "sale", "ping") else "signup"
+    camp = (await db.execute(select(Campaign.campaign_id, Campaign.campaign_details).where(
+        Campaign.campaign_details["track"]["key"].astext == key))).one_or_none()
+    headers = {"Access-Control-Allow-Origin": "*"}
+    if camp is None:
+        return Response(status_code=204, headers=headers)
+    track = _track(camp.campaign_details)
+    now = _now().isoformat()
+    if kind == "ping":  # "Test it": the snippet is on the founder's site
+        track["snippet_seen_at"] = now
+    elif ref:
+        deal_id = (await db.execute(select(CreatorDeal.deal_id).where(CreatorDeal.campaign_id == camp.campaign_id,
+                                                                      func.upper(CreatorDeal.tracking_code) == ref))).scalar_one_or_none()
+        if deal_id is None:
+            return Response(status_code=204, headers=headers)
+        db.add(Conversion(campaign_id=camp.campaign_id, deal_id=deal_id, kind=kind, source="snippet", count=1, day=date.today()))
+        track["snippet_seen_at"] = track.get("snippet_seen_at") or now
+        track["last_conversion_at"] = now
+    else:
+        return Response(status_code=204, headers=headers)
+    await db.execute(update(Campaign).where(Campaign.campaign_id == camp.campaign_id)
+                     .values(campaign_details={**(camp.campaign_details or {}), "track": track}))
+    await db.commit()
+    return Response(status_code=204, headers=headers)

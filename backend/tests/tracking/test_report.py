@@ -25,7 +25,7 @@ def test_verdicts_compare_with_expected_views_and_average_cost():
     v = {c["name"]: c["verdict"] for c in rep["creators"]}
     assert v == {"a": "rebook", "b": "skip", "c": "ok", "d": "too_early"}
     assert [c["name"] for c in rep["creators"]][0] == "a"  # best first
-    assert next(c for c in rep["creators"] if c["name"] == "a")["why"] == "2.0× the views we expected."
+    assert next(c for c in rep["creators"] if c["name"] == "a")["why"] == "2.0× expected views"
 
 
 def test_totals_forecast_and_to_pay():
@@ -52,3 +52,33 @@ def test_finding_posts_by_link_or_code_and_reading_links():
     assert video_id_from("https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=x") == "dQw4w9WgXcQ"
     assert video_id_from("https://evil.com/watch?v=dQw4w9WgXcQ") is None
     assert uploads_playlist("UCabc") == "UUabc" and uploads_playlist("x") is None
+
+
+def test_post_analysis_against_their_usual():
+    r = row("a", 20, 3000, 10, typical=1000, signups=6)
+    r.posts[0].update(likes=250, comments=50)
+    r.engagement_usual = 0.05
+    a = R.post_analysis(r.posts[0], r, NOW, "signups", 1)
+    assert a == {"vs_usual": 3.0, "trend": "trending", "views_per_day": 300, "engagement": 10.0, "engagement_vs_usual": 2.0, "results": 6}
+    assert R.post_analysis({"views": None}, r, NOW, "signups", 1)["trend"] is None
+    assert R.post_analysis(r.posts[0], r, NOW, "signups", 2)["results"] is None  # two live posts: can't split results
+
+
+def test_insights_only_when_backed_by_data():
+    def fmt(r, k):
+        r.posts[0]["deliverable"] = k
+        return r
+    rows = [fmt(row("s1", 10, 10000, 10, typical=2000, signups=10), "short"), fmt(row("s2", 10, 8000, 10, typical=2000, signups=8), "short"),
+            fmt(row("v1", 100, 5000, 10, typical=20000, signups=5), "integration"), fmt(row("v2", 100, 4000, 10, typical=20000, signups=4), "integration"),
+            row("late", 30, None, None, stage="agreed", due=date(2026, 11, 1))]
+    for r in rows:
+        r.fair_low, r.fair_high = 80, 120
+    text = " | ".join(i["text"] for i in R.build(rows, {"kind": "signups"}, {}, now=NOW)["insights"])
+    assert "1 post late · late" in text
+    assert "Shorts: $1.11 CPM vs $22 for sponsored segments" in text
+    assert "Smaller channels: $1.11 per signup vs $22" in text
+    assert "s1 converts best: 1 signup per 1,000 views" in text
+    assert "s1's video: 5.0× their average views" in text
+    assert "Paying 50% under fair price on average" in text
+    assert R.build([row("x", 10, 100, 1)], {"kind": "signups"}, {}, now=NOW)["insights"] == [
+        {"kind": "setup", "tone": "plain", "action": "setup", "text": "Signups aren't being counted yet"}]

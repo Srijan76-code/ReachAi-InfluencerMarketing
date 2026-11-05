@@ -1,26 +1,29 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "motion/react";
 import NumberFlow from "@number-flow/react";
-import { Download, Loader2, Pencil, RefreshCw, TrendingUp } from "lucide-react";
+import { CheckCircle2, Download, Loader2, Pencil, Plug, RefreshCw, TrendingUp } from "lucide-react";
 import { EvilAreaChart } from "@/components/evilcharts/charts/recharts-area-chart";
 import { type ChartConfig } from "@/components/evilcharts/ui/recharts-chart";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Field } from "@/components/ui/field";
 import { Select } from "@/components/ui/select";
 import { Segmented } from "@/components/ui/segmented";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useApi } from "@/lib/api";
 import { btn, btnPrimary, control } from "@/lib/ui";
 import { money } from "@/data/deals";
 import { GOAL_KINDS, type GoalKind, type Track } from "@/data/track";
-import { Creators, Payments, Posts, Setup, errorText } from "@/components/track/TrackSections";
+import { CreatorsTab, Insights, PostsTab, errorText } from "@/components/track/TrackSections";
+import { SetupSheet } from "@/components/track/SetupSheet";
 import { updatedLabel } from "@/types/campaign";
 
 type Api = (url: string, options?: Record<string, unknown>) => Promise<{ data: unknown }>;
 type Metric = "results" | "views" | "clicks";
+type Tab = "overview" | "creators" | "posts";
 
 const chartConfig = {
   results: { label: "Results", colors: { light: ["#2563eb"], dark: ["#60a5fa"] } },
@@ -79,9 +82,9 @@ function Tile({ label, value, sub, prefix, suffix, decimals = 0, delay = 0 }: { 
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay, type: "spring", stiffness: 300, damping: 30 }}
       className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#0c0d0e] px-4 py-3.5">
       <p className="text-[11px] text-zinc-500">{label}</p>
-      <p className="text-[22px] font-medium text-zinc-900 dark:text-zinc-100 mt-1 leading-none">
+      <div className="text-[22px] font-medium text-zinc-900 dark:text-zinc-100 mt-1 leading-none">
         {value == null ? "—" : <NumberFlow value={value} prefix={prefix} suffix={suffix} format={{ notation: value >= 100000 ? "compact" : "standard", maximumFractionDigits: decimals, minimumFractionDigits: decimals }} />}
-      </p>
+      </div>
       {sub && <p className="text-[11px] text-zinc-500 mt-1.5 truncate">{sub}</p>}
     </motion.div>
   );
@@ -96,6 +99,17 @@ export default function TrackBoard({ campaignId, apiOverride }: { campaignId: st
   const [error, setError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
   const [metric, setMetric] = useState<Metric>("results");
+  const [setupOpen, setSetupOpen] = useState(false);
+  const router = useRouter();
+  const params = useSearchParams();
+  const tab = (["overview", "creators", "posts"].includes(params?.get("tab") ?? "") ? params!.get("tab") : "overview") as Tab;
+  const setTab = (t: Tab) => {
+    const p = new URLSearchParams(params?.toString() ?? "");
+    if (t === "overview") p.delete("tab");
+    else p.set("tab", t);
+    p.delete("filter");
+    router.replace(`?${p.toString()}`, { scroll: false });
+  };
 
   const load = () =>
     api(`/api/campaigns/${campaignId}/track`)
@@ -136,7 +150,7 @@ export default function TrackBoard({ campaignId, apiOverride }: { campaignId: st
       <div className="flex flex-col items-center justify-center text-center py-24 rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-800">
         <TrendingUp size={22} className="text-zinc-400 mb-3" />
         <p className="text-[13px] font-medium text-zinc-900 dark:text-zinc-100">Nothing to track yet</p>
-        <p className="text-xs text-zinc-500 mt-1 mb-4 max-w-sm">When you agree with a creator in Outreach, their posts, views, clicks and signups show up here, with who to pay.</p>
+        <p className="text-xs text-zinc-500 mt-1 mb-4">Agreed creators show up here.</p>
         <Link href={`/campaign/${campaignId}/outreach`} className={btn}>Go to Outreach</Link>
       </div>
     );
@@ -151,12 +165,25 @@ export default function TrackBoard({ campaignId, apiOverride }: { campaignId: st
     <TooltipProvider delayDuration={150}>
       <div className="space-y-8 md:-mt-6">
         <div className="flex flex-wrap items-center justify-between gap-3 px-1">
-          <h1 className="text-[14px] font-medium text-zinc-900 dark:text-zinc-100">Track</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-[14px] font-medium text-zinc-900 dark:text-zinc-100">Track</h1>
+            <Segmented label="Track view" value={tab} onChange={setTab}
+              options={[{ value: "overview", label: "Overview" }, { value: "creators", label: "Creators", count: track.creators.length },
+                { value: "posts", label: "Posts", count: track.posts.length }]} />
+          </div>
           <div className="flex items-center gap-2">
-            <span className="text-[11px] text-zinc-500 hidden sm:inline">{checking ? "Checking for new posts…" : track.refreshed_at ? `Checked ${updatedLabel(track.refreshed_at)}` : ""}</span>
-            <button type="button" onClick={() => check(true)} disabled={checking} aria-label="Check now" className={btn}>
-              <RefreshCw size={12} className={checking ? "animate-spin" : ""} /> <span className="hidden sm:inline">Check now</span>
+            <button type="button" onClick={() => setSetupOpen(true)} className={btn}>
+              {track.snippet.seen_at ? <CheckCircle2 size={12} className="text-emerald-500" /> : <Plug size={12} />}
+              <span className="hidden sm:inline">Count signups</span>
             </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button type="button" onClick={() => check(true)} disabled={checking} aria-label="Check for new posts" className={`${btn} !px-0 w-[30px]`}>
+                  <RefreshCw size={13} className={`shrink-0 ${checking ? "animate-spin" : ""}`} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="text-xs">{checking ? "Checking…" : track.refreshed_at ? `Updated ${updatedLabel(track.refreshed_at)}` : "Check for new posts"}</TooltipContent>
+            </Tooltip>
             <a href={`${process.env.NEXT_PUBLIC_BACKEND_URL ?? ""}/api/campaigns/${campaignId}/track.csv`} onClick={async (e) => {
               e.preventDefault(); // the download needs the sign-in token, so fetch it and save the file
               const r = await api(`/api/campaigns/${campaignId}/track.csv`, { responseType: "blob" });
@@ -166,10 +193,11 @@ export default function TrackBoard({ campaignId, apiOverride }: { campaignId: st
               a.download = "results.csv";
               a.click();
               URL.revokeObjectURL(url);
-            }} className={btn}><Download size={12} /> Results</a>
+            }} className={btn}><Download size={12} /> <span className="hidden sm:inline">Export</span></a>
           </div>
         </div>
 
+        {tab === "overview" && <>
         {/* the goal, the pace, the last 30 days */}
         <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#0c0d0e] overflow-hidden">
           <div className="px-5 md:px-6 pt-5 flex flex-wrap items-start justify-between gap-4">
@@ -178,17 +206,17 @@ export default function TrackBoard({ campaignId, apiOverride }: { campaignId: st
                 <p className="text-[11px] text-zinc-500">{track.goal.count ? "Goal" : "So far"}</p>
                 <GoalEditor key={JSON.stringify(track.goal)} track={track} api={api} campaignId={campaignId} onSaved={load} />
               </div>
-              <p className="text-zinc-900 dark:text-zinc-100 flex items-baseline gap-2">
+              <div className="text-zinc-900 dark:text-zinc-100 flex items-baseline gap-2">
                 <span className="text-[40px] font-medium leading-none tracking-tight"><NumberFlow value={t.results} format={{ notation: t.results >= 100000 ? "compact" : "standard" }} /></span>
                 <span className="text-sm text-zinc-500">{track.goal.count ? `of ${track.goal.count.toLocaleString()} ${g.label.toLowerCase()}` : g.label.toLowerCase()}</span>
-              </p>
+              </div>
               {paceTo != null && track.forecast?.by && (
                 <p className="text-xs text-zinc-500 mt-2 flex items-center gap-1.5">
                   <TrendingUp size={12} className="text-blue-500" /> On pace for ~{paceTo.toLocaleString()} by {new Date(track.forecast.by + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-                  <span className="text-zinc-400">(estimate)</span>
+                  <span className="text-zinc-400">est.</span>
                 </p>
               )}
-              {!track.goal.count && <p className="text-[11px] text-zinc-500 mt-2">Set a goal with the pencil to see your progress.</p>}
+              
             </div>
             <Segmented label="Chart" size="sm" value={metric} onChange={setMetric}
               options={[{ value: "results", label: track.goal.kind === "views" || track.goal.kind === "clicks" ? "Goal" : g.label }, { value: "views", label: "Views" }, { value: "clicks", label: "Clicks" }]} />
@@ -211,28 +239,29 @@ export default function TrackBoard({ campaignId, apiOverride }: { campaignId: st
                 </EvilAreaChart.Area>
               </EvilAreaChart>
             ) : (
-              <p className="absolute inset-0 flex items-center justify-center text-xs text-zinc-500">The chart fills in as posts go live.</p>
+              <p className="absolute inset-0 flex items-center justify-center text-xs text-zinc-500">No data yet</p>
             )}
           </div>
         </motion.section>
 
         {/* the four numbers */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <Tile label="Spent" value={t.spent} prefix="$" sub={track.budget ? `of ${money(track.budget)} budget` : `${money(t.paid)} paid so far`} />
-          <Tile label="Views" value={t.views} sub={t.cost_per_1k_views != null ? `$${t.cost_per_1k_views.toFixed(2)} per 1,000` : "From YouTube, daily"} delay={0.05} />
-          <Tile label="Clicks" value={t.clicks} sub="On their tracking links" delay={0.1} />
+          <Tile label="Spent" value={t.spent} prefix="$" sub={track.budget ? `of ${money(track.budget)}` : undefined} />
+          <Tile label="Views" value={t.views} sub={t.cost_per_1k_views != null ? `$${t.cost_per_1k_views.toFixed(2)} CPM` : undefined} delay={0.05} />
+          <Tile label="Clicks" value={t.clicks} sub={t.views ? `${((t.clicks / t.views) * 100).toFixed(2)}% CTR` : undefined} delay={0.1} />
           {t.return != null ? (
-            <Tile label="Return" value={t.return} suffix="×" decimals={1} sub={`${money(t.value)} back from ${money(t.spent)}`} delay={0.15} />
+            <Tile label="ROI" value={t.return} suffix="×" decimals={1} sub={`${money(t.value)} value`} delay={0.15} />
           ) : (
             <Tile label={`Cost per ${track.goal.kind === "views" || track.goal.kind === "clicks" ? "signup" : g.one}`} value={t.cost_per_result} prefix="$" decimals={2}
-              sub={t.signups || t.code_uses ? `${t.signups} signups · ${t.code_uses} code uses` : "Add the snippet to count signups"} delay={0.15} />
+              sub={t.code_uses ? `${t.code_uses} code uses` : undefined} delay={0.15} />
           )}
         </div>
 
-        <Posts track={track} api={api} campaignId={campaignId} onChanged={load} />
-        <Creators track={track} api={api} onChanged={load} />
-        <Payments track={track} api={api} onChanged={load} />
-        <Setup track={track} api={api} campaignId={campaignId} onChanged={load} />
+        <Insights items={track.insights} campaignId={campaignId} onSetup={() => setSetupOpen(true)} />
+        </>}
+        {tab === "creators" && <CreatorsTab track={track} api={api} campaignId={campaignId} onChanged={load} initialFilter={params?.get("filter") ?? undefined} />}
+        {tab === "posts" && <PostsTab track={track} api={api} campaignId={campaignId} onChanged={load} />}
+        <SetupSheet open={setupOpen} onOpenChange={setSetupOpen} track={track} api={api} campaignId={campaignId} onChanged={load} />
       </div>
     </TooltipProvider>
   );
