@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "motion/react";
 import NumberFlow from "@number-flow/react";
-import { Download, Loader2, Pencil, RefreshCw, TrendingUp } from "lucide-react";
+import { CheckCircle2, Download, Loader2, Pencil, Plug, RefreshCw, TrendingUp } from "lucide-react";
 import { EvilAreaChart } from "@/components/evilcharts/charts/recharts-area-chart";
 import { type ChartConfig } from "@/components/evilcharts/ui/recharts-chart";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -16,11 +17,13 @@ import { useApi } from "@/lib/api";
 import { btn, btnPrimary, control } from "@/lib/ui";
 import { money } from "@/data/deals";
 import { GOAL_KINDS, type GoalKind, type Track } from "@/data/track";
-import { Creators, Payments, Posts, Setup, errorText } from "@/components/track/TrackSections";
+import { CreatorsTab, Insights, PostsTab, errorText } from "@/components/track/TrackSections";
+import { SetupSheet } from "@/components/track/SetupSheet";
 import { updatedLabel } from "@/types/campaign";
 
 type Api = (url: string, options?: Record<string, unknown>) => Promise<{ data: unknown }>;
 type Metric = "results" | "views" | "clicks";
+type Tab = "overview" | "creators" | "posts";
 
 const chartConfig = {
   results: { label: "Results", colors: { light: ["#2563eb"], dark: ["#60a5fa"] } },
@@ -96,6 +99,17 @@ export default function TrackBoard({ campaignId, apiOverride }: { campaignId: st
   const [error, setError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
   const [metric, setMetric] = useState<Metric>("results");
+  const [setupOpen, setSetupOpen] = useState(false);
+  const router = useRouter();
+  const params = useSearchParams();
+  const tab = (["overview", "creators", "posts"].includes(params?.get("tab") ?? "") ? params!.get("tab") : "overview") as Tab;
+  const setTab = (t: Tab) => {
+    const p = new URLSearchParams(params?.toString() ?? "");
+    if (t === "overview") p.delete("tab");
+    else p.set("tab", t);
+    p.delete("filter");
+    router.replace(`?${p.toString()}`, { scroll: false });
+  };
 
   const load = () =>
     api(`/api/campaigns/${campaignId}/track`)
@@ -151,8 +165,17 @@ export default function TrackBoard({ campaignId, apiOverride }: { campaignId: st
     <TooltipProvider delayDuration={150}>
       <div className="space-y-8 md:-mt-6">
         <div className="flex flex-wrap items-center justify-between gap-3 px-1">
-          <h1 className="text-[14px] font-medium text-zinc-900 dark:text-zinc-100">Track</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-[14px] font-medium text-zinc-900 dark:text-zinc-100">Track</h1>
+            <Segmented label="Track view" value={tab} onChange={setTab}
+              options={[{ value: "overview", label: "Overview" }, { value: "creators", label: "Creators", count: track.creators.length },
+                { value: "posts", label: "Posts", count: track.posts.length }]} />
+          </div>
           <div className="flex items-center gap-2">
+            <button type="button" onClick={() => setSetupOpen(true)} className={btn} title="How signups are counted">
+              {track.snippet.seen_at ? <CheckCircle2 size={12} className="text-emerald-500" /> : <Plug size={12} />}
+              <span className="hidden sm:inline">{track.snippet.seen_at ? "Counting signups" : "Count signups"}</span>
+            </button>
             <span className="text-[11px] text-zinc-500 hidden sm:inline">{checking ? "Checking for new posts…" : track.refreshed_at ? `Checked ${updatedLabel(track.refreshed_at)}` : ""}</span>
             <button type="button" onClick={() => check(true)} disabled={checking} aria-label="Check now" className={btn}>
               <RefreshCw size={12} className={checking ? "animate-spin" : ""} /> <span className="hidden sm:inline">Check now</span>
@@ -170,6 +193,7 @@ export default function TrackBoard({ campaignId, apiOverride }: { campaignId: st
           </div>
         </div>
 
+        {tab === "overview" && <>
         {/* the goal, the pace, the last 30 days */}
         <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#0c0d0e] overflow-hidden">
           <div className="px-5 md:px-6 pt-5 flex flex-wrap items-start justify-between gap-4">
@@ -229,10 +253,11 @@ export default function TrackBoard({ campaignId, apiOverride }: { campaignId: st
           )}
         </div>
 
-        <Posts track={track} api={api} campaignId={campaignId} onChanged={load} />
-        <Creators track={track} api={api} onChanged={load} />
-        <Payments track={track} api={api} onChanged={load} />
-        <Setup track={track} api={api} campaignId={campaignId} onChanged={load} />
+        <Insights items={track.insights} campaignId={campaignId} onSetup={() => setSetupOpen(true)} />
+        </>}
+        {tab === "creators" && <CreatorsTab track={track} api={api} campaignId={campaignId} onChanged={load} initialFilter={params?.get("filter") ?? undefined} />}
+        {tab === "posts" && <PostsTab track={track} api={api} campaignId={campaignId} onChanged={load} />}
+        <SetupSheet open={setupOpen} onOpenChange={setSetupOpen} track={track} api={api} campaignId={campaignId} onChanged={load} />
       </div>
     </TooltipProvider>
   );

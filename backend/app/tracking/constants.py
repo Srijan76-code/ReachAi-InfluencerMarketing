@@ -27,3 +27,10 @@ PAY_METHODS = ("paypal", "bank", "upi", "wise", "other")
 CONVERSION_KINDS = ("signup", "sale", "code_use")
 GOAL_TO_CONVERSION = {"signups": "signup", "sales": "sale"}
 SNIPPET_MAX_PER_REQUEST = 1
+
+# Per-post analysis (vs the creator's usual views and engagement)
+TRENDING_FROM = 2.0  # views ≥ 2× their usual: "Trending"
+ABOVE_FROM = 1.2
+BELOW_UNDER = 0.6
+SMALL_CHANNEL_VIEWS = 5000  # "smaller channels" in insights: usual views under this
+INSIGHT_MIN_POSTS = 2  # an insight that compares groups needs at least this many live posts in each

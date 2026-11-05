@@ -22,6 +22,11 @@
       localStorage.setItem(done, saved.ref);
     } catch (e) {}
   };
+  // "Test it" in ReachAI opens your site with ?reachai_test=1: tell ReachAI the snippet is installed
+  try {
+    if (new URLSearchParams(location.search).has("reachai_test"))
+      navigator.sendBeacon(api + "/api/t/" + encodeURIComponent(key), JSON.stringify({ kind: "ping" }));
+  } catch (e) {}
   if (s.hasAttribute("data-signup")) window.reachai("signup");
   if (s.hasAttribute("data-sale")) window.reachai("sale");
 })();

@@ -888,3 +888,20 @@ async def test_track_finds_posts_counts_results_and_records_payments(client, mon
     assert csv_text.splitlines()[0].startswith("Creator,Price,Posts") and "Creator 1,100.0,1,https://www.youtube.com/watch?v=BBBBBBBBBBB,5000,1,5,3,5" in csv_text
     assert "paypal" in csv_text and "2026-11-25" in csv_text
     assert (await client.get("/api/campaigns/c3/track")).status_code == 404
+
+
+@needs_pg
+@pytest.mark.asyncio
+async def test_snippet_test_ping_and_server_calls_show_in_setup(client):
+    """'Test it' marks the snippet as installed; a backend call with the same endpoint counts a signup."""
+    await _set_leads(client, DEAL_LEADS)
+    d = (await client.post("/api/campaigns/c1/deals", json={"creator_ids": ["UC2"]})).json()["created"][0]
+    code = (await client.post(f"/api/deals/{d['id']}/agree", json={"fee": 50, "posts": [{"deliverable": "short"}]})).json()["deal"]["tracking_code"]
+    t = (await client.get("/api/campaigns/c1/track")).json()
+    assert t["snippet"]["seen_at"] is None and t["snippet"]["endpoint"].endswith(f"/api/t/{t['snippet']['key']}")
+    await client.post(f"/api/t/{t['snippet']['key']}", content=json.dumps({"kind": "ping"}))
+    assert (await client.get("/api/campaigns/c1/track")).json()["snippet"]["seen_at"]
+    await client.post(f"/api/t/{t['snippet']['key']}", json={"ref": code, "kind": "sale"})  # from a server, JSON
+    t = (await client.get("/api/campaigns/c1/track")).json()
+    assert t["snippet"]["last_conversion_at"] and t["creators"][0]["conversions"] == {"sale": 1}
+    assert t["creators"][0]["to_pay"] is None and t["creators"][0]["posts"] == 1 and "insights" in t
