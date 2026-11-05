@@ -681,3 +681,51 @@ async def test_share_activity_feeds_the_sharing_panel(client):
     a3 = (await client.get("/api/campaigns/c1/share-activity")).json()
     assert all(p["email"] != "co@x.io" for p in a3["people"]) and any(e["by"] == "co@x.io" for e in a3["events"])
     assert (await client.get("/api/campaigns/c3/share-activity")).status_code == 404
+
+
+@needs_pg
+@pytest.mark.asyncio
+async def test_asking_more_after_agreeing_is_flagged_and_chats_track_unread(client, monkeypatch):
+    """After agreeing $12, "they ask for extra 10$" is a change request to $22: the deal stays agreed, the
+    agent drafts a reply holding $12, and the founder can accept $22 instead. Pasting the same reply twice
+    is refused. Replies are unread until the chat is opened; the inbox lists them across campaigns."""
+    from app.judge import client as jc
+    from app.judge.client import Answer, Judgment
+    from app.llm import client as llm
+
+    await _set_leads(client, [{**l, "fair_low": 9, "fair_high": 15} for l in DEAL_LEADS])
+    d = (await client.post("/api/campaigns/c1/deals", json={"creator_ids": ["UC1"]})).json()["created"][0]
+    await client.patch(f"/api/deals/{d['id']}", json={"stage": "agreed", "agreed_rate": 12})
+    await client.post(f"/api/deals/{d['id']}/read")
+
+    async def judge(state, questions, context=None, **k):
+        if "move" not in questions:
+            return Judgment({q: Answer("noul", 0.05 if q == "extra_promise" else 0.9) for q in questions}, "jev", "jev")
+        assert state["deal"]["current_price"] == "$12" and state["deal"]["already_agreed"] is True
+        picks = {"their_fee": "f0", "their_commission": "none", "move": "counter", "structure": "flat", "commission": "0", "extra": "none"}
+        return Judgment({q: Answer("choice", picks[q]) if q in picks else Answer("score", 1) if q == "concession"
+                         else Answer("noul", 0.9 if q == "ask_is_extra" else 0.05) for q in questions}, "jev", "jev")
+
+    async def write(route, messages, **k):
+        return "Hi there, thanks! We agreed $12 and that's what we budgeted, so we'd love to keep it. Excited for the post!"
+    monkeypatch.setattr(jc, "judge", judge)
+    monkeypatch.setattr(llm, "achat", write)
+
+    r = (await client.post(f"/api/deals/{d['id']}/reply", json={"text": "they ask for extra 10$"})).json()
+    assert r["deal"]["stage"] == "agreed" and r["deal"]["agreed_rate"] == 12 and r["deal"]["quoted_rate"] is None
+    [p] = r["proposals"]
+    assert p["kind"] == "hold_terms" and p["is_message"] and "$12" in p["message"]
+    assert p["change"] == {"from": {"fee": 12, "commission_pct": 0.0}, "to": {"fee": 22, "commission_pct": 0.0}}
+    assert (await client.post(f"/api/deals/{d['id']}/reply", json={"text": "They ask for  EXTRA 10$"})).status_code == 409
+
+    deals = (await client.get("/api/campaigns/c1/deals")).json()["deals"]
+    assert deals[0]["unread"] == 1
+    box = (await client.get("/api/inbox")).json()
+    assert box["unread"] == 1 and box["items"][0]["deal_id"] == d["id"] and box["items"][0]["draft"] is True
+    assert box["by_campaign"]["c1"]["unread"] == 1
+    await client.post(f"/api/deals/{d['id']}/read")
+    assert (await client.get("/api/campaigns/c1/deals")).json()["deals"][0]["unread"] == 0
+
+    a = (await client.post(f"/api/proposals/{p['id']}/accept-change")).json()
+    assert a["deal"]["agreed_rate"] == 22 and a["deal"]["stage"] == "agreed" and a["proposals"] == []
+    assert (await client.get("/api/inbox")).json()["items"] == []

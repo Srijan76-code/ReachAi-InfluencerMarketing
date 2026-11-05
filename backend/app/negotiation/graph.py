@@ -16,7 +16,7 @@ from app.billing.costs import CostContext
 from app.judge import constants as K
 from app.negotiation import write as W
 from app.negotiation.context import Facts
-from app.negotiation.decide import Decision, decide, their_ask
+from app.negotiation.decide import Decision, decide, hold, their_ask
 
 
 class NegState(TypedDict, total=False):
@@ -26,6 +26,8 @@ class NegState(TypedDict, total=False):
     facts: Facts
     name: str
     context: CostContext
+    current_fee: Optional[float]  # the price on the table (agreed, else our last offer): for "$10 more"
+    agreed: Any  # Offer: the agreed terms, when the deal is already agreed (then the agent only holds or flags)
     answers: dict
     ask: Any
     decision: Decision
@@ -42,10 +44,12 @@ async def judge_node(s: NegState) -> NegState:
 
     j = await judge(s["jev_state"], negotiation_questions(s["fee_options"], s["pct_options"]), context=s["context"])
     answers = {q: (j.noul(q) if a.type == "noul" else j.choice(q) if a.type == "choice" else j.score(q)) for q, a in j.answers.items()}
-    return {"answers": answers, "ask": their_ask(answers, s["fee_options"], s["pct_options"])}
+    return {"answers": answers, "ask": their_ask(answers, s["fee_options"], s["pct_options"], s.get("current_fee"))}
 
 
 async def guard_node(s: NegState) -> NegState:
+    if s.get("agreed") is not None:
+        return {"decision": hold(s["answers"], s["agreed"], s["ask"]), "attempts": 0}
     return {"decision": decide(s["answers"], s["facts"], s["ask"]), "attempts": 0}
 
 
@@ -72,7 +76,7 @@ async def check_node(s: NegState) -> NegState:
 
 
 def _after_guard(s: NegState) -> str:
-    return "write" if s["decision"].action in ("counter", "agree", "lost") else END
+    return "write" if s["decision"].action in ("counter", "agree", "lost", "hold") else END
 
 
 def _after_check(s: NegState) -> str:

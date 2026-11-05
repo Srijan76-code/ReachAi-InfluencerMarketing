@@ -89,6 +89,8 @@ export type Deal = {
   contact_email?: string | null;
   emailing?: boolean; // an email thread with them exists in the founder's Gmail
   last_message?: { who: "you" | "them"; text: string; at: string | null } | null; // for the inbox list
+  unread?: number; // their replies since you last opened the chat
+  last_read_at?: string | null;
 };
 
 export type DealsSummary = {
@@ -120,7 +122,7 @@ export const money = (n: number | null | undefined) =>
 export type Proposal = {
   id: string;
   deal_id: string;
-  kind: "record_quote" | "send_counter" | "agree" | "follow_up" | "chase_post" | "mark_live" | "mark_paid" | "mark_lost";
+  kind: "record_quote" | "send_counter" | "agree" | "follow_up" | "chase_post" | "mark_live" | "mark_paid" | "mark_lost" | "hold_terms";
   title: string;
   reason: string | null;
   message: string | null;
@@ -128,12 +130,20 @@ export type Proposal = {
   can_reword: boolean;
   is_message: boolean;
   can_send?: boolean; // Gmail connected and we have their email: approving sends it
+  terms?: { fee: number | null; commission_pct: number | null; structure?: string } | null; // what the message offers
+  change?: { from: Offer; to: Offer } | null; // hold_terms: after agreeing, they asked for more
   name: string;
   avatar_url: string | null;
   created_at: string | null;
 };
 
+type Offer = { fee: number | null; commission_pct: number | null };
+
+/** Suggestions that are a message in the chat (they show up in the message box). */
+export const CHAT_KINDS: Proposal["kind"][] = ["send_counter", "agree", "mark_lost", "follow_up", "hold_terms"];
+
 export const PROPOSAL_ACTION: Record<Proposal["kind"], string> = {
+  hold_terms: "Copy and mark sent",
   record_quote: "Write it down",
   send_counter: "Copy and mark sent",
   agree: "Agree",

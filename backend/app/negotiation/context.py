@@ -83,6 +83,13 @@ def offer_from(payload: dict) -> Optional[Offer]:
     return Offer(int(v)) if v else None
 
 
+def current_offer(d, f: Facts) -> Optional[Offer]:
+    """The price on the table: what was agreed, else our last offer."""
+    if d.stage in C.COMMITTED_STAGES and d.agreed_rate is not None:
+        return Offer(int(round(d.agreed_rate)), float(d.commission_pct or 0) if d.deal_type != "flat" else 0.0)
+    return f.last_offer
+
+
 def turns(events) -> list[tuple[str, str, object]]:
     """[(who, text, event)] oldest first: our sent messages and their replies."""
     out = []
@@ -143,6 +150,8 @@ def state(d, events, lead: dict, details: dict, f: Facts, reply_text: str, *, ma
         "similar_deals": market,
         "round": f.round,
         "our_last_offer": f.last_offer.words() if f.last_offer else None,
+        "current_price": current_offer(d, f).words() if current_offer(d, f) else None,
+        "already_agreed": d.stage in C.COMMITTED_STAGES,
         "their_previous_ask": f.their_asks[-1].words() if f.their_asks else None,
     }
     history = [{"from": who, "text": text[: NC.MAX_TURN_CHARS]} for who, text, _ in convo]

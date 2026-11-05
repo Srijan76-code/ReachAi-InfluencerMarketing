@@ -63,7 +63,7 @@ AUDIENCE_ROLES = [
 ]
 
 # --- the negotiation agent (app/negotiation/, spec §8.7) ---
-NEGOTIATION_QUESTIONS_VERSION = "negotiation-v1"  # replaces reply-v1..v3 (the code-formula helper)
+NEGOTIATION_QUESTIONS_VERSION = "negotiation-v2"  # replaces reply-v1..v3 (the code-formula helper)
 NEGOTIATION_SIGNAL_FROM = 0.6  # a yes/no about their reply (declined, agrees…) counts from this probability
 NEGOTIATION_INJECTION_ABOVE = 0.5  # the reply is ignored if it looks aimed at an AI
 DRAFT_EXTRA_PROMISE_ABOVE = 0.5  # a draft that promises undecided things is rewritten

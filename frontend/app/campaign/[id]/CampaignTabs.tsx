@@ -4,7 +4,8 @@ import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
+import { useInbox } from "@/lib/inbox";
 import {
   LayoutGrid,
   Users,
@@ -27,6 +28,7 @@ const NAV_ITEMS = [
 
 const CampaignTabs = ({ id }: PageProps) => {
   const pathname = usePathname();
+  const waiting = useInbox().by_campaign[id];
 
 
   return (
@@ -146,6 +148,15 @@ const CampaignTabs = ({ id }: PageProps) => {
                       )}
                     />
                     <span>{item.name}</span>
+                    <AnimatePresence>
+                      {item.path === "deals" && waiting && (waiting.unread || waiting.waiting) > 0 && (
+                        <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} transition={{ type: "spring", stiffness: 500, damping: 25 }}
+                          aria-label={`${waiting.unread || waiting.waiting} waiting`}
+                          className={`min-w-4 h-4 px-1 rounded-full text-[10px] font-medium flex items-center justify-center ${waiting.unread ? "bg-blue-500 text-white" : "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"}`}>
+                          {waiting.unread || waiting.waiting}
+                        </motion.span>
+                      )}
+                    </AnimatePresence>
                     {isActive && (
                       // slides between tabs instead of jumping
                       <motion.span

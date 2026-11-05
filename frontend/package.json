@@ -45,6 +45,7 @@
     "react-social-icons": "^6.25.0",
     "shadcn": "^4.2.0",
     "tailwind-merge": "^3.4.0",
+    "use-stick-to-bottom": "^1.1.6",
     "zustand": "^5.0.12"
   },
   "devDependencies": {

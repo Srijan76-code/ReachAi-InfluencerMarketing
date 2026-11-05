@@ -38,6 +38,8 @@ def fallback(name: str, action: str, offer: Optional[Offer], final: bool) -> str
         return hi + "Thanks for getting back to us. It doesn't look like we can make this one work right now, but we'd love to stay in touch for the future.\n\nThanks!"
     if action == "agree":
         return hi + f"Thanks! {offer.words()} works for us. Shall we lock in the details?\n\nThanks!"
+    if action == "hold":
+        return hi + f"Thanks for the note. We agreed {offer.words()} and that's what we've budgeted for, so we'd like to keep to it. We're excited to see the post!\n\nThanks!"
     if final:
         return hi + f"Thanks for working through this with us. {offer.words()} is the most we can do right now. If that works for you, we'd love to go ahead.\n\nThanks!"
     return hi + f"Thanks for getting back to us. Could we do {offer.words()}?\n\nWould that work for you?"
@@ -51,6 +53,9 @@ def _messages(st: dict, action: str, offer: Optional[Offer], structure: str, ext
              f"Our terms: {offer.words()}" + (" (this is our final offer; say so kindly)" if final else "") +
              (f". Deal type: {structure.replace('_', ' ')}." if structure else ".") +
              ("" if extra in (None, "none") else f" Also offer: {extra.replace('_', ' ')}."))
+    if action == "hold":
+        terms = (f"We already agreed {offer.words()} with them, and now they ask for more. Kindly keep to the agreed "
+                 f"{offer.words()}: thank them, explain it's what we budgeted, offer nothing more, stay warm.")
     if action == "agree":
         terms = f"We accept: {offer.words()}. Confirm warmly and suggest the next step (brief and post date)."
     system = (

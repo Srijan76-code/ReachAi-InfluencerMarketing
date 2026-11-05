@@ -60,3 +60,16 @@ def test_reply_text_is_only_what_they_wrote():
     m = _msg("Sounds great, my rate is $300.\n\nThanks!\n\nOn Tue, Nov 4, 2026 at 10:00 PM Founder <me@gmail.com> wrote:\n> Hi there, our budget is $180")
     assert mail.reply_text(m) == "Sounds great, my rate is $300.\n\nThanks!"
     assert mail.sender_email(m) == "them@x.io"
+
+
+def test_reply_text_drops_a_quote_header_wrapped_over_two_lines():
+    import base64
+
+    from app.gmail.mail import reply_text, same_text
+
+    def msg(t):
+        return {"payload": {"mimeType": "text/plain", "body": {"data": base64.urlsafe_b64encode(t.encode()).decode()}}}
+    wrapped = "i want atleast 12 dollars.\n\nOn Thu, Nov 5, 2026 at 5:42 AM Srijan Patel <s@gmail.com>\nwrote:\n\n> Hi Srijan"
+    assert reply_text(msg(wrapped)) == "i want atleast 12 dollars."
+    assert reply_text(msg("On my channel I post weekly.\nThanks")) == "On my channel I post weekly.\nThanks"
+    assert same_text("I want  $12.\n", "i want $12.") and not same_text("", "") and not same_text("a", "b")

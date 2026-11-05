@@ -27,12 +27,30 @@ class Decision:
     reasons: list = field(default_factory=list)  # plain words for the founder
 
 
-def their_ask(answers: dict, fee_options: dict, pct_options: dict) -> Optional[Offer]:
-    """What they asked for, from Jev's picks among the amounts code found in their message."""
+def their_ask(answers: dict, fee_options: dict, pct_options: dict, current_fee: Optional[float] = None) -> Optional[Offer]:
+    """What they asked for, from Jev's picks among the amounts code found in their message. "$10 more" on top
+    of a current price of $12 is an ask of $22 (Jev says whether the amount is extra; code adds it)."""
     fee_key, pct_key = answers.get("their_fee", "none"), answers.get("their_commission", "none")
     fee = int(fee_options[fee_key].replace("$", "").replace(",", "")) if fee_key in fee_options else None
+    if fee is not None and current_fee and float(answers.get("ask_is_extra", 0) or 0) >= SIGNAL_FROM:
+        fee = int(round(current_fee)) + fee
     pct = float(pct_options[pct_key].rstrip("%")) if pct_key in pct_options else 0.0
     return Offer(fee, pct) if fee is not None or pct else None
+
+
+def hold(answers: dict, agreed: Offer, ask: Optional[Offer]) -> Decision:
+    """After you agreed: the deal stays as agreed. If they ask for more, suggest a kind reply that holds the
+    agreed terms (the founder can accept the new price instead)."""
+    yes = lambda q: float(answers.get(q, 0) or 0) >= SIGNAL_FROM  # noqa: E731
+    if answers.get("injection", 0) > K.NEGOTIATION_INJECTION_ABOVE:
+        return Decision("none", reasons=["Their message looked like it was written to instruct an AI, so it was ignored. Read it yourself."])
+    if yes("declined"):
+        return Decision("lost", reasons=["They're pulling out of the agreed deal."])
+    more = ask is not None and ((ask.fee or 0) > (agreed.fee or 0) or ask.commission_pct > agreed.commission_pct)
+    if not more:
+        return Decision("none", reasons=["They wrote after you agreed. Nothing about the price changed."])
+    return Decision("hold", agreed, "fee_plus_commission" if agreed.commission_pct else "flat", final=True,
+                    reasons=[f"You agreed {agreed.words()}. Now they ask {ask.words()}.", f"Hold {agreed.words()}, or accept the new price."])
 
 
 def decide(answers: dict, f: Facts, ask: Optional[Offer]) -> Decision:

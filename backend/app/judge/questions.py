@@ -179,6 +179,8 @@ def negotiation_questions(fee_options: dict, pct_options: dict) -> dict:
                             criteria={**fee_options, "none": "They don't state a fee"}),
         "their_commission": Choice(instructions="Which percentage in `reply.text` is the commission the creator is asking for?",
                                    criteria={**pct_options, "none": "They don't ask for commission"}),
+        "ask_is_extra": Noul(instructions=("Is the fee amount in `reply.text` something to add on top of the current price "
+                                           "(`deal.current_price`), like \"$10 more\" or \"an extra $10\", rather than the total they want?")),
         "declined": Noul(instructions="Does `reply.text` say the creator is not interested, not available, or turns the collaboration down?"),
         "agrees": Noul(instructions="Does `reply.text` accept our last offer in `history` as it is?"),
         "firm": Noul(instructions="Does `reply.text` say their price is fixed, final or not negotiable?"),

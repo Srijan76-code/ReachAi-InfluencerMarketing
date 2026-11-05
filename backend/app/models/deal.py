@@ -54,6 +54,7 @@ class CreatorDeal(Base):
     gmail_subject = Column(String, nullable=True)
     gmail_last_message_id = Column(String, nullable=True)  # the RFC 822 Message-ID our next reply answers
     gmail_synced_at = Column(DateTime(timezone=True), nullable=True)
+    last_read_at = Column(DateTime(timezone=True), nullable=True)  # when the founder last opened the chat (unread counts)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

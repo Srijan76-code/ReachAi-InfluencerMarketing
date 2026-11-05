@@ -62,10 +62,19 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
+# indexes made in migrations with raw SQL (expressions SQLAlchemy models can't declare portably)
+SQL_ONLY_INDEXES = {"uq_deal_events_gmail_id"}
+
+
+def include_object(obj, name, type_, reflected, compare_to):
+    return not (type_ == "index" and name in SQL_ONLY_INDEXES)
+
+
 def do_run_migrations(connection):
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
+        include_object=include_object,
     )
 
     with context.begin_transaction():
