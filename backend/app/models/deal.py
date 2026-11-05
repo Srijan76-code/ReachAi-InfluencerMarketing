@@ -104,6 +104,7 @@ class ConnectedAccount(Base):
     user_id = Column(String, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False, index=True)
     provider = Column(String, nullable=False, default="gmail")
     email = Column(String, nullable=False)
+    display_name = Column(String, nullable=True)  # the name Gmail shows as the sender ("Srijan Patel")
     refresh_token = Column(Text, nullable=False)  # encrypted
     status = Column(String, nullable=False, default="active")  # active | reconnect
     sent_day = Column(Date, nullable=True)

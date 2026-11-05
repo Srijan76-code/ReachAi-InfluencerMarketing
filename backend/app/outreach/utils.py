@@ -3,7 +3,7 @@ import json
 from typing import Any, Dict, List
 
 
-PROMPT_VERSION = "outreach-pitch-v2"
+PROMPT_VERSION = "outreach-pitch-v3"  # v3: no spam-trigger subject lines
 CHANNEL_KEYS = ("email", "instagram", "twitter", "linkedin")
 
 

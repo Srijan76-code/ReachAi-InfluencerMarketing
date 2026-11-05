@@ -135,6 +135,26 @@ export function DealPanel({ deal, api, onChange, onRemove, proposals, onProposal
     }
   };
 
+  const suggestAgain = async () => {
+    setReading(true);
+    setError(null);
+    setRead(null);
+    try {
+      const r = (await api(`/api/deals/${deal.id}/negotiate`, { method: "POST" })).data as {
+        agent: { action: string; reasons: string[] };
+        deal: Deal;
+        proposals: Proposal[];
+      };
+      if (!["counter", "agree", "lost"].includes(r.agent?.action)) setRead((r.agent?.reasons ?? []).join(" ") || "Nothing to suggest yet.");
+      onChange(r.deal);
+      onProposals(r);
+    } catch (e) {
+      setError(errorText(e, "Couldn't suggest a reply. Try again."));
+    } finally {
+      setReading(false);
+    }
+  };
+
   const a = deal.advice;
   const talking = deal.stage === "contacted" || deal.stage === "negotiating";
   const posting = deal.stage === "agreed" || deal.stage === "content";
@@ -142,6 +162,11 @@ export function DealPanel({ deal, api, onChange, onRemove, proposals, onProposal
   const views = deal.typical_views ? `Usually ${Math.round(deal.typical_views / 100) / 10}k views` : null;
   const fair = a.fair_high != null ? `Fair ${money(a.fair_low)}–${money(a.fair_high)}` : null;
   const history = negotiation(events);
+  const lastReply = events.find((e) => e.type === "creator_reply"); // events are newest first
+  const lastAgent = (lastReply?.payload as { agent?: { action: string; reasons: string[] } } | undefined)?.agent;
+  const agentNote = !proposals.length && lastAgent && !["counter", "agree", "lost"].includes(lastAgent.action)
+    ? lastAgent.reasons.join(" ") : null;
+  const noFair = a.fair_high == null;
   const commission = deal.deal_type === "base_plus_commission" || deal.deal_type === "affiliate";
   const terms = [
     label(DELIVERABLES, deal.deliverable),
@@ -188,6 +213,30 @@ export function DealPanel({ deal, api, onChange, onRemove, proposals, onProposal
           <SectionHeader>Next step</SectionHeader>
           {proposals.length > 0
             ? proposals.map((p) => <ProposalCard key={`${p.id}:${p.message}`} p={p} api={api} onDone={onProposals} />)
+            : agentNote ? (
+              <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 p-3 space-y-2.5">
+                <p className="text-[13px] text-zinc-900 dark:text-zinc-100">
+                  {lastReply?.payload && (lastReply.payload as { their_ask?: unknown }).their_ask ? "We read their reply. " : "We read their reply but couldn't suggest anything yet. "}
+                  <span className="text-zinc-500">{agentNote}</span>
+                </p>
+                {noFair && (
+                  <div className="space-y-2">
+                    <p className="text-[11px] text-zinc-500">Set what this creator is worth to you, then ask again.</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Field label="Fair price from">
+                        <NumberInput prefix="$" value={deal.advice.fair_low} onSave={(v) => save({ fair_low: v })} placeholder="Low" />
+                      </Field>
+                      <Field label="To">
+                        <NumberInput prefix="$" value={deal.advice.fair_high} onSave={(v) => save({ fair_high: v })} placeholder="High" />
+                      </Field>
+                    </div>
+                  </div>
+                )}
+                <button type="button" onClick={suggestAgain} disabled={reading || noFair} className={btn}>
+                  {reading && <Loader2 size={13} className="animate-spin" />} {reading ? "Reading and deciding" : "Suggest again"}
+                </button>
+              </div>
+            )
             : <p className="text-[13px] text-zinc-700 dark:text-zinc-300">{status}</p>}
 
           {(talking || posting) && (

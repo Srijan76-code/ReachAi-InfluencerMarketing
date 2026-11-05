@@ -17,7 +17,7 @@ PLATFORM_HOSTS = {"youtube": ("youtube.com", "youtu.be"), "instagram": ("instagr
                   "linkedin": ("linkedin.com",)}
 EDITABLE = ("stage", "deliverable", "post_by", "deal_type", "commission_pct", "usage_rights", "exclusivity_days",
             "disclosure", "quoted_rate", "agreed_rate", "post_url", "paid_amount", "paid_at", "payment_ref", "notes", "position",
-            "contact_email")
+            "contact_email", "fair_low", "fair_high")
 
 
 _EMAIL = re.compile(r"[^@\s<>]+@[^@\s<>]+\.[a-z]{2,}")
@@ -48,6 +48,12 @@ def validate(d: CreatorDeal, ch: dict) -> None:
         bad("Exclusivity must be 0–365 days.")
     if ch.get("notes") and len(ch["notes"]) > C.MAX_NOTES_CHARS:
         bad("Notes are too long.")
+    for k in ("fair_low", "fair_high"):
+        if ch.get(k) is not None and not (0 < ch[k] <= C.MAX_RATE):
+            bad("Fair prices must be between $1 and $10M.")
+    low, high = ch.get("fair_low", d.fair_low), ch.get("fair_high", d.fair_high)
+    if low is not None and high is not None and low > high:
+        bad("The low end of the fair price can't be above the high end.")
     if "contact_email" in ch:
         e = (ch["contact_email"] or "").strip().lower() or None
         if e and not _EMAIL.fullmatch(e):
