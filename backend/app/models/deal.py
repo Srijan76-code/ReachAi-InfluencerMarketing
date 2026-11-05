@@ -58,6 +58,7 @@ class CreatorDeal(Base):
     channel = Column(String, nullable=True)  # how we reach them (constants.CHANNELS); empty = picked from what we have
     tracking_code = Column(String, nullable=True)  # their discount code, made when the deal is agreed
     pay_when = Column(String, nullable=True)  # constants.PAY_WHEN
+    pay_method = Column(String, nullable=True)  # how the founder paid them (tracking/constants.PAY_METHODS)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -129,6 +130,45 @@ class DealPost(Base):
     post_url = Column(String, nullable=True)
     live_at = Column(DateTime(timezone=True), nullable=True)
     position = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    # once the post is up (Track, F7.11): found automatically or pasted
+    video_id = Column(String, nullable=True)
+    title = Column(String, nullable=True)
+    thumbnail_url = Column(String, nullable=True)
+    found_by = Column(String, nullable=True)  # link | code | jev | you
+    views = Column(Integer, nullable=True)
+    likes = Column(Integer, nullable=True)
+    comments = Column(Integer, nullable=True)
+    stats_at = Column(DateTime(timezone=True), nullable=True)
+    comment_summary = Column(JSONB, nullable=True)  # Jev's read of the comments, once, a few days after it's live
+
+
+class PostStat(Base):
+    """A post's numbers once a day (views over time, the forecast)."""
+
+    __tablename__ = "post_stats"
+    __table_args__ = (UniqueConstraint("post_id", "day", name="uq_post_stats_post_day"),)
+
+    stat_id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    post_id = Column(String, ForeignKey("deal_posts.post_id", ondelete="CASCADE"), nullable=False, index=True)
+    day = Column(Date, nullable=False)
+    views = Column(Integer, nullable=False, default=0)
+    likes = Column(Integer, nullable=True)
+    comments = Column(Integer, nullable=True)
+
+
+class Conversion(Base):
+    """Results credited to a creator: signups from the site snippet, code uses or signups the founder enters."""
+
+    __tablename__ = "conversions"
+
+    conversion_id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    campaign_id = Column(String, ForeignKey("campaigns.campaign_id", ondelete="CASCADE"), nullable=False, index=True)
+    deal_id = Column(String, ForeignKey("creator_deals.deal_id", ondelete="CASCADE"), nullable=True, index=True)
+    kind = Column(String, nullable=False)  # signup | sale | code_use
+    source = Column(String, nullable=False)  # snippet | you | csv
+    count = Column(Integer, nullable=False, default=1)
+    day = Column(Date, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 

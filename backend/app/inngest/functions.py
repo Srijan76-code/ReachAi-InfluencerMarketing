@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 # instance warm; ~8,640 runs a month.
 WARM_CRON = "*/5 * * * *"
 from app.gmail import constants as GMAIL  # noqa: E402
+from app.tracking import constants as TRACK  # noqa: E402
 
 async def _campaign_run_failed(ctx: inngest.Context):
     """Runs once, after the last retry of run_campaign: mark the campaign failed."""
@@ -137,3 +138,38 @@ async def sync_gmail_replies(ctx: inngest.Context):
             )).scalars())
             total += await sync_deals(db, a, deals, user_id=a.user_id)
     return {"accounts": len(accounts), "new_replies": total}
+
+
+@inngest_client.create_function(
+    fn_id="refresh_track",
+    trigger=inngest.TriggerCron(cron=TRACK.TRACK_CRON),
+    concurrency=[inngest.Concurrency(limit=1)],
+    retries=1,
+)
+async def refresh_track(ctx: inngest.Context):
+    """Daily: find agreed creators' new posts and fetch every post's numbers (Track, spec §7.6)."""
+    from sqlalchemy import select
+
+    from app.billing.costs import CostContext
+    from app.db.database import AsyncSessionLocal
+    from app.deals import constants as DC
+    from app.models.campaign import Campaign
+    from app.models.deal import CreatorDeal
+    from app.platforms.youtube_api import HttpYouTubeAPI
+    from app.tracking.find import refresh_campaign
+
+    async with AsyncSessionLocal() as db:
+        rows = (await db.execute(select(CreatorDeal.campaign_id, Campaign.user_id).join(Campaign, Campaign.campaign_id == CreatorDeal.campaign_id)
+                                 .where(CreatorDeal.stage.in_(DC.COMMITTED_STAGES)).distinct())).all()
+    done = 0
+    for campaign_id, user_id in rows:
+        api = HttpYouTubeAPI(context=CostContext(user_id=user_id, campaign_id=campaign_id))
+        try:
+            async with AsyncSessionLocal() as db:
+                await refresh_campaign(db, campaign_id, api, user_id=user_id, force=True)
+            done += 1
+        except Exception as e:  # one campaign failing doesn't stop the rest
+            ctx.logger.warning(f"track refresh failed: {type(e).__name__}")
+        finally:
+            await api.aclose()
+    return {"campaigns": done}

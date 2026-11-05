@@ -665,7 +665,14 @@ async def follow_link(slug: str, request: Request, db: AsyncSession = Depends(ge
     if not any(b in ua for b in ("bot", "crawler", "spider", "preview", "facebookexternalhit", "slurp")) and request.method == "GET":
         db.add(LinkClick(slug=slug))
         await db.commit()
-    return {"url": link.target_url}
+    # the site gets ?ref=<their code>, so the signup snippet can credit them (spec §7.6)
+    from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
+
+    code = (await db.execute(select(CreatorDeal.tracking_code).where(CreatorDeal.deal_id == link.deal_id))).scalar_one_or_none()
+    u = urlparse(link.target_url)
+    if code:
+        u = u._replace(query=urlencode([*parse_qsl(u.query), ("ref", code)]))
+    return {"url": urlunparse(u)}
 
 
 @router.post("/api/proposals/{proposal_id}/skip")

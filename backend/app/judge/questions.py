@@ -212,3 +212,23 @@ def draft_check_questions() -> dict:
         "answers_questions": Noul(instructions="If `reply.text` asks questions, does `draft` answer them or say we'll follow up?"),
         "tone_ok": Noul(instructions="Is `draft` friendly, respectful and clear, like a founder writing personally?"),
     }
+
+
+def sponsored_post_questions() -> dict:
+    """Is this upload the creator's sponsored post for us? `state`: `brand`, `video` (title, description start)."""
+    return {
+        "is_sponsored_post": Noul(instructions=("Is `video` a sponsored post or paid mention for `brand.name` "
+                                                "(it promotes, reviews or mentions the brand or its product)?")),
+    }
+
+
+def comment_questions() -> dict:
+    """What the audience said under a sponsored video. `state`: `brand`, `comments` (text, most liked first)."""
+    return {
+        "sentiment": Score(instructions="Overall, how do `comments` feel about the video?",
+                           criteria=list(K.COMMENT_SENTIMENT_LEVELS)),
+        "product_interest": Noul(instructions=("Do several `comments` show interest in `brand.name`'s product: asking where to "
+                                               "get it, the price, or saying they'll try it?")),
+        "product_questions": Noul(instructions="Do several `comments` ask questions about `brand.name`'s product?"),
+        "ad_backlash": Noul(instructions="Do several `comments` complain about the sponsorship or the ad itself?"),
+    }

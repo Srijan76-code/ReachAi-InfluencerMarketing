@@ -10,6 +10,7 @@ import {
   LayoutGrid,
   Users,
   Send,
+  TrendingUp,
 } from "lucide-react";
 
 interface PageProps {
@@ -22,6 +23,7 @@ const NAV_ITEMS = [
   { name: "Brief", path: "details", icon: LayoutGrid },
   { name: "Creators", path: "leads", icon: Users },
   { name: "Outreach", path: "outreach", icon: Send },
+  { name: "Track", path: "track", icon: TrendingUp },
 ];
 
 const CampaignTabs = ({ id }: PageProps) => {

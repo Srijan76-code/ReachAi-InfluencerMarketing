@@ -94,3 +94,7 @@ EXTRAS = {
     "free_product": "Offer free access to the product",
     "fast_payment": "Offer to pay quickly, as soon as the post is live",
 }
+
+# Track: what the audience said under a sponsored video (spec §7.6)
+COMMENT_SENTIMENT_LEVELS = ("Very negative", "Mostly negative", "Mixed", "Mostly positive", "Very positive")
+COMMENT_SIGNAL_FROM = 0.6
