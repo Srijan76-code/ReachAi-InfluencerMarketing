@@ -134,6 +134,21 @@ async def list_deals(campaign_id: str, user: User = Depends(get_db_user), db: As
     body = {"deals": [_out(d, leads.get(d.creator_id), today) for d in deals], "summary": _summary(list(deals), camp.campaign_details),
             "goal": _goal(camp.campaign_details), "suggested_deal_type": N.suggest_deal_type(_goal(camp.campaign_details))}
     body["proposals"] = await _proposals(db, list(deals), camp, user)
+    # the inbox list shows each deal's latest message (who wrote it, a short preview, when)
+    last: dict = {}
+    if deals:
+        rows = (await db.execute(
+            select(DealEvent.deal_id, DealEvent.type, DealEvent.payload, DealEvent.created_at)
+            .where(DealEvent.deal_id.in_([d.deal_id for d in deals]), DealEvent.type.in_(("message_sent", "creator_reply")))
+            .order_by(DealEvent.created_at)
+        )).all()
+        for r in rows:
+            text = ((r.payload or {}).get("text") or "").strip()
+            if text:
+                last[r.deal_id] = {"who": "you" if r.type == "message_sent" else "them", "text": " ".join(text.split())[:120],
+                                   "at": r.created_at.isoformat() if r.created_at else None}
+    for item in body["deals"]:
+        item["last_message"] = last.get(item["id"])
     return body
 
 
@@ -299,6 +314,41 @@ async def negotiate_again(deal_id: str, user: User = Depends(get_db_user), db: A
     await db.commit()
     await db.refresh(d)
     return {"agent": result, "deal": _out(d, lead, date.today()), "proposals": await _campaign_proposals(db, d.campaign_id, row, user)}
+
+
+class MessageIn(BaseModel):
+    text: str  # written by the founder
+    via: str = "gmail"  # "gmail" sends it when connected and we have their email; "copy" only records it
+
+
+@router.post("/api/deals/{deal_id}/message")
+async def send_own_message(deal_id: str, body: MessageIn, user: User = Depends(get_db_user), db: AsyncSession = Depends(get_db)):
+    """The founder's own message in the chat. Sent from their Gmail in the deal's thread when possible, else
+    recorded as sent (they copy it). Replaces any pending suggestion: the agent reads it next time."""
+    from app.gmail.service import account_for, send_for_deal, usable
+    from app.models.deal import AgentProposal
+
+    text = (body.text or "").strip()
+    if not text:
+        raise HTTPException(422, "Write a message first.")
+    if len(text) > 5000:
+        raise HTTPException(422, "That message is too long.")
+    d, row = await _deal(db, deal_id, user)
+    via = None
+    if body.via != "copy" and d.contact_email:
+        account = await account_for(db, user.user_id)
+        if usable(account):
+            subject = None if d.gmail_thread_id else f"{(row.campaign_details or {}).get('brand', {}).get('name') or 'Working together'}"
+            via = await send_for_deal(db, account, d, text, subject=subject)
+    db.add(DealEvent(deal_id=d.deal_id, type="message_sent",
+                     payload={"kind": "manual", "text": text, "amounts": None, "edited": False, "via": "gmail" if via else "copied", **(via or {})}))
+    for p in (await db.execute(select(AgentProposal).where(AgentProposal.deal_id == d.deal_id, AgentProposal.status == "pending",
+                                                           AgentProposal.kind.in_(("send_counter", "agree", "mark_lost", "follow_up"))))).scalars():
+        p.status = "stale"
+    await db.commit()
+    await db.refresh(d)
+    return {"sent": bool(via), "deal": _out(d, _leads_by_id(row.campaign_leads).get(d.creator_id), date.today()),
+            "proposals": await _campaign_proposals(db, d.campaign_id, row, user)}
 
 
 async def _proposal(db: AsyncSession, proposal_id: str, user: User):
