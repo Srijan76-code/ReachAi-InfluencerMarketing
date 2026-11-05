@@ -17,7 +17,7 @@ PLATFORM_HOSTS = {"youtube": ("youtube.com", "youtu.be"), "instagram": ("instagr
                   "linkedin": ("linkedin.com",)}
 EDITABLE = ("stage", "deliverable", "post_by", "deal_type", "commission_pct", "usage_rights", "exclusivity_days",
             "disclosure", "quoted_rate", "agreed_rate", "post_url", "paid_amount", "paid_at", "payment_ref", "notes", "position",
-            "contact_email", "fair_low", "fair_high")
+            "contact_email", "fair_low", "fair_high", "channel", "pay_when")
 
 
 _EMAIL = re.compile(r"[^@\s<>]+@[^@\s<>]+\.[a-z]{2,}")
@@ -54,6 +54,10 @@ def validate(d: CreatorDeal, ch: dict) -> None:
     low, high = ch.get("fair_low", d.fair_low), ch.get("fair_high", d.fair_high)
     if low is not None and high is not None and low > high:
         bad("The low end of the fair price can't be above the high end.")
+    if ch.get("channel") is not None and ch["channel"] not in C.CHANNELS:
+        bad("Unknown channel.")
+    if ch.get("pay_when") is not None and ch["pay_when"] not in C.PAY_WHEN:
+        bad("Unknown payment timing.")
     if "contact_email" in ch:
         e = (ch["contact_email"] or "").strip().lower() or None
         if e and not _EMAIL.fullmatch(e):

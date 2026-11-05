@@ -91,7 +91,32 @@ export type Deal = {
   last_message?: { who: "you" | "them"; text: string; at: string | null } | null; // for the inbox list
   unread?: number; // their replies since you last opened the chat
   last_read_at?: string | null;
+  channel?: Channel; // how you reach them (picked from what we have unless you chose)
+  channel_set?: boolean;
+  socials?: Partial<Record<"instagram" | "twitter" | "linkedin", string>>;
+  pay_when?: string | null;
+  tracking_code?: string | null;
+  posts?: DealPost[]; // what they agreed to post (only on the list, and after agreeing)
+  link?: { url: string; slug: string; target: string; clicks: number } | null;
+  writing?: boolean; // ReachAI is still writing their first message
 };
+
+export type DealPost = { id: string; deliverable: string; due_on: string | null; post_url: string | null; live_at: string | null };
+
+export type Channel = "email" | "instagram" | "twitter" | "whatsapp" | "other";
+export const CHANNELS: { value: Channel; label: string; verb: string }[] = [
+  { value: "email", label: "Email", verb: "Send" },
+  { value: "instagram", label: "Instagram DM", verb: "Copy and open Instagram" },
+  { value: "twitter", label: "X DM", verb: "Copy and open X" },
+  { value: "whatsapp", label: "WhatsApp", verb: "Copy and open WhatsApp" },
+  { value: "other", label: "Somewhere else", verb: "Copy" },
+];
+export const PAY_WHEN = [
+  ["on_live", "When the post is live"],
+  ["half_half", "Half now, half when live"],
+  ["upfront", "Before they post"],
+  ["net_7", "7 days after it's live"],
+] as const;
 
 export type DealsSummary = {
   deals: number;
@@ -122,7 +147,7 @@ export const money = (n: number | null | undefined) =>
 export type Proposal = {
   id: string;
   deal_id: string;
-  kind: "record_quote" | "send_counter" | "agree" | "follow_up" | "chase_post" | "mark_live" | "mark_paid" | "mark_lost" | "hold_terms";
+  kind: "record_quote" | "send_counter" | "agree" | "follow_up" | "chase_post" | "mark_live" | "mark_paid" | "mark_lost" | "hold_terms" | "pitch" | "confirm_terms";
   title: string;
   reason: string | null;
   message: string | null;
@@ -132,6 +157,9 @@ export type Proposal = {
   can_send?: boolean; // Gmail connected and we have their email: approving sends it
   terms?: { fee: number | null; commission_pct: number | null; structure?: string } | null; // what the message offers
   change?: { from: Offer; to: Offer } | null; // hold_terms: after agreeing, they asked for more
+  subject?: string | null; // a first email's subject line
+  texts?: Partial<Record<string, { subject?: string; body: string }>> | null; // pitch: the message for each channel
+  seen?: boolean; // you've looked at this first message ("Send all reviewed")
   name: string;
   avatar_url: string | null;
   created_at: string | null;
@@ -140,10 +168,12 @@ export type Proposal = {
 type Offer = { fee: number | null; commission_pct: number | null };
 
 /** Suggestions that are a message in the chat (they show up in the message box). */
-export const CHAT_KINDS: Proposal["kind"][] = ["send_counter", "agree", "mark_lost", "follow_up", "hold_terms"];
+export const CHAT_KINDS: Proposal["kind"][] = ["send_counter", "agree", "mark_lost", "follow_up", "hold_terms", "pitch", "confirm_terms"];
 
 export const PROPOSAL_ACTION: Record<Proposal["kind"], string> = {
   hold_terms: "Copy and mark sent",
+  pitch: "Copy and mark sent",
+  confirm_terms: "Copy and mark sent",
   record_quote: "Write it down",
   send_counter: "Copy and mark sent",
   agree: "Agree",

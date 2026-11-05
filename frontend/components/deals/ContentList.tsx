@@ -122,7 +122,7 @@ function Row({ deal, api, onChange, onBack, onRemove, chase, onProposals }: {
           <DropdownMenuContent align="end" className="w-48 bg-white dark:bg-[#0c0d0e] border-zinc-200 dark:border-zinc-800">
             <DropdownMenuItem className="text-xs cursor-pointer" onSelect={onBack}>Open the conversation</DropdownMenuItem>
             {step > 0 && <DropdownMenuItem className="text-xs cursor-pointer" onSelect={() => save({ stage: step === 2 ? "live" : "agreed" })}>Undo last step</DropdownMenuItem>}
-            <DropdownMenuItem className="text-xs cursor-pointer text-rose-500 focus:text-rose-500" onSelect={onRemove}>Remove from deals</DropdownMenuItem>
+            <DropdownMenuItem className="text-xs cursor-pointer text-rose-500 focus:text-rose-500" onSelect={onRemove}>Remove</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -156,7 +156,7 @@ export function ContentList({ deals, api, proposals, onChange, onOpenChat, onRem
   if (deals.length === 0)
     return (
       <div className="rounded-lg border border-dashed border-zinc-200 dark:border-zinc-800 px-4 py-12 text-center">
-        <p className="text-[13px] text-zinc-900 dark:text-zinc-100">No agreed deals yet</p>
+        <p className="text-[13px] text-zinc-900 dark:text-zinc-100">No agreed creators yet</p>
         <p className="text-xs text-zinc-500 mt-1">When a creator agrees in Negotiating, they show up here to track the post and payment.</p>
       </div>
     );

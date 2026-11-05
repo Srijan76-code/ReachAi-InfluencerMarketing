@@ -6,7 +6,7 @@ import { Check, Handshake } from "lucide-react";
 import { useApi } from "@/lib/api";
 import { btn } from "@/lib/ui";
 
-/** "Add to deals" for one or more creators (creator panel, selection bar). After adding, it links to the Deals tab. */
+/** "Add to outreach" for one or more creators (creator panel, selection bar): each gets a chat in Outreach. */
 export function AddToDealsButton({ campaignId, creatorIds, variant = "panel" }: {
   campaignId: string;
   creatorIds: string[];
@@ -22,7 +22,7 @@ export function AddToDealsButton({ campaignId, creatorIds, variant = "panel" }: 
       const r = await api(`/api/campaigns/${campaignId}/deals`, { method: "POST", data: { creator_ids: creatorIds } });
       const d = r.data as { created?: unknown[]; skipped?: number };
       const added = d.created?.length ?? 0;
-      setNote(added ? (creatorIds.length > 1 ? `${added} added` : "In deals") : "Already in deals");
+      setNote(added ? (creatorIds.length > 1 ? `${added} added` : "In Outreach") : "Already in Outreach");
       setState("done");
     } catch {
       setState("error");
@@ -36,14 +36,14 @@ export function AddToDealsButton({ campaignId, creatorIds, variant = "panel" }: 
 
   if (state === "done")
     return (
-      <Link href={`/campaign/${campaignId}/deals`} className={base} title="Open the Deals tab">
+      <Link href={`/campaign/${campaignId}/outreach`} className={base} title="Open Outreach">
         <Check size={12} className="text-emerald-500" /> {note}
       </Link>
     );
   return (
-    <button type="button" onClick={add} disabled={state === "busy" || !creatorIds.length} className={`${base} disabled:opacity-50`} title="Track them on the Deals tab">
+    <button type="button" onClick={add} disabled={state === "busy" || !creatorIds.length} className={`${base} disabled:opacity-50`} title="Give each a chat in Outreach">
       <Handshake size={12} />
-      {state === "busy" ? "Adding…" : state === "error" ? "Try again" : creatorIds.length > 1 ? `Add ${creatorIds.length} to deals` : "Add to deals"}
+      {state === "busy" ? "Adding…" : state === "error" ? "Try again" : creatorIds.length > 1 ? `Add ${creatorIds.length} to outreach` : "Add to outreach"}
     </button>
   );
 }

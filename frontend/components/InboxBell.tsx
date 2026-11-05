@@ -12,7 +12,7 @@ import { type Inbox, inboxStore, useInbox } from "@/lib/inbox";
 import { updatedLabel } from "@/types/campaign";
 
 const POLL_MS = 60_000;
-const chatHref = (campaignId: string, dealId: string) => `/campaign/${campaignId}/deals?chat=${dealId}`;
+const chatHref = (campaignId: string, dealId: string) => `/campaign/${campaignId}/outreach?chat=${dealId}`;
 
 /** Checks for new replies every minute (and on focus), keeps the tab title's "(n)" and pops browser alerts
  * for new replies once the founder allows them. Mounted once, in the navbar. */
@@ -22,7 +22,7 @@ function usePoll() {
   const path = usePathname();
   const params = useSearchParams();
   const openChat = useRef<string | null>(null);
-  openChat.current = path?.endsWith("/deals") ? params?.get("chat") ?? null : null;
+  openChat.current = path?.endsWith("/outreach") ? params?.get("chat") ?? null : null;
 
   useEffect(() => {
     let alive = true;

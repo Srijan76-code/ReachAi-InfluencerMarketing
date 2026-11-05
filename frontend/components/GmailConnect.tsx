@@ -131,8 +131,8 @@ export function SendPitch({ campaignId, creatorId, subject, body, leadEmail }: {
   if (state === "sent")
     return (
       <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-4 py-3 flex items-center justify-between gap-3">
-        <p className="text-xs text-emerald-700 dark:text-emerald-400 flex items-center gap-2"><Check size={13} /> Sent from {gmail.status?.email}. Their reply will show up in Deals.</p>
-        <Link href={`/campaign/${campaignId}/deals`} className={btn}>Open Deals</Link>
+        <p className="text-xs text-emerald-700 dark:text-emerald-400 flex items-center gap-2"><Check size={13} /> Sent from {gmail.status?.email}. Their reply will show up in their chat in Outreach.</p>
+        <Link href={`/campaign/${campaignId}/outreach`} className={btn}>Open the chat</Link>
       </div>
     );
 

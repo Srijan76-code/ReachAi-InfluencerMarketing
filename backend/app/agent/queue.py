@@ -53,7 +53,7 @@ async def refresh(db: AsyncSession, deals: list[CreatorDeal], *, names: dict, go
             elif have.status == "stale":
                 have.status, have.title, have.reason, have.payload = "pending", p.title, p.reason, p.payload
     for k, p in stored.items():
-        if p.status == "pending" and k not in wanted and not p.key.startswith("nego:"):  # the agent manages its own
+        if p.status == "pending" and k not in wanted and not p.key.startswith(A.OWN_KEYS):  # made elsewhere: managed there
             p.status = "stale"
     await db.commit()
     return list((await db.execute(
@@ -79,7 +79,8 @@ def _change_for(p: AgentProposal, d: CreatorDeal) -> dict:
     return {}
 
 
-async def approve(db: AsyncSession, p: AgentProposal, d: CreatorDeal, message: Optional[str], send=None) -> dict:
+async def approve(db: AsyncSession, p: AgentProposal, d: CreatorDeal, message: Optional[str], send=None,
+                  subject: Optional[str] = None) -> dict:
     """Carries out an approved suggestion from its stored payload (never from model text). `send(text)` sends a
     message through the founder's Gmail (→ {"gmail_id", "thread_id"}); without it a message is only recorded as
     sent (the founder copied it). The change is checked before sending, and nothing changes if sending fails.
@@ -100,7 +101,7 @@ async def approve(db: AsyncSession, p: AgentProposal, d: CreatorDeal, message: O
         keep, terms = (amounts, terms) if still else (None, None)
         via = await send(final) if send else None
         db.add(DealEvent(deal_id=d.deal_id, type="message_sent",
-                         payload={"kind": p.kind, "text": final, "amounts": keep, "terms": terms, "edited": edited, "final": bool(pl.get("final")),
+                         payload={"kind": p.kind, "text": final, **({"subject": subject} if subject else {}), "amounts": keep, "terms": terms, "edited": edited, "final": bool(pl.get("final")),
                                   "proposal_id": p.proposal_id, "via": "gmail" if via else "copied", **(via or {})}))
         result = {"message": final, "edited": edited, "sent": bool(via)}
     apply_change(db, d, change)
@@ -124,4 +125,5 @@ def out(p: AgentProposal, name: str, avatar: Optional[str], can_send: bool = Fal
             "is_message": p.kind in A.MESSAGE_KINDS and bool(pl.get("message")),
             "can_send": can_send and p.kind in A.MESSAGE_KINDS and bool(pl.get("message")),
             "terms": pl.get("terms"), "change": pl.get("change"),
+            "subject": pl.get("subject"), "texts": pl.get("texts"), "seen": bool(pl.get("seen")),
             "name": name, "avatar_url": avatar, "created_at": p.created_at.isoformat() if p.created_at else None}

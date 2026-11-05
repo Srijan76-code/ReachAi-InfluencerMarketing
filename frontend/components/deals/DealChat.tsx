@@ -3,19 +3,21 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
-  AlertCircle, ArrowLeft, ArrowUp, Check, Clipboard, Clock, Info, Loader2, Mail, MoreHorizontal, RotateCcw, Sparkles, X,
+  AlertCircle, ArrowLeft, ArrowUp, Check, ChevronDown, Clipboard, Clock, Handshake, Info, Instagram, Loader2, Mail, MessageCircle,
+  MoreHorizontal, RotateCcw, Sparkles, Twitter, X,
 } from "lucide-react";
 import { CreatorAvatar } from "@/components/CreatorAvatar";
 import { Burst } from "@/components/chat/burst";
 import { Conversation, ConversationContent, ConversationScrollButton } from "@/components/chat/conversation";
 import { Shimmer, TypingDots } from "@/components/chat/shimmer";
+import { AgreeSheet } from "@/components/deals/AgreeSheet";
 import { DealDetails } from "@/components/deals/DealDetails";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Field, NumberInput } from "@/components/ui/field";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { inboxStore } from "@/lib/inbox";
 import { btn } from "@/lib/ui";
-import { type Deal, type DealEvent, type Proposal, money } from "@/data/deals";
+import { type Channel, CHANNELS, type Deal, type DealEvent, type Proposal, money } from "@/data/deals";
 
 type Api = (url: string, options?: Record<string, unknown>) => Promise<{ data: unknown }>;
 type Who = "you" | "them";
@@ -62,6 +64,13 @@ function bubblesFrom(events: DealEvent[]): Bubble[] {
   });
   return out;
 }
+
+const CHANNEL_ICON: Record<Channel, typeof Mail> = { email: Mail, instagram: Instagram, twitter: Twitter, whatsapp: MessageCircle, other: Clipboard };
+const PROFILE: Partial<Record<Channel, (d: Deal) => string | undefined>> = {
+  instagram: (d) => d.socials?.instagram,
+  twitter: (d) => d.socials?.twitter,
+  whatsapp: () => "https://web.whatsapp.com/",
+};
 
 const SOURCE: Record<string, { icon: typeof Mail; label: string }> = {
   gmail: { icon: Mail, label: "Email" },
@@ -117,6 +126,40 @@ function MessageBubble({ b, first, last, isNew, name, onRetry, onReconnect }: {
   );
 }
 
+/** How you reach them: email (sent from Gmail) or a DM (copied, then their profile opens). */
+function ChannelChip({ channel, deal, gmailReady, onPick }: { channel: Channel; deal: Deal; gmailReady: boolean; onPick: (c: Channel) => void }) {
+  const Icon = CHANNEL_ICON[channel];
+  const label = CHANNELS.find((c) => c.value === channel)?.label ?? "Email";
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button type="button" aria-label={`Reach them by ${label}. Change`}
+          className="h-8 px-2.5 rounded-full border border-zinc-200 dark:border-zinc-800 text-[11px] text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center gap-1.5 transition-colors">
+          <Icon size={12} /> <span className="hidden sm:inline">{label}</span> <ChevronDown size={11} className="text-zinc-400" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56 bg-white dark:bg-[#0c0d0e] border-zinc-200 dark:border-zinc-800">
+        <DropdownMenuLabel className="text-[11px] font-normal text-zinc-500">How you reach {deal.name}</DropdownMenuLabel>
+        {CHANNELS.map((c) => {
+          const I = CHANNEL_ICON[c.value];
+          const hint = c.value === "email" ? (deal.contact_email ? (gmailReady ? "Sends from your Gmail" : "Connect Gmail to send") : "Add their email in Details")
+            : c.value === "other" ? "Copy and paste it yourself" : PROFILE[c.value]?.(deal) ? "Copies it and opens their profile" : "Copies it";
+          return (
+            <DropdownMenuItem key={c.value} className="text-xs cursor-pointer flex items-start gap-2" onSelect={() => onPick(c.value)}>
+              <I size={13} className="mt-0.5 shrink-0" />
+              <span className="flex-1">
+                <span className="block">{c.label}</span>
+                <span className="block text-[10px] text-zinc-500">{hint}</span>
+              </span>
+              {c.value === channel && <Check size={12} className="mt-0.5" />}
+            </DropdownMenuItem>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 function ChatSkeleton() {
   return (
     <div className="flex-1 px-5 md:px-8 py-8 space-y-4" aria-label="Loading the conversation">
@@ -131,8 +174,9 @@ function ChatSkeleton() {
 
 /** One negotiation as a chat (spec §8.6b): the messages, ReachAI's draft in the message box, and a switch to
  * add what the creator said when it came by DM. */
-export function DealChat({ deal, api, proposals, gmailReady, onReconnect, onChange, onProposals, onRemove, onBack, onRead }: {
+export function DealChat({ deal, api, proposals, gmailReady, website, onReconnect, onChange, onProposals, onRemove, onBack, onRead }: {
   deal: Deal;
+  website: string | null; // the founder's site, for tracking links
   api: Api;
   proposals: Proposal[];
   gmailReady: boolean;
@@ -153,6 +197,8 @@ export function DealChat({ deal, api, proposals, gmailReady, onReconnect, onChan
   const [texts, setTexts] = useState<Record<Who, string>>({ you: "", them: "" });
   const [busy, setBusy] = useState<"reword" | "discard" | "accept" | "again" | null>(null);
   const [note, setNote] = useState<Problem | null>(null);
+  const [agreeOpen, setAgreeOpen] = useState(false);
+  const [subject, setSubject] = useState("");
   const initialKeys = useRef<Set<string> | null>(null);
   const box = useRef<HTMLTextAreaElement>(null);
   const name = firstName(deal.name);
@@ -164,9 +210,18 @@ export function DealChat({ deal, api, proposals, gmailReady, onReconnect, onChan
     setDraftFor(draft?.id ?? null);
     if (draft?.message) {
       setTexts((t) => ({ ...t, you: draft.message ?? "" }));
+      setSubject(draft.subject ?? "");
       setWho("you");
     }
   }
+  const channel: Channel = deal.channel ?? (deal.contact_email ? "email" : "other");
+  const firstEmail = channel === "email" && !deal.emailing && !(deal.last_message);
+
+  // a first message you've looked at can go out with "Send all reviewed"
+  useEffect(() => {
+    if (draft?.kind === "pitch" && !draft.seen) api(`/api/proposals/${draft.id}/seen`, { method: "POST" }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per draft
+  }, [draft?.id]);
 
   const loadEvents = () =>
     api(`/api/deals/${deal.id}/events`)
@@ -205,7 +260,7 @@ export function DealChat({ deal, api, proposals, gmailReady, onReconnect, onChan
     return [...saved, ...pending.map((p) => ({ key: p.key, who: p.who, text: p.text, at: new Date().toISOString(), pending: p }) as Bubble)];
   }, [events, pending]);
 
-  const canSend = gmailReady && !!deal.contact_email;
+  const canSend = channel === "email" && gmailReady && !!deal.contact_email;
   const talking = deal.stage === "contacted" || deal.stage === "negotiating";
   const agreed = !talking && deal.stage !== "lost";
 
@@ -216,6 +271,7 @@ export function DealChat({ deal, api, proposals, gmailReady, onReconnect, onChan
   const run = async (op: Op, text: string, retryKey?: string) => {
     const key = retryKey ?? `p${Date.now()}`;
     const mine = op.kind !== "paste";
+    const stageBefore = deal.stage;
     setNote(null);
     setPending((ps) => (retryKey ? ps.map((p) => (p.key === key ? { ...p, status: "sending", error: undefined } : p))
       : [...ps, { key, who: mine ? "you" : "them", text, status: "sending", op }]));
@@ -226,21 +282,24 @@ export function DealChat({ deal, api, proposals, gmailReady, onReconnect, onChan
         try {
           await navigator.clipboard.writeText(text);
         } catch {} // copying can be blocked; it's still recorded
+        const profile = PROFILE[channel]?.(deal);
+        if (profile) window.open(profile, "_blank", "noopener,noreferrer");
       }
       const via = canSend ? "gmail" : "copy";
-      const r = (await (op.kind === "draft" ? api(`/api/proposals/${op.proposalId}/approve`, { method: "POST", data: { message: text, via } })
+      const r = (await (op.kind === "draft" ? api(`/api/proposals/${op.proposalId}/approve`, { method: "POST", data: { message: text, via, subject: subject.trim() || null } })
         : op.kind === "own" ? api(`/api/deals/${deal.id}/message`, { method: "POST", data: { text, via } })
         : api(`/api/deals/${deal.id}/reply`, { method: "POST", data: { text } }))).data as { deal: Deal; proposals?: Proposal[] };
       await loadEvents();
       setPending((ps) => ps.filter((p) => p.key !== key));
-      if (op.kind === "draft" && r.deal.stage === "agreed" && deal.stage !== "agreed") {
+      if (op.kind === "draft" && r.deal.stage === "agreed" && stageBefore !== "agreed") {
         setCelebrate(true);
         setTimeout(() => setCelebrate(false), 1200);
+        setTimeout(() => setAgreeOpen(true), 700); // next: what they'll post, when, and their link and code
       }
       onChange(r.deal);
       onProposals(r);
       inboxStore.refresh();
-      if (mine && !canSend) setNote({ text: "Copied. Paste it where you talk to them" });
+      if (mine && !canSend) setNote({ text: channel === "email" || channel === "other" ? "Copied. Paste it where you talk to them" : `Copied. Paste it in ${CHANNELS.find((c) => c.value === channel)?.label}` });
     } catch (e) {
       setPending((ps) => ps.map((p) => (p.key === key ? { ...p, status: "failed", error: problem(e, mine ? "Not sent" : "Couldn't add it") } : p)));
     } finally {
@@ -305,7 +364,8 @@ export function DealChat({ deal, api, proposals, gmailReady, onReconnect, onChan
   const fair = a.fair_high != null ? `Fair ${money(a.fair_low)}–${money(a.fair_high)}` : "No fair price yet";
   const agreedWords = deal.agreed_rate != null ? askWords(deal.agreed_rate, deal.deal_type !== "flat" ? deal.commission_pct : null) : null;
   const change = draft?.kind === "hold_terms" ? draft.change : null;
-  const sendLabel = who === "them" ? "Add" : draft?.kind === "agree" ? (canSend ? "Send and agree" : "Copy and agree") : canSend ? "Send" : "Copy";
+  const sendLabel = who === "them" ? "Add" : draft?.kind === "agree" ? (canSend ? "Send and agree" : "Copy and agree") : canSend ? "Send"
+    : CHANNELS.find((c) => c.value === channel)?.verb ?? "Copy";
 
   return (
     <div className="flex flex-col h-full min-h-0 min-w-0">
@@ -326,12 +386,19 @@ export function DealChat({ deal, api, proposals, gmailReady, onReconnect, onChan
             {agreed && agreedWords ? (
               <motion.span initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="text-emerald-600 dark:text-emerald-400 font-medium">Agreed {agreedWords}</motion.span>
             ) : deal.stage === "lost" ? <span>Not going ahead</span> : <span>{fair}</span>}
-            <span aria-hidden className="text-zinc-300 dark:text-zinc-700">·</span>
-            <span className="flex items-center gap-1">
-              {canSend ? <><Mail size={10} /> Email</> : deal.contact_email ? <><Clipboard size={10} /> Copy and send yourself</> : <><Clipboard size={10} /> No email yet</>}
-            </span>
+            {agreed && deal.posts && deal.posts.length > 0 && (
+              <><span aria-hidden className="text-zinc-300 dark:text-zinc-700">·</span><span>{deal.posts.length} {deal.posts.length === 1 ? "post" : "posts"}</span></>
+            )}
+            {deal.link && <><span aria-hidden className="text-zinc-300 dark:text-zinc-700">·</span><span>{deal.link.clicks} {deal.link.clicks === 1 ? "click" : "clicks"}</span></>}
           </p>
         </div>
+        <ChannelChip channel={channel} deal={deal} gmailReady={gmailReady} onPick={(c) => {
+          save({ channel: c });
+          if (draft?.kind === "pitch" && draft.texts) {
+            const t = draft.texts[c] ?? draft.texts.instagram ?? draft.texts.twitter ?? draft.texts.email;
+            if (t?.body) setTexts((x) => ({ ...x, you: t.body }));
+          }
+        }} />
         <button type="button" onClick={() => setDetailsOpen(true)} aria-label="Deal details" className="h-8 px-2.5 rounded-md text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center gap-1.5 transition-colors">
           <Info size={14} /> <span className="hidden sm:inline">Details</span>
         </button>
@@ -340,7 +407,8 @@ export function DealChat({ deal, api, proposals, gmailReady, onReconnect, onChan
             <button type="button" aria-label="More" className="h-8 w-8 shrink-0 flex items-center justify-center rounded-md text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800"><MoreHorizontal size={16} /></button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48 bg-white dark:bg-[#0c0d0e] border-zinc-200 dark:border-zinc-800">
-            {talking && <DropdownMenuItem className="text-xs cursor-pointer" onSelect={() => save({ stage: "agreed", agreed_rate: deal.agreed_rate ?? deal.quoted_rate })}>Mark agreed</DropdownMenuItem>}
+            {talking && <DropdownMenuItem className="text-xs cursor-pointer" onSelect={() => setAgreeOpen(true)}>Agree…</DropdownMenuItem>}
+            {agreed && <DropdownMenuItem className="text-xs cursor-pointer" onSelect={() => setAgreeOpen(true)}>Agreed terms</DropdownMenuItem>}
             {deal.stage !== "lost" ? (
               <DropdownMenuItem className="text-xs cursor-pointer" onSelect={() => save({ stage: "lost" })}>Mark lost</DropdownMenuItem>
             ) : (
@@ -364,8 +432,22 @@ export function DealChat({ deal, api, proposals, gmailReady, onReconnect, onChan
           <ConversationContent>
             {bubbles.length === 0 && (
               <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="m-auto py-16 text-center">
-                <p className="text-[13px] text-zinc-900 dark:text-zinc-100">No messages yet</p>
-                <p className="text-xs text-zinc-500 mt-1">Write your first message to {name} below.</p>
+                {deal.writing && !draft ? (
+                  <>
+                    <p className="text-[13px] flex items-center justify-center gap-2"><TypingDots /> <Shimmer>{`Writing a first message for ${name}`}</Shimmer></p>
+                    <p className="text-xs text-zinc-500 mt-1.5">It lands in the box below in a minute or two.</p>
+                  </>
+                ) : draft?.kind === "pitch" ? (
+                  <>
+                    <p className="text-[13px] text-zinc-900 dark:text-zinc-100">Your first message to {name} is ready</p>
+                    <p className="text-xs text-zinc-500 mt-1">Check it below, change anything, then send.</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-[13px] text-zinc-900 dark:text-zinc-100">No messages yet</p>
+                    <p className="text-xs text-zinc-500 mt-1">Write your first message to {name} below.</p>
+                  </>
+                )}
               </motion.div>
             )}
             {bubbles.map((b, i) => {
@@ -411,6 +493,21 @@ export function DealChat({ deal, api, proposals, gmailReady, onReconnect, onChan
           <ConversationScrollButton />
         </Conversation>
       )}
+
+      {/* agreed, but what they'll post isn't written down yet */}
+      <AnimatePresence>
+        {agreed && !change && !(deal.posts && deal.posts.length) && deal.posts !== undefined && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="shrink-0 px-4 md:px-6">
+            <div className="mb-2 rounded-xl border border-emerald-300/60 dark:border-emerald-500/25 bg-emerald-50/50 dark:bg-emerald-500/5 px-3.5 py-2.5 flex flex-wrap items-center gap-x-3 gap-y-2">
+              <p className="text-xs text-zinc-800 dark:text-zinc-200 flex-1 min-w-[200px]">
+                <span className="font-medium">You agreed {agreedWords}.</span>
+                <span className="block text-[11px] text-zinc-500">Next: what they&apos;ll post and when, plus their link and code.</span>
+              </p>
+              <button type="button" onClick={() => setAgreeOpen(true)} className={btn}><Handshake size={12} /> Set up the deal</button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* they asked for more after agreeing */}
       <AnimatePresence>
@@ -470,6 +567,10 @@ export function DealChat({ deal, api, proposals, gmailReady, onReconnect, onChan
                 )}
               </AnimatePresence>
             </div>
+            {who === "you" && draft?.kind === "pitch" && firstEmail && (
+              <input value={subject} onChange={(e) => setSubject(e.target.value.slice(0, 200))} placeholder="Subject" aria-label="Subject line"
+                className="block w-full bg-transparent px-3.5 pt-2.5 pb-1 text-[13px] font-medium text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none border-b border-zinc-100 dark:border-zinc-800/70" />
+            )}
             <textarea
               ref={box}
               value={texts[who]}
@@ -492,7 +593,9 @@ export function DealChat({ deal, api, proposals, gmailReady, onReconnect, onChan
                     {note.text}
                     {note.action === "reconnect" && <button type="button" onClick={onReconnect} className="underline">Reconnect</button>}
                   </span>
-                ) : who === "you" ? (canSend ? `From your Gmail to ${deal.contact_email}` : deal.contact_email ? "Connect Gmail to send from here" : "Copied for you to send. Add their email in Details to send from here")
+                ) : who === "you" ? (canSend ? `From your Gmail to ${deal.contact_email}`
+                  : channel === "email" ? (deal.contact_email ? "Connect Gmail to send from here" : "Add their email in Details to send from here")
+                  : `Copies it${PROFILE[channel]?.(deal) ? " and opens their profile" : ""}. Paste it there`)
                   : "⌘ Enter to add"}
               </span>
               <div className="ml-auto flex items-center gap-1">
@@ -521,6 +624,15 @@ export function DealChat({ deal, api, proposals, gmailReady, onReconnect, onChan
       )}
 
       <DealDetails open={detailsOpen} onOpenChange={setDetailsOpen} deal={deal} save={save} />
+      <AgreeSheet key={`${deal.id}:${agreeOpen}`} open={agreeOpen} onOpenChange={setAgreeOpen} deal={deal} api={api} website={website}
+        onDone={(r) => {
+          if (deal.stage !== "agreed" && r.deal.stage === "agreed") {
+            setCelebrate(true);
+            setTimeout(() => setCelebrate(false), 1200);
+          }
+          onChange(r.deal);
+          onProposals(r);
+        }} />
     </div>
   );
 }

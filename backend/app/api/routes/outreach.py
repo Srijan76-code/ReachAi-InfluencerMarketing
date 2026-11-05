@@ -56,6 +56,21 @@ async def create_outreach_job(
     if missing:
         raise HTTPException(400, {"unknown_creator_ids": missing})
 
+    # every creator gets a chat now ("Writing a first message…"); the drafts land there when the run finishes
+    from sqlalchemy import func
+
+    from app.api.routes.deals import new_deal
+    from app.models.deal import CreatorDeal, DealEvent
+
+    have = set((await db.execute(select(CreatorDeal.creator_id).where(
+        CreatorDeal.campaign_id == campaign_id, CreatorDeal.creator_id.in_(payload.selected_creator_ids)))).scalars())
+    top = (await db.execute(select(func.max(CreatorDeal.position)).where(CreatorDeal.campaign_id == campaign_id))).scalar() or 0
+    for i, cid in enumerate(c for c in dict.fromkeys(payload.selected_creator_ids) if c not in have):
+        d = new_deal(campaign, leads_by_id[cid], campaign_id, position=top + i + 1)
+        db.add(d)
+        await db.flush()
+        db.add(DealEvent(deal_id=d.deal_id, type="created", payload={"stage": "contacted", "from": "pitch"}))
+
     outreach_job_id = str(uuid.uuid4())
     job = OutreachJob(
         outreach_job_id=outreach_job_id,

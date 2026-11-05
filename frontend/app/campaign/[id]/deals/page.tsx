@@ -1,11 +1,8 @@
-import { Suspense } from "react";
-import DealsBoard from "@/components/deals/DealsBoard";
+import { redirect } from "next/navigation";
 
-export default async function Page({ params }: { params: Promise<{ id: string }> }) {
+/** Deals moved into Outreach (Nov 5): old links and alerts still land in the right chat. */
+export default async function Page({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string>> }) {
   const { id } = await params;
-  return (
-    <Suspense fallback={null}>
-      <DealsBoard campaignId={id} />
-    </Suspense>
-  );
+  const q = new URLSearchParams(await searchParams).toString();
+  redirect(`/campaign/${id}/outreach${q ? `?${q}` : ""}`);
 }
