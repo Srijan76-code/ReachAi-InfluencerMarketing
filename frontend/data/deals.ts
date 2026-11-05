@@ -88,6 +88,7 @@ export type Deal = {
   updated_at: string | null;
   contact_email?: string | null;
   emailing?: boolean; // an email thread with them exists in the founder's Gmail
+  last_message?: { who: "you" | "them"; text: string; at: string | null } | null; // for the inbox list
 };
 
 export type DealsSummary = {

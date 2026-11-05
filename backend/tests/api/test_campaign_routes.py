@@ -512,6 +512,20 @@ async def test_no_fair_price_then_set_one_and_suggest_again(client, monkeypatch)
 
 @needs_pg
 @pytest.mark.asyncio
+async def test_own_message_in_the_chat_and_last_message_preview(client):
+    await _set_leads(client, DEAL_LEADS)
+    d = (await client.post("/api/campaigns/c1/deals", json={"creator_ids": ["UC4"]})).json()["created"][0]
+    assert (await client.post(f"/api/deals/{d['id']}/message", json={"text": "  "})).status_code == 422
+    r = (await client.post(f"/api/deals/{d['id']}/message", json={"text": "Hey!  Loved your   last video."})).json()
+    assert r["sent"] is False  # no Gmail connected: recorded as sent, the founder copies it
+    me = next(x for x in (await client.get("/api/campaigns/c1/deals")).json()["deals"] if x["id"] == d["id"])
+    assert me["last_message"]["who"] == "you" and me["last_message"]["text"] == "Hey! Loved your last video."
+    events = (await client.get(f"/api/deals/{d['id']}/events")).json()
+    assert events[0]["type"] == "message_sent" and events[0]["payload"]["kind"] == "manual"
+
+
+@needs_pg
+@pytest.mark.asyncio
 async def test_gmail_connect_send_and_replies_flow(client, monkeypatch):
     """Connect Gmail → send the first pitch → their reply comes in → approve the counter → it's sent in the thread."""
     import base64

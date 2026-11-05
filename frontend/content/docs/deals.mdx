@@ -1,34 +1,42 @@
 ---
 title: Deals
-description: Track every creator from first message to paid, and negotiate a fair price.
+description: Negotiate with creators in a chat, then track each post until it's paid.
 ---
 
-The **Deals** tab is where you keep track of the creators you're actually working with: what you agreed, when they post, and whether you've paid them.
+The **Deals** tab is where you work with the creators you're talking to: negotiate in a chat, then track each agreed post until it's paid. It has two views:
+
+- **Negotiating**: an inbox. Creators on the left, the conversation on the right.
+- **Content**: one row per agreed creator, from agreed to posted to paid.
 
 ## Add creators
 
 - From a creator's panel: **Add to deals**.
 - From your list: select creators, then **Add N to deals** in the bar at the bottom.
-- On the Deals tab: **Add creators**, then pick from your shortlist (or everyone).
+- Sending a pitch from Outreach adds them by itself.
+- On the Deals tab: **Add creators**, then pick from your shortlist (or everyone), or add one by channel link.
 
-New deals start in **Contacted**. If your campaign's goal is signups or sales, the deal type starts as **fee + commission**; for awareness, a **flat fee**.
+If your campaign's goal is signups or sales, the deal type starts as **fee + commission**; for awareness, a **flat fee**.
 
-## The board
+## Negotiating: an inbox
 
-| Column | Means |
+The list on the left is grouped:
+
+| Group | Means |
 |---|---|
-| **Contacted** | You reached out |
-| **Negotiating** | Talking price and terms |
-| **Agreed** | Price and terms agreed |
-| **Content** | They're making it |
-| **Live** | The post is up |
-| **Paid** | You paid them |
+| **Your turn** (blue dot) | ReachAI has a reply ready for you |
+| **Waiting for them** | You wrote last; it's their move |
+| **Agreed** | You agreed; track it in Content |
+| **Lost** | Not going ahead (folded away) |
 
-Drag a card to another column, or use its **⋯** menu (also works on a phone). Creators who aren't going ahead go to **Lost**, which is hidden unless you press **Show lost**.
+Open a creator to see the whole conversation as a chat: what you sent and what they wrote, from Gmail or pasted. The top line sums it up: fair price, what they ask, what you last offered. The line under it shows the terms; click it to change the deliverable, deal type, commission, usage rights, their email or the fair price.
 
-Each card shows the price next to our fair range: **green** within it, **amber** above it, **red** more than twice its top. A card turns red when its post date has passed and it isn't live yet.
+At the bottom:
+- **Write to them**: type any message and press **Send**. With Gmail it goes from your address in the same thread; without it, it's copied for you to send.
+- **Paste their reply**: for replies that came by DM or WhatsApp, or just type their ask ("$20 + 10% commission"). ReachAI reads it and suggests a reply.
 
-The strip at the top adds it up: how many deals, how much you've **committed** against your budget, how many posts are **live**, and how much you've **paid**.
+Use the **⋯** menu to mark a deal agreed or lost, or remove it.
+
+The line at the top adds it up: how many creators you're talking to, how many agreed, how much you've **committed** against your budget, and how much is left **to pay**.
 
 ## Fair price for each deal
 
@@ -53,13 +61,13 @@ When a creator answers, ReachAI's negotiation agent works out your reply:
 3. **It writes the message**, answering what they actually said.
 4. **It checks itself**: the message may only contain the decided price and commission, and must not promise anything else. If a check fails it rewrites once, then falls back to a short standard message.
 
-The suggestion lands in **To do** with the reasoning, for example "They asked $7 + 20% commission. That's within your limit, so accept it." Nothing is sent until you approve it.
+The suggestion appears at the bottom of their chat (and they move to **Your turn**) with the reasoning, for example "They asked $7 + 20% commission. That's within your limit, so accept it." Nothing is sent until you approve it.
 
 **Your limits always hold.** The agent never offers more than a little above the fair price (15%) or more than your remaining budget. It never offers less than you already offered, and it stops after four rounds with a final offer.
 
 ### Start it
 - **With Gmail connected**, their email replies come in by themselves and the agent runs on each one.
-- **Otherwise**, open their deal and paste their reply (or just type what they asked for, like "$7 + 20% commission") under **Next step**, then press **Suggest a reply**. It takes a few seconds.
+- **Otherwise**, open their chat, choose **Paste their reply** at the bottom, and paste it (or just type what they asked for, like "$7 + 20% commission"), then press **Read**. It takes a few seconds.
 
 ### Who does what
 | Part | Done by |
@@ -71,26 +79,22 @@ The suggestion lands in **To do** with the reasoning, for example "They asked $7
 
 A reply that looks like it's trying to instruct an AI is ignored, and the agent tells you to read it yourself.
 
-If the agent can't suggest anything, the deal says why. The usual reason is no fair price, for example a channel with almost no views. Set a fair price range yourself in the deal, then press **Suggest again**.
+If the agent can't suggest anything, the deal says why. The usual reason is no fair price, for example a channel with almost no views. Set a fair price range yourself right there in the chat, then press **Suggest a reply**.
 
-## To do: the next step for every deal
+## Suggestions in the chat
 
-Switch the Deals tab from **Board** to **To do** to see what to do next on each deal. Board cards with something to do have a small blue dot.
+When it's your turn, ReachAI's suggested reply sits at the bottom of the chat with its reasoning ("They asked $15 + 10% commission. Offer $12 + 10%."). You can:
+- **Send** it. With Gmail it goes from your address; without it, **Copy** copies it for you.
+- **Edit** it first.
+- **Reword with AI** for a different wording with the same terms.
+- **Skip** it. It doesn't come back.
+
+Writing your own message instead replaces the suggestion; the agent reads your message next time.
 
 | When | Suggestion |
 |---|---|
 | They replied | The negotiation agent's reply (offer, accept, or close politely) |
-| No answer 4 days after you reached out | **Send a follow-up** (and a polite last one 4 days later, then it stops) |
-| The post-by date has passed with no link | **Ask about the late post** (up to 3 times, 3 days apart) |
-| The post link is in | **Move to Live** |
-| The post is live | **Mark paid** once you've paid them (ReachAI doesn't move money) |
-
-You can:
-- **Approve.** With Gmail this **sends** the message; without it, **Copy and mark sent** copies it for you to send.
-- **Edit** the message first.
-- **Reword with AI** for a different wording with the same terms.
-- **Skip** it. A skipped suggestion doesn't come back.
-- **Select several** (or Select all), edit any, then **Approve** or **Skip** them together.
+| No answer 4 days after you reached out | A follow-up (and a polite last one 4 days later, then it stops) |
 
 Greetings use the creator's first name only when the channel name looks like a person's name ("Hi Krish,"); otherwise they say "Hi there,". Edit it if you know their name.
 
@@ -100,15 +104,14 @@ Greetings use the creator's first name only when the channel name looks like a p
 ## Add a creator you already know
 In **Add creators**, paste their YouTube channel link (and their email if you have it) under **Or add by channel link**. ReachAI measures the channel like a search would (usual views, fair price, recent posts) and adds them to your creators and to Deals. They show as **Added by you**, with no fit score.
 
-## Write down what you agreed
+## Content: from agreed to paid
 
-Each deal keeps the terms that cause disputes when they aren't written down: **deliverable**, **post-by date**, **deal type** (and commission), **usage rights**, **exclusivity**, whether they **label it as an ad** (#ad or "paid partnership"), and notes.
+Each agreed creator is one row with three steps: **Agreed → Posted → Paid**, and one button for what's next:
 
-## Live post and payment
+1. **Add post link** when their post is up (it must be a link on their platform). Set the **post by** date so ReachAI can tell you when it's late; late rows turn red with **Send a reminder**.
+2. **Mark paid** once you've paid them. ReachAI doesn't move money; you pay creators directly.
 
-Paste the **link to the live post** (it must be a link on their platform) and move the deal to **Live**. When you've paid, press **Mark paid**: the amount defaults to the agreed price, and you can add a reference (UPI, PayPal, invoice number). ReachAI doesn't move money; you pay creators directly.
-
-Every change is kept on the deal's **timeline**.
+The **⋯** menu opens the conversation, undoes the last step, or removes the deal.
 
 <Callout title="Coming soon">
   Spotting the live post automatically, checking it has your link and an #ad label, results (views, clicks, cost per click) against the forecast, a simple contract, and a page where creators can submit their post themselves.
