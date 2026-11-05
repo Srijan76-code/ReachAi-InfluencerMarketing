@@ -23,20 +23,28 @@ The list on the left is grouped:
 
 | Group | Means |
 |---|---|
-| **Your turn** (blue dot) | ReachAI has a reply ready for you |
+| **Your turn** | They wrote (blue count: unread replies) or ReachAI drafted a reply for you (purple) |
 | **Waiting for them** | You wrote last; it's their move |
 | **Agreed** | You agreed; track it in Content |
 | **Lost** | Not going ahead (folded away) |
 
-Open a creator to see the whole conversation as a chat: what you sent and what they wrote, from Gmail or pasted. The top line sums it up: fair price, what they ask, what you last offered. The line under it shows the terms; click it to change the deliverable, deal type, commission, usage rights, their email or the fair price.
+Search the list by name, or fold it down to photos with the button next to search to give the chat more room.
 
-At the bottom:
-- **Write to them**: type any message and press **Send**. With Gmail it goes from your address in the same thread; without it, it's copied for you to send.
-- **Paste their reply**: for replies that came by DM or WhatsApp, or just type their ask ("$20 + 10% commission"). ReachAI reads it and suggests a reply.
+Open a creator to see the whole conversation as a chat: their messages on the left under their name, yours on the right under **You**, with the day above each day's messages. Hover a message for its time and where it came from (email or pasted). The top shows their photo, the fair price (or the agreed price once you agree) and how you reach them: **Email** when Gmail is connected and you have their address, otherwise **Copy and send yourself**.
 
-Use the **⋯** menu to mark a deal agreed or lost, or remove it.
+**Details** opens a side panel with their email, the terms (deliverable, deal type, commission, usage rights, post-by date) and the fair price. Changes save as you go. Use the **⋯** menu to mark a deal agreed or lost, or remove it.
 
-The line at the top adds it up: how many creators you're talking to, how many agreed, how much you've **committed** against your budget, and how much is left **to pay**.
+### The message box
+
+The switch at the top of the box says who's speaking:
+- **You**: write to them and press the arrow (or ⌘/Ctrl + Enter). With Gmail it goes from your address in the same thread; without it, it's copied for you to paste where you talk to them.
+- **Their name**: paste what they said by DM or WhatsApp, or just type their ask ("$20 + 10% commission"), then **Add**. It shows on their side of the chat, marked "Pasted", and ReachAI reads it and drafts a reply.
+
+Each side keeps its own unsent text, so switching never loses anything. Pasting something that's already in the chat (say, an email that also arrived through Gmail) is refused.
+
+Your message shows in the chat right away with **Sending…**, then the time. If it can't go out it stays, marked in red with what went wrong and one thing to do (**Retry**, or **Reconnect** Gmail).
+
+The line at the top adds it up: how many creators agreed and how much you've **committed** against your budget.
 
 ## Fair price for each deal
 
@@ -81,20 +89,28 @@ A reply that looks like it's trying to instruct an AI is ignored, and the agent 
 
 If the agent can't suggest anything, the deal says why. The usual reason is no fair price, for example a channel with almost no views. Set a fair price range yourself right there in the chat, then press **Suggest a reply**.
 
+## Alerts
+
+- The **Deals** tab shows a count when replies or drafts are waiting in that campaign, and the browser tab title shows unread replies, like "(2) ReachAI".
+- The **bell** in the top bar lists everyone waiting for you across all campaigns. Click one to open the chat.
+- In the bell, **Turn on alerts** to get a browser notification when a creator replies while ReachAI is open in a tab. ReachAI checks for new replies every minute while it's open, and every 30 minutes otherwise.
+
 ## Suggestions in the chat
 
-When it's your turn, ReachAI's suggested reply sits at the bottom of the chat with its reasoning ("They asked $15 + 10% commission. Offer $12 + 10%."). You can:
-- **Send** it. With Gmail it goes from your address; without it, **Copy** copies it for you.
-- **Edit** it first.
-- **Reword with AI** for a different wording with the same terms.
-- **Skip** it. It doesn't come back.
+When ReachAI has a reply ready, it's already in the message box, with a short label of what it does ("Offer: $9 + 10% commission"). Hover **ⓘ** for why. Then:
+- **Send** it as it is, or edit it first right in the box.
+- **Reword** for a different wording with the same terms.
+- **✕** to discard it. It doesn't come back.
 
-Writing your own message instead replaces the suggestion; the agent reads your message next time.
+While ReachAI reads a reply and drafts, the chat shows "ReachAI is reading and drafting a reply".
 
 | When | Suggestion |
 |---|---|
 | They replied | The negotiation agent's reply (offer, accept, or close politely) |
+| They ask for more after you agreed ("an extra $10") | The deal stays agreed. A note shows **Wants to change the deal: $12 → $22**: send the drafted reply to keep $12, or press **Accept $22** |
 | No answer 4 days after you reached out | A follow-up (and a polite last one 4 days later, then it stops) |
+
+"$10 more" or "an extra $10" is read as on top of the current price ($12 + $10 = $22), not as a new price of $10.
 
 Greetings use the creator's first name only when the channel name looks like a person's name ("Hi Krish,"); otherwise they say "Hi there,". Edit it if you know their name.
 

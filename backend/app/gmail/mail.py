@@ -56,14 +56,34 @@ def _plain(part: dict) -> Optional[str]:
 
 
 _QUOTE_START = re.compile(r"^(On .{5,200}wrote:|-{2,}\s*Original Message|From: .+|>)", re.I)
+_ON_LINE = re.compile(r"^On\s.{5,}", re.I)
+_WROTE = re.compile(r"wrote:\s*$", re.I)
+QUOTE_HEADER_MAX_LINES = 3  # mail apps wrap "On <date> <name> <address> wrote:" over up to three lines
+
+
+def _quote_starts(lines: list[str], i: int) -> bool:
+    line = lines[i].strip()
+    if _QUOTE_START.match(line):
+        return True
+    if _ON_LINE.match(line):  # "On Thu, Nov 5, 2026 at 5:42 AM Srijan Patel <a@b.com>" / "wrote:"
+        joined = " ".join(l.strip() for l in lines[i:i + QUOTE_HEADER_MAX_LINES])
+        return bool(re.match(r"^On\s.{5,300}?wrote:", joined, re.I)) and any(_WROTE.search(l.strip()) for l in lines[i:i + QUOTE_HEADER_MAX_LINES])
+    return False
 
 
 def reply_text(msg: dict) -> str:
     """Just what they wrote: the plain-text part without the quoted earlier messages, trimmed."""
     text = _plain(msg.get("payload") or {}) or msg.get("snippet") or ""
-    lines = []
-    for line in text.replace("\r\n", "\n").split("\n"):
-        if _QUOTE_START.match(line.strip()):
+    lines = text.replace("\r\n", "\n").split("\n")
+    out = []
+    for i, line in enumerate(lines):
+        if _quote_starts(lines, i):
             break
-        lines.append(line)
-    return "\n".join(lines).strip()[: G.MAX_BODY_CHARS]
+        out.append(line)
+    return "\n".join(out).strip()[: G.MAX_BODY_CHARS]
+
+
+def same_text(a: Optional[str], b: Optional[str]) -> bool:
+    """The same message, ignoring spacing and case (a pasted copy of an email, or an email pasted again)."""
+    norm = lambda t: " ".join((t or "").lower().split())  # noqa: E731
+    return bool(norm(a)) and norm(a) == norm(b)

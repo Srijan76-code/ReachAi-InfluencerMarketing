@@ -112,3 +112,23 @@ async def test_the_graph_end_to_end(monkeypatch):
     assert d.action == "agree" and d.offer.words() == "$7 + 20% commission"
     # the first draft used a wrong number, the retry failed: the safe fallback wording is used
     assert out["source"] == "template" and "$7 + 20% commission" in out["message"] and calls["llm"] == 2
+
+
+def test_an_extra_amount_is_added_to_the_current_price():
+    """"they ask for extra 10$" after $12 is an ask of $22, not $10."""
+    extra = {"their_fee": "f0", "their_commission": "none", "ask_is_extra": 0.9}
+    assert their_ask(extra, {"f0": "$10"}, {}, current_fee=12).fee == 22
+    assert their_ask({**extra, "ask_is_extra": 0.1}, {"f0": "$10"}, {}, current_fee=12).fee == 10
+    assert their_ask(extra, {"f0": "$10"}, {}, current_fee=None).fee == 10  # nothing on the table yet
+
+
+def test_after_agreeing_a_higher_ask_is_held_not_renegotiated():
+    from app.negotiation.decide import hold
+
+    agreed = Offer(12)
+    d = hold({}, agreed, Offer(22))
+    assert d.action == "hold" and d.offer.fee == 12 and d.final and "Now they ask $22" in " ".join(d.reasons)
+    assert hold({}, agreed, Offer(12)).action == "none"  # same price: nothing to do
+    assert hold({}, agreed, None).action == "none"
+    assert hold({"declined": 0.9}, agreed, Offer(22)).action == "lost"
+    assert hold({"injection": 0.9}, agreed, Offer(22)).action == "none"

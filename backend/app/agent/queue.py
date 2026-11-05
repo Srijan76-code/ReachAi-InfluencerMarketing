@@ -120,7 +120,8 @@ def out(p: AgentProposal, name: str, avatar: Optional[str], can_send: bool = Fal
     pl = p.payload or {}
     return {"id": p.proposal_id, "deal_id": p.deal_id, "kind": p.kind, "title": p.title, "reason": p.reason,
             "message": pl.get("message"), "source": pl.get("source", "template"),
-            "can_reword": p.kind in ("send_counter", "agree", "mark_lost") and bool(pl.get("message")) and p.key.startswith("nego:"),
+            "can_reword": p.kind in ("send_counter", "agree", "mark_lost", "hold_terms") and bool(pl.get("message")) and p.key.startswith("nego:"),
             "is_message": p.kind in A.MESSAGE_KINDS and bool(pl.get("message")),
             "can_send": can_send and p.kind in A.MESSAGE_KINDS and bool(pl.get("message")),
+            "terms": pl.get("terms"), "change": pl.get("change"),
             "name": name, "avatar_url": avatar, "created_at": p.created_at.isoformat() if p.created_at else None}

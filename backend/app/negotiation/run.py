@@ -57,12 +57,21 @@ async def negotiate(db: AsyncSession, d: CreatorDeal, reply: DealEvent, *, lead:
     suggested next step (replacing an older pending one). The caller commits. → {"action", "reasons"}"""
     text = (reply.payload or {}).get("text") or ""
     events, facts, st, fees, pcts = await _inputs(db, d, lead, details, text)
+    current = X.current_offer(d, facts)
+    agreed = current if d.stage in C.COMMITTED_STAGES and d.agreed_rate is not None else None
     out = await G.run({"jev_state": st, "fee_options": fees, "pct_options": pcts, "facts": facts, "name": _name(d, lead),
-                       "context": CostContext(user_id=user_id, campaign_id=d.campaign_id)})
+                       "context": CostContext(user_id=user_id, campaign_id=d.campaign_id),
+                       "current_fee": current.fee if current else None, "agreed": agreed})
     decision, ask = out["decision"], out.get("ask")
 
-    # what they asked for, as read by Jev from the amounts in their message
-    if ask:
+    if agreed is not None and ask:
+        # after agreeing, a new ask doesn't change the deal: it's flagged for the founder (hold or accept)
+        reply.payload = {**(reply.payload or {}), "their_ask": {"fee": ask.fee, "commission_pct": ask.commission_pct}}
+        if decision.action == "hold":
+            reply.payload["change"] = {"from": {"fee": agreed.fee, "commission_pct": agreed.commission_pct},
+                                       "to": {"fee": ask.fee, "commission_pct": ask.commission_pct}}
+    elif ask:
+        # what they asked for, as read by Jev from the amounts in their message
         reply.payload = {**(reply.payload or {}), "their_ask": {"fee": ask.fee, "commission_pct": ask.commission_pct}}
         if ask.fee is not None and ask.fee != d.quoted_rate:
             db.add(DealEvent(deal_id=d.deal_id, type="quoted_rate", payload={"from": d.quoted_rate, "to": ask.fee, "commission_pct": ask.commission_pct}))
@@ -76,7 +85,7 @@ async def negotiate(db: AsyncSession, d: CreatorDeal, reply: DealEvent, *, lead:
     for p in (await db.execute(select(AgentProposal).where(AgentProposal.deal_id == d.deal_id, AgentProposal.status == "pending",
                                                            AgentProposal.key.like("nego:%")))).scalars():
         p.status = "stale"
-    if decision.action not in ("counter", "agree", "lost"):
+    if decision.action not in ("counter", "agree", "lost", "hold"):
         return {"action": decision.action, "reasons": decision.reasons}
 
     o = decision.offer
@@ -89,6 +98,9 @@ async def negotiate(db: AsyncSession, d: CreatorDeal, reply: DealEvent, *, lead:
         payload.update({"stage": "agreed", "agreed_rate": o.fee or 0,
                         "deal_type": "base_plus_commission" if o.commission_pct and o.fee else "affiliate" if o.commission_pct else "flat",
                         "commission_pct": o.commission_pct or None})
+    elif decision.action == "hold":
+        kind, title = "hold_terms", f"Keep the agreed {o.words()}"
+        payload["change"] = reply.payload.get("change")
     elif decision.action == "lost":
         kind, title = "mark_lost", "Close politely and mark lost"
         payload.update({"stage": "lost", "amounts": None, "terms": None})
@@ -107,7 +119,7 @@ async def reword(db: AsyncSession, p: AgentProposal, d: CreatorDeal, *, lead: di
     _, _, st, _, _ = await _inputs(db, d, lead, details, (reply.payload or {}).get("text", "") if reply else "")
     t = pl.get("terms") or {}
     offer = X.Offer(t.get("fee"), float(t.get("commission_pct") or 0)) if t else None
-    action = {"agree": "agree", "mark_lost": "lost"}.get(p.kind, "counter")
+    action = {"agree": "agree", "mark_lost": "lost", "hold_terms": "hold"}.get(p.kind, "counter")
     text = await W.draft(st, action, offer, t.get("structure", "flat"), "none", bool(pl.get("final")), _name(d, lead),
                          CostContext(user_id=user_id, campaign_id=d.campaign_id),
                          feedback="the founder wants a different wording with the same terms")

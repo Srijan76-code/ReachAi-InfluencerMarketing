@@ -9,7 +9,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.gmail import client as GC
@@ -90,8 +90,14 @@ async def sync_deal(db: AsyncSession, account: ConnectedAccount, d: CreatorDeal,
     if not d.gmail_thread_id:
         return 0
     t = await GC.thread(token, d.gmail_thread_id)
+    if db.bind is not None and db.bind.dialect.name == "postgresql":
+        # opening Deals and the background check can sync the same thread at once: one at a time per deal,
+        # so each email is saved once (a unique index backs this up)
+        await db.execute(text("SELECT pg_advisory_xact_lock(hashtext(:k))"), {"k": f"gmail-sync:{d.deal_id}"})
     events = (await db.execute(select(DealEvent).where(DealEvent.deal_id == d.deal_id))).scalars().all()
     seen = {(e.payload or {}).get("gmail_id") for e in events if e.type in ("creator_reply", "message_sent")}
+    pasted = [e for e in events if e.type == "creator_reply" and (e.payload or {}).get("source") == "pasted"
+              and not (e.payload or {}).get("gmail_id")]
     me = account.email.lower()
     latest = None
     for m in t.get("messages") or []:
@@ -100,10 +106,15 @@ async def sync_deal(db: AsyncSession, account: ConnectedAccount, d: CreatorDeal,
             d.gmail_last_message_id = mid  # our next reply answers the latest message, whoever sent it
         if m.get("id") in seen or mail.sender_email(m) == me or "SENT" in (m.get("labelIds") or []):
             continue
-        text = mail.reply_text(m)
-        if not text:
+        body = mail.reply_text(m)
+        if not body:
             continue
-        latest = DealEvent(deal_id=d.deal_id, type="creator_reply", payload={"text": text, "gmail_id": m.get("id"), "source": "gmail"})
+        twin = next((e for e in pasted if mail.same_text((e.payload or {}).get("text"), body)), None)
+        if twin is not None:  # the founder already pasted this email: link it instead of adding it again
+            twin.payload = {**(twin.payload or {}), "gmail_id": m.get("id")}
+            pasted.remove(twin)
+            continue
+        latest = DealEvent(deal_id=d.deal_id, type="creator_reply", payload={"text": body, "gmail_id": m.get("id"), "source": "gmail"})
         db.add(latest)
     d.gmail_synced_at = _now()
     if latest is None:

@@ -83,6 +83,7 @@ def _out(d: CreatorDeal, lead: Optional[dict], today: date) -> dict:
         "paid_amount": d.paid_amount, "paid_at": d.paid_at.isoformat() if d.paid_at else None,
         "payment_ref": d.payment_ref, "notes": d.notes, "overdue": overdue,
         "contact_email": d.contact_email, "emailing": bool(d.gmail_thread_id),
+        "last_read_at": d.last_read_at.isoformat() if d.last_read_at else None,
         "updated_at": d.updated_at.isoformat() if d.updated_at else None,
     }
 
@@ -136,6 +137,8 @@ async def list_deals(campaign_id: str, user: User = Depends(get_db_user), db: As
     body["proposals"] = await _proposals(db, list(deals), camp, user)
     # the inbox list shows each deal's latest message (who wrote it, a short preview, when)
     last: dict = {}
+    unread: dict = {}
+    read_at = {d.deal_id: d.last_read_at for d in deals}
     if deals:
         rows = (await db.execute(
             select(DealEvent.deal_id, DealEvent.type, DealEvent.payload, DealEvent.created_at)
@@ -144,12 +147,76 @@ async def list_deals(campaign_id: str, user: User = Depends(get_db_user), db: As
         )).all()
         for r in rows:
             text = ((r.payload or {}).get("text") or "").strip()
+            if text and r.type == "creator_reply" and (read_at[r.deal_id] is None or (r.created_at and r.created_at > read_at[r.deal_id])):
+                unread[r.deal_id] = unread.get(r.deal_id, 0) + 1
             if text:
                 last[r.deal_id] = {"who": "you" if r.type == "message_sent" else "them", "text": " ".join(text.split())[:120],
                                    "at": r.created_at.isoformat() if r.created_at else None}
     for item in body["deals"]:
         item["last_message"] = last.get(item["id"])
+        item["unread"] = unread.get(item["id"], 0)
     return body
+
+
+@router.post("/api/deals/{deal_id}/read")
+async def mark_read(deal_id: str, user: User = Depends(get_db_user), db: AsyncSession = Depends(get_db)):
+    """The founder opened the chat: its replies are read."""
+    d, _ = await _deal(db, deal_id, user)
+    d.last_read_at = _now()
+    await db.commit()
+    return {"read": deal_id}
+
+
+@router.get("/api/inbox")
+async def inbox(user: User = Depends(get_db_user), db: AsyncSession = Depends(get_db)):
+    """Across all the founder's campaigns: chats with unread replies or a draft waiting (the bell, tab badges and
+    browser alerts). Checks Gmail for new replies first (each thread at most every few minutes)."""
+    from app.agent import constants as A
+    from app.gmail import service as GS
+    from app.models.deal import AgentProposal
+
+    camps = {c.campaign_id: c for c in (await db.execute(
+        select(Campaign.campaign_id, Campaign.name, Campaign.campaign_leads).where(Campaign.user_id == user.user_id))).all()}
+    if not camps:
+        return {"items": [], "unread": 0, "waiting": 0, "by_campaign": {}}
+    deals = list((await db.execute(select(CreatorDeal).where(CreatorDeal.campaign_id.in_(list(camps))))).scalars())
+    account = await GS.account_for(db, user.user_id)
+    if GS.usable(account):
+        await GS.sync_deals(db, account, deals, user_id=user.user_id)
+    if not deals:
+        return {"items": [], "unread": 0, "waiting": 0, "by_campaign": {}}
+    ids = [d.deal_id for d in deals]
+    replies = (await db.execute(select(DealEvent.deal_id, DealEvent.payload, DealEvent.created_at, DealEvent.event_id)
+                                .where(DealEvent.deal_id.in_(ids), DealEvent.type == "creator_reply")
+                                .order_by(DealEvent.created_at))).all()
+    drafts = {p.deal_id for p in (await db.execute(select(AgentProposal.deal_id).where(
+        AgentProposal.deal_id.in_(ids), AgentProposal.status == "pending", AgentProposal.kind.in_(A.CHAT_KINDS)))).all()}
+    by_deal = {d.deal_id: d for d in deals}
+    news: dict = {}
+    for r in replies:
+        d = by_deal[r.deal_id]
+        if d.last_read_at is None or (r.created_at and r.created_at > d.last_read_at):
+            n = news.setdefault(r.deal_id, {"count": 0})
+            n.update(count=n["count"] + 1, text=" ".join(((r.payload or {}).get("text") or "").split())[:140],
+                     at=r.created_at.isoformat() if r.created_at else None, id=r.event_id)
+    items = []
+    for d in deals:
+        if d.deal_id not in news and d.deal_id not in drafts:
+            continue
+        c = camps[d.campaign_id]
+        lead = _leads_by_id(c.campaign_leads).get(d.creator_id) or {}
+        n = news.get(d.deal_id) or {}
+        items.append({"campaign_id": d.campaign_id, "campaign_name": c.name, "deal_id": d.deal_id,
+                      "name": lead.get("title") or d.creator_name, "avatar_url": lead.get("avatar_url"),
+                      "unread": n.get("count", 0), "text": n.get("text"), "at": n.get("at"), "event_id": n.get("id"),
+                      "draft": d.deal_id in drafts})
+    items.sort(key=lambda i: i["at"] or "", reverse=True)
+    by_campaign: dict = {}
+    for i in items:
+        b = by_campaign.setdefault(i["campaign_id"], {"unread": 0, "waiting": 0})
+        b["unread"] += i["unread"]
+        b["waiting"] += 1
+    return {"items": items, "unread": sum(i["unread"] for i in items), "waiting": len(items), "by_campaign": by_campaign}
 
 
 class NewDeals(BaseModel):
@@ -288,6 +355,11 @@ async def paste_reply(deal_id: str, body: ReplyIn, user: User = Depends(get_db_u
     if not text:
         raise HTTPException(422, "Paste their reply or type what they asked for.")
     d, row = await _deal(db, deal_id, user)
+    from app.gmail.mail import same_text
+
+    replies = (await db.execute(select(DealEvent.payload).where(DealEvent.deal_id == d.deal_id, DealEvent.type == "creator_reply"))).scalars()
+    if any(same_text((p or {}).get("text"), text) for p in replies):
+        raise HTTPException(409, "That's already in the chat.")
     reply = DealEvent(deal_id=d.deal_id, type="creator_reply", payload={"text": text, "source": "pasted"})
     db.add(reply)
     await db.flush()
@@ -325,6 +397,7 @@ class MessageIn(BaseModel):
 async def send_own_message(deal_id: str, body: MessageIn, user: User = Depends(get_db_user), db: AsyncSession = Depends(get_db)):
     """The founder's own message in the chat. Sent from their Gmail in the deal's thread when possible, else
     recorded as sent (they copy it). Replaces any pending suggestion: the agent reads it next time."""
+    from app.agent import constants as A
     from app.gmail.service import account_for, send_for_deal, usable
     from app.models.deal import AgentProposal
 
@@ -343,7 +416,7 @@ async def send_own_message(deal_id: str, body: MessageIn, user: User = Depends(g
     db.add(DealEvent(deal_id=d.deal_id, type="message_sent",
                      payload={"kind": "manual", "text": text, "amounts": None, "edited": False, "via": "gmail" if via else "copied", **(via or {})}))
     for p in (await db.execute(select(AgentProposal).where(AgentProposal.deal_id == d.deal_id, AgentProposal.status == "pending",
-                                                           AgentProposal.kind.in_(("send_counter", "agree", "mark_lost", "follow_up"))))).scalars():
+                                                           AgentProposal.kind.in_(A.CHAT_KINDS)))).scalars():
         p.status = "stale"
     await db.commit()
     await db.refresh(d)
@@ -404,6 +477,29 @@ async def skip_proposal(proposal_id: str, user: User = Depends(get_db_user), db:
     Q.skip(db, row[0])
     await db.commit()
     return {"proposals": await _campaign_proposals(db, row[1].campaign_id, row, user)}
+
+
+@router.post("/api/proposals/{proposal_id}/accept-change")
+async def accept_change(proposal_id: str, user: User = Depends(get_db_user), db: AsyncSession = Depends(get_db)):
+    """After agreeing, the creator asked for more and the founder accepts it: the agreed price becomes their ask."""
+    from app.deals.changes import validate
+
+    row = await _proposal(db, proposal_id, user)
+    p, d = row[0], row[1]
+    to = ((p.payload or {}).get("change") or {}).get("to") or {}
+    if p.kind != "hold_terms" or to.get("fee") is None:
+        raise HTTPException(422, "There's no new price to accept.")
+    ch = {"agreed_rate": float(to["fee"])}
+    if to.get("commission_pct"):
+        ch.update({"commission_pct": float(to["commission_pct"]), "deal_type": "base_plus_commission"})
+    validate(d, ch)
+    apply_change(db, d, ch)
+    db.add(DealEvent(deal_id=d.deal_id, type="proposal", payload={"kind": p.kind, "title": p.title, "decision": "accepted_new_price"}))
+    p.status, p.decided_at = "skipped", _now()
+    await db.commit()
+    await db.refresh(d)
+    return {"deal": _out(d, _leads_by_id(row.campaign_leads).get(d.creator_id), date.today()),
+            "proposals": await _campaign_proposals(db, d.campaign_id, row, user)}
 
 
 @router.post("/api/proposals/{proposal_id}/reword")

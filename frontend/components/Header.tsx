@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, Github, ArrowRight, PlusCircle, HomeIcon, BookOpen } from "lucide-react";
@@ -11,6 +11,7 @@ import BreadCumb from "./BreadCumb";
 import { HoverButton } from "./buttons/HoverButton";
 import { usePathname, useRouter } from "next/navigation";
 import { useCreateCampaign } from "@/lib/useCreateCampaign";
+import { InboxBell } from "./InboxBell";
 
 const NAV_LINKS = [
   { name: "Features", href: "#features" },
@@ -124,6 +125,9 @@ export default function Header() {
                 <PlusCircle className="w-3 h-3" />
                 {creating ? "Creating…" : "New campaign"}
               </button>
+              <Suspense fallback={null}>
+                <InboxBell />
+              </Suspense>
               <UserButton />
             </Show>
           </div>
