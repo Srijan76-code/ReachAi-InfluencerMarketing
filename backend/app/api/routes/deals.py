@@ -201,6 +201,8 @@ class DealChange(BaseModel):
     payment_ref: Optional[str] = None
     notes: Optional[str] = None
     contact_email: Optional[str] = None
+    fair_low: Optional[float] = None  # the founder's own fair range, when ReachAI has none (or they disagree)
+    fair_high: Optional[float] = None
 
 
 _NO_MERGE = object()
@@ -280,6 +282,23 @@ async def paste_reply(deal_id: str, body: ReplyIn, user: User = Depends(get_db_u
     await db.refresh(d)
     return {"agent": result, "deal": _out(d, _leads_by_id(row.campaign_leads).get(d.creator_id), date.today()),
             "proposals": await _campaign_proposals(db, d.campaign_id, row, user)}
+
+
+@router.post("/api/deals/{deal_id}/negotiate")
+async def negotiate_again(deal_id: str, user: User = Depends(get_db_user), db: AsyncSession = Depends(get_db)):
+    """Runs the negotiation agent again on their latest message (after you set a fair price or changed terms)."""
+    from app.negotiation.run import negotiate
+
+    d, row = await _deal(db, deal_id, user)
+    reply = (await db.execute(select(DealEvent).where(DealEvent.deal_id == d.deal_id, DealEvent.type == "creator_reply")
+                              .order_by(DealEvent.created_at.desc()).limit(1))).scalar_one_or_none()
+    if reply is None:
+        raise HTTPException(422, "There's no reply from them yet.")
+    lead = _leads_by_id(row.campaign_leads).get(d.creator_id) or {}
+    result = await negotiate(db, d, reply, lead=lead, details=row.campaign_details or {}, user_id=user.user_id)
+    await db.commit()
+    await db.refresh(d)
+    return {"agent": result, "deal": _out(d, lead, date.today()), "proposals": await _campaign_proposals(db, d.campaign_id, row, user)}
 
 
 async def _proposal(db: AsyncSession, proposal_id: str, user: User):

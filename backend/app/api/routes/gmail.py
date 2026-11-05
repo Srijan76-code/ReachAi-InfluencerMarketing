@@ -45,6 +45,7 @@ def _safe_path(path: Optional[str]) -> str:
 async def gmail_status(user: User = Depends(get_db_user), db: AsyncSession = Depends(get_db)):
     a = await service.account_for(db, user.user_id)
     return {"configured": GC.configured(), "connected": bool(a), "email": a.email if a else None,
+            "name": a.display_name if a else None,
             "needs_reconnect": bool(a and a.status != "active"),
             "sent_today": (a.sent_today if a and a.sent_day == date.today() else 0), "daily_cap": G.DAILY_SEND_CAP}
 
@@ -85,6 +86,7 @@ async def gmail_callback(request: Request, state: str = "", code: Optional[str] 
         if not tokens.get("refresh_token"):
             return done("failed")
         email = (await GC.profile(tokens["access_token"])).get("emailAddress", "").lower()
+        name = await GC.display_name(tokens["access_token"])
     except GC.GmailError:
         return done("failed")
     a = await service.account_for(db, data["u"])
@@ -92,6 +94,7 @@ async def gmail_callback(request: Request, state: str = "", code: Optional[str] 
         a = ConnectedAccount(user_id=data["u"], provider="gmail", email=email, refresh_token="", status="active", sent_today=0)
         db.add(a)
     a.email, a.refresh_token, a.status = email, crypto.encrypt(tokens["refresh_token"]), "active"
+    a.display_name = name
     await db.commit()
     return done("connected")
 

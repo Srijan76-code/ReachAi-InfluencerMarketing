@@ -145,7 +145,7 @@ export default function DealsBoard({ campaignId, apiOverride }: {
           <NeedsYou proposals={proposals} api={api} onDone={onProposals} onOpen={setOpenId} />
         ) : deals === null ? (
           <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
-            {BOARD_STAGES.map((s) => <div key={s} className="h-40 rounded-lg bg-zinc-200/50 dark:bg-zinc-800/50 animate-pulse motion-reduce:animate-none" />)}
+            {BOARD_STAGES.map((s) => <div key={s} className="h-[clamp(360px,calc(100vh-300px),640px)] rounded-lg bg-zinc-200/50 dark:bg-zinc-800/50 animate-pulse motion-reduce:animate-none" />)}
           </div>
         ) : deals.length === 0 ? (
           <div className="flex flex-col items-center justify-center text-center py-16 rounded-xl border border-dashed border-zinc-200 dark:border-zinc-800 bg-white/50 dark:bg-[#0c0d0e]/50">
@@ -156,7 +156,7 @@ export default function DealsBoard({ campaignId, apiOverride }: {
           </div>
         ) : (
           <div className="overflow-x-auto pb-2 -mx-1 px-1">
-            <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(160px, 1fr))` }}>
+            <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(196px, 1fr))` }}>
               {columns.map((stage) => {
                 const items = deals.filter((d) => d.stage === stage);
                 return (
@@ -176,18 +176,23 @@ export default function DealsBoard({ campaignId, apiOverride }: {
                       if (d) move(d, stage);
                       setDragging(null);
                     }}
-                    className={`rounded-lg border p-2 space-y-2 min-h-40 transition-colors ${over === stage ? "border-zinc-400 dark:border-zinc-500 bg-zinc-100/80 dark:bg-zinc-900/80" : "border-zinc-200/70 dark:border-zinc-800/70 bg-zinc-50 dark:bg-[#0a0b0c]"}`}
+                    className={`rounded-lg border flex flex-col h-[clamp(360px,calc(100vh-300px),640px)] transition-colors ${over === stage ? "border-zinc-400 dark:border-zinc-500 bg-zinc-100/80 dark:bg-zinc-900/80" : "border-zinc-200/70 dark:border-zinc-800/70 bg-zinc-50 dark:bg-[#0a0b0c]"}`}
                   >
-                    <div className="flex items-baseline justify-between gap-2 px-1 pt-0.5">
-                      <span className="text-xs font-medium text-zinc-900 dark:text-zinc-100">{STAGE_LABEL[stage]}</span>
-                      <span className="text-[11px] font-mono text-zinc-500">{items.length}</span>
-                    </div>
-                    <p className="px-1 -mt-1.5 text-[11px] text-zinc-500 truncate">{STAGE_HINT[stage]}</p>
-                    {items.map((d) => (
-                      <div key={d.id} onDragStart={() => setDragging(d.id)} onDragEnd={() => { setDragging(null); setOver(null); }}>
-                        <DealCard deal={d} todo={todoDeals.has(d.id)} dragging={dragging === d.id} onOpen={() => setOpenId(d.id)} onMove={(s) => move(d, s)} />
+                    <div className="px-3 pt-2.5 pb-2 border-b border-zinc-200/60 dark:border-zinc-800/60 shrink-0">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className="text-xs font-medium text-zinc-900 dark:text-zinc-100">{STAGE_LABEL[stage]}</span>
+                        <span className="text-[11px] font-mono text-zinc-500">{items.length}</span>
                       </div>
-                    ))}
+                      <p className="text-[11px] text-zinc-500 truncate">{STAGE_HINT[stage]}</p>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-2 space-y-2 [scrollbar-width:thin]">
+                      {items.map((d) => (
+                        <div key={d.id} onDragStart={() => setDragging(d.id)} onDragEnd={() => { setDragging(null); setOver(null); }}>
+                          <DealCard deal={d} todo={todoDeals.has(d.id)} dragging={dragging === d.id} onOpen={() => setOpenId(d.id)} onMove={(s) => move(d, s)} />
+                        </div>
+                      ))}
+                      {items.length === 0 && <p className="text-[11px] text-zinc-400 dark:text-zinc-600 text-center pt-6">Drop a deal here</p>}
+                    </div>
                   </div>
                 );
               })}

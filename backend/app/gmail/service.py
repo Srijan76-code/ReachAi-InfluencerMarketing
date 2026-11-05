@@ -63,8 +63,11 @@ async def send_for_deal(db: AsyncSession, account: ConnectedAccount, d: CreatorD
         raise HTTPException(422, "Add a subject line.")
     try:
         token = await token_for(account)
-        raw = mail.build(sender=account.email, to=d.contact_email, subject=subj, body=body,
-                         in_reply_to=None if new_thread else d.gmail_last_message_id)
+        if not account.display_name:  # accounts connected before the name was saved
+            account.display_name = await GC.display_name(token)
+        # a real sender name ("Srijan Patel <…>") instead of a bare address helps keep first emails out of spam
+        raw = mail.build(sender=account.email, sender_name=account.display_name, to=d.contact_email, subject=subj,
+                         body=body, in_reply_to=None if new_thread else d.gmail_last_message_id)
         sent = await GC.send(token, raw, None if new_thread else d.gmail_thread_id)
         meta = await GC.message(token, sent["id"])
     except GC.GmailError as e:

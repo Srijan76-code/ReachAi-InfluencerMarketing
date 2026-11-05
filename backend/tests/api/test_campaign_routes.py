@@ -477,6 +477,41 @@ async def test_typed_ask_in_words_goes_through_the_agent(client, monkeypatch):
 
 @needs_pg
 @pytest.mark.asyncio
+async def test_no_fair_price_then_set_one_and_suggest_again(client, monkeypatch):
+    from app.judge import client as jc
+    from app.judge.client import Answer, Judgment
+    from app.llm import client as llm
+
+    await _set_leads(client, LEADS)  # no fair price in these results
+    d = (await client.post("/api/campaigns/c1/deals", json={"creator_ids": ["UC2"]})).json()["created"][0]
+
+    async def judge(state, questions, context=None, **k):
+        if "move" not in questions:
+            return Judgment({q: Answer("noul", 0.05 if q == "extra_promise" else 0.9) for q in questions}, "jev", "jev")
+        picks = {"their_fee": "f0", "their_commission": "p0", "move": "counter", "structure": "fee_plus_commission",
+                 "commission": "10", "extra": "none"}
+        return Judgment({q: Answer("choice", picks[q]) if q in picks else Answer("score", 1) if q == "concession"
+                         else Answer("noul", 0.05) for q in questions}, "jev", "jev")
+
+    async def write(route, messages, **k):
+        text = messages[1].content
+        return "Hi there, could we do $10 plus 10% commission on sales? Would that work?" if "$10 + 10%" in text else "x"
+    monkeypatch.setattr(jc, "judge", judge)
+    monkeypatch.setattr(llm, "achat", write)
+
+    r = (await client.post(f"/api/deals/{d['id']}/reply", json={"text": "i need 20 dollars and 10% commission"})).json()
+    assert r["agent"]["action"] == "none" and "no fair price" in r["agent"]["reasons"][0] and r["proposals"] == []
+    assert r["deal"]["quoted_rate"] == 20  # what they asked is still read and saved
+
+    assert (await client.patch(f"/api/deals/{d['id']}", json={"fair_low": 30, "fair_high": 10})).status_code == 422
+    await client.patch(f"/api/deals/{d['id']}", json={"fair_low": 8, "fair_high": 12})
+    again = (await client.post(f"/api/deals/{d['id']}/negotiate")).json()
+    [p] = again["proposals"]
+    assert p["kind"] == "send_counter" and p["title"].startswith("Offer: $") and "10% commission" in p["title"]
+
+
+@needs_pg
+@pytest.mark.asyncio
 async def test_gmail_connect_send_and_replies_flow(client, monkeypatch):
     """Connect Gmail → send the first pitch → their reply comes in → approve the counter → it's sent in the thread."""
     import base64
@@ -539,6 +574,7 @@ async def test_gmail_connect_send_and_replies_flow(client, monkeypatch):
         monkeypatch.setattr(GC, name, fn)
     monkeypatch.setattr(GC, "profile", lambda token: _async({"emailAddress": "Me@gmail.com"}))
     monkeypatch.setattr(GC, "access_token", lambda rt: _async("at"))
+    monkeypatch.setattr(GC, "display_name", lambda token: _async("Srijan Patel"))
     monkeypatch.setattr(jc, "judge", judge)
 
     bad = await client.get("/api/gmail/callback", params={"state": "forged.x", "code": "abc"}, follow_redirects=False)
@@ -558,6 +594,7 @@ async def test_gmail_connect_send_and_replies_flow(client, monkeypatch):
     d = out["deal"]
     assert d["stage"] == "contacted" and d["contact_email"] == "creator@x.io" and d["emailing"] is True
     assert "To: creator@x.io" in sent[0][0] and "Subject: Collab?" in sent[0][0] and sent[0][1] is None
+    assert "From: Srijan Patel <me@gmail.com>" in sent[0][0]  # a real sender name, not a bare address
     again = await client.post("/api/campaigns/c1/outreach/send", json={"creator_id": "UC1", "subject": "x", "body": "y"})
     assert again.status_code == 409
 

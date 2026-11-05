@@ -82,6 +82,18 @@ async def profile(token: str) -> dict:
     return await _api("GET", "/profile", token)  # {"emailAddress": ...}
 
 
+async def display_name(token: str) -> Optional[str]:
+    """The sender name the founder set in Gmail for their main address (gmail.readonly covers this)."""
+    try:
+        body = await _api("GET", "/settings/sendAs", token)
+    except GmailError:
+        return None
+    for a in body.get("sendAs") or []:
+        if a.get("isPrimary") and (a.get("displayName") or "").strip():
+            return a["displayName"].strip()
+    return None
+
+
 async def send(token: str, raw: str, thread_id: Optional[str] = None) -> dict:
     body = {"raw": raw}
     if thread_id:

@@ -41,7 +41,7 @@ Tone & Style Rules (CRITICAL):
    - Paragraph 2: Brief 1-2 sentence intro of {brand.get('name', 'the brand')} and why it provides real value to their specific audience.
    - Paragraph 3: A simple, low-friction collaboration invitation (e.g., "Would you be open to exploring a potential collaboration?").
 5. Formatting & Constraints:
-   - Email: Concise, 3 short paragraphs max. Subject line must look like a personal 1-on-1 note, not marketing spam.
+   - Email: Concise, 3 short paragraphs max. Subject line must look like a personal 1-on-1 note, not marketing spam: name something specific from their content, 3-7 words. Never use spam-trigger openers such as "Quick question", "Collaboration opportunity", "Partnership", "Sponsorship", "Opportunity", all caps or exclamation marks.
    - Social DMs (IG/Twitter): 2-4 punchy, conversational sentences max.
    - Use the exact creator_id from input.
    - Use only evidence_id values supplied in evidence.

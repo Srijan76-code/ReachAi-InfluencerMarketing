@@ -9,7 +9,7 @@ import { useApi } from "@/lib/api";
 import { btn, btnPrimary, control, textarea } from "@/lib/ui";
 
 type Api = (url: string, options?: Record<string, unknown>) => Promise<{ data: unknown }>;
-export type GmailStatus = { configured: boolean; connected: boolean; email: string | null; needs_reconnect: boolean; sent_today: number; daily_cap: number };
+export type GmailStatus = { configured: boolean; connected: boolean; email: string | null; name?: string | null; needs_reconnect: boolean; sent_today: number; daily_cap: number };
 
 const RESULT: Record<string, string> = {
   connected: "Gmail connected. Approved messages now go from your address.",
@@ -69,6 +69,7 @@ export function GmailConnect({ gmail }: { gmail: ReturnType<typeof useGmail> }) 
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-60 bg-white dark:bg-[#0c0d0e] border-zinc-200 dark:border-zinc-800">
             <DropdownMenuLabel className="text-[11px] font-normal text-zinc-500">
+              {status.name ? `Sent as ${status.name}. ` : "Tip: set your name in Gmail settings so creators see it, not just your address. "}
               Sent today: {status.sent_today} of {status.daily_cap}. Replies are checked when you open Deals and every 30 minutes.
             </DropdownMenuLabel>
             <DropdownMenuItem className="text-xs cursor-pointer text-rose-500 focus:text-rose-500" onSelect={() => disconnect()}>
