@@ -3,7 +3,7 @@ import json
 from typing import Any, Dict, List
 
 
-PROMPT_VERSION = "outreach-pitch-v2"
+PROMPT_VERSION = "outreach-pitch-v3"  # v3: no spam-trigger subject lines
 CHANNEL_KEYS = ("email", "instagram", "twitter", "linkedin")
 
 
@@ -85,3 +85,10 @@ def current_creator_input(state: Dict[str, Any]) -> Dict[str, Any]:
         (item for item in state.get("work_items") or [] if item.get("creator_id") == creator_id),
         {},
     )
+
+
+def cost_context(state) -> "CostContext":
+    """Who pays for an outreach LLM call: logged against the campaign and the outreach job."""
+    from app.billing.costs import CostContext
+
+    return CostContext(campaign_id=state.get("campaign_id"), run_id=state.get("outreach_job_id"))

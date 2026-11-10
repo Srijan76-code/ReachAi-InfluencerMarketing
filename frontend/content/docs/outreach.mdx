@@ -1,22 +1,29 @@
 ---
 title: Outreach
-description: Personal first messages for every creator, ready to send.
+description: One chat per creator, from the first message to an agreed deal.
 ---
 
-## Generate pitches
+The **Outreach** tab is where you talk to creators. Every creator gets one chat: ReachAI drafts the first message, you check and send it, their replies come back into the same chat, ReachAI suggests each next reply, and when you agree it writes down what they'll post, with their link and code.
 
-1. In your results, select the creators you want to contact.
-2. Choose **Outreach** and pick a collaboration type:
+## Add creators and first messages
 
-| Type | What it means |
-|---|---|
-| **Sponsored video** | A paid segment inside one of their regular videos |
-| **Dedicated review** | A whole video about your product |
-| **Affiliate & performance** | No upfront fee; the creator earns a commission per sale through a code or link |
-| **Product gifting / seeding** | You send the product free; the creator reviews it honestly |
+- On the Outreach tab: **Add creators**, then pick from your shortlist (or everyone), or add one by channel link. **Draft a first message for each** is ticked by default.
+- From your results: select creators and choose **Start outreach**, pick a collaboration type, then **Write drafts**.
+- From a creator's panel: **Add to outreach** (no draft; you write the first message).
 
-3. Optionally add deliverables (for example "1× 60s integration"). These are kept for **your** deal setup and are **not** put in the first message.
-4. Generate. Pitches appear live as each one finishes.
+Each creator shows up in the list right away with "Writing a first message…". A minute or two later the draft is in the message box of their chat, with a subject line when it goes by email. Check it, change anything, then send.
+
+If your campaign's goal is signups or sales, the deal type starts as **fee + commission**; for awareness, a **flat fee**.
+
+## How a pitch is made
+
+<Mermaid chart={`
+flowchart LR
+  A([Selected creators]) --> G[Write a pitch from<br/>their real content]
+  G --> V{Passes the<br/>quality checks?}
+  V -- no, rewrite once --> G
+  V -- yes --> R([Ready to copy or export])
+`} />
 
 ## What a ReachAI pitch looks like
 
@@ -29,16 +36,134 @@ Every pitch is checked before you see it. Pitches:
 
 Pitches **never** include clichés like "Hope this email finds you well", internal scores or prices, package details, or more than two questions. If a pitch breaks a rule, it's automatically rewritten once.
 
-## Send or export
+## How you reach them
 
-Copy any pitch directly, or export all of them:
+The chip at the top of each chat says how you reach that creator. ReachAI picks it from what it has: **Email** when there's an address, otherwise **Instagram DM** or **X DM**. Change it any time; the message box switches to the message written for that channel.
 
-| Export | Use it for |
+| Channel | When you press send |
 |---|---|
-| **Instantly** | Cold email campaigns in Instantly |
-| **Smartlead** | Email sequences in Smartlead |
-| **Generic CSV / Excel** | Everything else: all channels, pitch angles and creator handles |
+| **Email** | Sent from your Gmail ([connect it](/docs/gmail)), in one thread with their replies |
+| **Instagram DM**, **X DM** | Copied, and their profile opens so you can paste it |
+| **WhatsApp**, **Somewhere else** | Copied for you to paste |
 
-<Callout title="Coming soon">
-  Sending from your own Gmail or Outlook, automatic follow-ups, and one inbox for replies, all inside ReachAI.
-</Callout>
+For DMs, paste their answers into the chat with the switch in the message box (see below).
+
+### Send several first emails at once
+
+Open each creator whose first email is ready and check it. Once you've checked two or more, **Send N checked** at the top sends them all from your Gmail, one after another, up to Gmail's daily limit. First messages you haven't opened, and ones that go by DM, are left for you.
+
+## The chat
+
+The list on the left is grouped:
+
+| Group | Means |
+|---|---|
+| **Your turn** | They wrote (blue count: unread replies) or ReachAI drafted a reply for you (purple) |
+| **Waiting for them** | You wrote last; it's their move |
+| **Agreed** | You agreed; follow their posts in [Track](/docs/track) |
+| **Lost** | Not going ahead (folded away) |
+
+Search the list by name, or fold it down to photos with the button next to search to give the chat more room.
+
+Open a creator to see the whole conversation as a chat: their messages on the left under their name, yours on the right under **You**, with the day above each day's messages. Hover a message for its time and where it came from (email or pasted). The top shows their photo, the fair price (or the agreed price once you agree) and how you reach them: **Email** when Gmail is connected and you have their address, otherwise **Copy and send yourself**.
+
+**Details** opens a side panel with their email, the terms (deliverable, deal type, commission, usage rights, post-by date) and the fair price. Changes save as you go. Use the **⋯** menu to agree, mark them lost, or remove them.
+
+### The message box
+
+The switch at the top of the box says who's speaking:
+- **You**: write to them and press the arrow (or ⌘/Ctrl + Enter). With Gmail it goes from your address in the same thread; without it, it's copied for you to paste where you talk to them.
+- **Their name**: paste what they said by DM or WhatsApp, or just type their ask ("$20 + 10% commission"), then **Add**. It shows on their side of the chat, marked "Pasted", and ReachAI reads it and drafts a reply.
+
+Each side keeps its own unsent text, so switching never loses anything. Pasting something that's already in the chat (say, an email that also arrived through Gmail) is refused.
+
+Your message shows in the chat right away with **Sending…**, then the time. If it can't go out it stays, marked in red with what went wrong and one thing to do (**Retry**, or **Reconnect** Gmail).
+
+The line at the top adds it up: how many creators agreed and how much you've **committed** against your budget.
+
+## Fair price for each deal
+
+Every deal shows a **fair price**: what a creator of that size usually earns for this kind of post. It's adjusted for what you're asking for:
+
+| What you ask for | Effect on the fair price |
+|---|---|
+| Dedicated video | ×1.6 (a sponsored segment is ×1) |
+| Short / story | ×0.5 / ×0.35 |
+| Using it in your paid ads | +30% to +50% (30 to 90 days) |
+| Reposting on your channels | +10% |
+| Exclusivity | +20% (30 days) to +50% (a year) |
+
+These are starting values from industry guides; they'll be tuned with real agreed prices.
+
+## Negotiating: the agent
+
+When a creator answers, ReachAI's negotiation agent works out your reply:
+
+1. **It reads their message**: the fee and commission they ask for, whether they're firm or flexible, whether they accept or decline, and any questions they ask. "7 + 20% commission" means $7 plus 20%.
+2. **It decides your move**: accept, counter, change the kind of deal (fee + commission, commission only, or their price with a smaller scope), hold your last offer, or walk away. It also picks the commission % and how far to move. It takes everything into account: their usual views, their recent sponsors, your goal and budget, every message so far, and what similar creators agreed on ReachAI.
+3. **It writes the message**, answering what they actually said.
+4. **It checks itself**: the message may only contain the decided price and commission, and must not promise anything else. If a check fails it rewrites once, then falls back to a short standard message.
+
+The suggestion appears at the bottom of their chat (and they move to **Your turn**) with the reasoning, for example "They asked $7 + 20% commission. That's within your limit, so accept it." Nothing is sent until you approve it.
+
+**Your limits always hold.** The agent never offers more than a little above the fair price (15%) or more than your remaining budget. It never offers less than you already offered, and it stops after four rounds with a final offer.
+
+### Start it
+- **With Gmail connected**, their email replies come in by themselves and the agent runs on each one.
+- **Otherwise**, open their chat, choose **Paste their reply** at the bottom, and paste it (or just type what they asked for, like "$7 + 20% commission"), then press **Read**. It takes a few seconds.
+
+### Who does what
+| Part | Done by |
+|---|---|
+| Fair price, your limits, exact amounts | Code |
+| Reading their message, choosing the move, deal type, commission and how far to move | Jev, our judge |
+| Writing the message | An AI writer, checked by code and Jev |
+| Sending it | You, by approving |
+
+A reply that looks like it's trying to instruct an AI is ignored, and the agent tells you to read it yourself.
+
+If the agent can't suggest anything, the deal says why. The usual reason is no fair price, for example a channel with almost no views. Set a fair price range yourself right there in the chat, then press **Suggest a reply**.
+
+## Alerts
+
+- The **Outreach** tab shows a count when replies or drafts are waiting in that campaign, and the browser tab title shows unread replies, like "(2) ReachAI".
+- The **bell** in the top bar lists everyone waiting for you across all campaigns. Click one to open the chat.
+- In the bell, **Turn on alerts** to get a browser notification when a creator replies while ReachAI is open in a tab. ReachAI checks for new replies every minute while it's open, and every 30 minutes otherwise.
+
+## Suggestions in the chat
+
+When ReachAI has a reply ready, it's already in the message box, with a short label of what it does ("Offer: $9 + 10% commission"). Hover **ⓘ** for why. Then:
+- **Send** it as it is, or edit it first right in the box.
+- **Reword** for a different wording with the same terms.
+- **✕** to discard it. It doesn't come back.
+
+While ReachAI reads a reply and drafts, the chat shows "ReachAI is reading and drafting a reply".
+
+| When | Suggestion |
+|---|---|
+| They replied | The negotiation agent's reply (offer, accept, or close politely) |
+| They ask for more after you agreed ("an extra $10") | The deal stays agreed. A note shows **Wants to change the deal: $12 → $22**: send the drafted reply to keep $12, or press **Accept $22** |
+| No answer 4 days after you reached out | A follow-up (and a polite last one 4 days later, then it stops) |
+
+"$10 more" or "an extra $10" is read as on top of the current price ($12 + $10 = $22), not as a new price of $10.
+
+Greetings use the creator's first name only when the channel name looks like a person's name ("Hi Krish,"); otherwise they say "Hi there,". Edit it if you know their name.
+
+### With Gmail connected
+[Connect Gmail](/docs/gmail) and approving a message **sends** it from your address, in the same email thread. Creators' replies come into their deal by themselves, so you only paste replies that came some other way (a DM or WhatsApp).
+
+## Agreeing
+
+When you agree on a price (send ReachAI's **Send and agree** suggestion, or choose **Agree…** in the **⋯** menu), a panel opens:
+
+- **Price**: the fee, plus commission if there is one, and when they get paid (when the post is live, half now and half when live, before they post, or 7 days after it's live).
+- **Posts**: each thing they'll post, with its own date: say a sponsored segment by Nov 20 and two shorts by Nov 25. Add as many as you agreed.
+- **Their link goes to**: your site. ReachAI gives the creator a short link (like `reach-ai…/r/k3x9p2m`) that sends people there and counts every visit, plus a discount code from their name, like `SRIJAN42`. Your site is remembered for the rest of the campaign.
+
+Press **Agree and draft the confirmation**. The message box fills with a confirmation listing the posts, dates, price, link and code. Send it so you both have it in writing. Open **Agreed terms** in the **⋯** menu to change anything later; ReachAI drafts an update.
+
+The top of the chat then shows the agreed price, how many posts, and how many clicks their link has had.
+
+## After you agree
+
+Agreed creators keep their chat here. Their posts, views, clicks, signups and payments live in [Track](/docs/track). When a post is late, Track's **Remind them** opens the chat with a reminder drafted for you.

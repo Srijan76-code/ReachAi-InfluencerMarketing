@@ -37,6 +37,8 @@ export interface Influencer {
   recent_videos: {
     title: string;
     views: number;
+    url?: string | null; // watch link (new engine); older results link to the channel's videos
+    published_at?: string | null;
   }[];
 
   // ---------- AI SCORING ----------
@@ -56,6 +58,78 @@ export interface Influencer {
 
   // ---------- EXTRA ----------
   rich_context: string;
+
+  // ---------- NEW DISCOVERY ENGINE (absent on results from the old one) ----------
+  platform?: string;
+  url?: string;
+  avatar_url?: string | null; // profile photo from the platform
+  found_via?: string | null;
+  rising?: boolean;
+  flags?: string[]; // rising | trend | suspicious | country_unknown
+  fair_low?: number | null;
+  fair_high?: number | null;
+  risk?: number | null;
+  niche?: string | null;
+  data_as_of?: string | null; // when the YouTube numbers were fetched
+  data_expired?: boolean; // over 30 days old and couldn't be refreshed: numbers removed
+  // ---------- creator panel (lead v2; same shape on every platform) ----------
+  posts?: PostCard[]; // newest first; the panel sorts them into best match / above usual / latest
+  signals?: PostSignals | null;
+  score_parts?: ScoreParts | null; // "why this score": points that add up to final_score
+  trend?: number | null; // recent vs older posts' reach (1.0 = steady)
+  verified?: boolean | null;
+  person_id?: string | null; // same person on other platforms
+  match_terms?: string[]; // the brief topics posts were matched against
+  country_source?: "platform" | "jev" | null; // jev = judged from their posts (the platform lists no country)
+}
+
+export interface PostCard {
+  id: string | null;
+  url: string | null;
+  thumbnail_url: string | null;
+  title: string;
+  published_at: string | null;
+  format: string; // short | long | image | reel | carousel | text | thread
+  reach: number | null;
+  reach_label: "views" | "likes" | "reach";
+  likes: number | null;
+  comments: number | null;
+  x_usual: number | null; // reach / the creator's median reach
+  is_new?: boolean; // under a week old: still collecting views, so no x_usual
+  matched_topics: string[];
+  sponsored: boolean;
+}
+
+export interface PostSignals {
+  posts_checked: number;
+  fit_posts: number;
+  sponsored_posts: number;
+  sponsor_brands: string[];
+  median_reach: number | null;
+}
+
+export interface ScoreParts {
+  fit: number;
+  health: number;
+  bonus: number;
+  risk: number; // zero or negative
+  country_unknown_factor: number | null; // the sum is multiplied by this when the country is unknown
+}
+
+/** GET /api/campaigns/{id}/feedback: what reviewers said about one creator */
+export interface FeedbackItem {
+  creator_id: string;
+  by: string | null; // the reviewer's email
+  verdict: "yes" | "no" | null;
+  comment: string | null;
+  updated_at: string | null;
+}
+
+/** GET /api/campaigns/{id}/skipped */
+export interface SkippedSummary {
+  looked_at: number;
+  skipped: number;
+  reasons: { reason: string; count: number }[];
 }
 
 

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, Github, ArrowRight, PlusCircle, HomeIcon, BookOpen, KeyRound } from "lucide-react";
@@ -10,6 +10,8 @@ import { Show, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
 import BreadCumb from "./BreadCumb";
 import { HoverButton } from "./buttons/HoverButton";
 import { usePathname, useRouter } from "next/navigation";
+import { useCreateCampaign } from "@/lib/useCreateCampaign";
+import { InboxBell } from "./InboxBell";
 
 const NAV_LINKS = [
   { name: "Features", href: "#features" },
@@ -23,6 +25,7 @@ export default function Header() {
   const pathname = usePathname();
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { create: createCampaign, creating } = useCreateCampaign();
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 20);
@@ -84,7 +87,7 @@ export default function Header() {
               </SignInButton>
 
               <SignUpButton>
-                <button className="group text-[13px] font-medium bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 px-4 py-1.5 rounded-full flex items-center gap-1.5 hover:opacity-90 transition-all shadow-sm">
+                <button className="group text-[13px] font-medium bg-zinc-900 text-white dark:bg-zinc-300 dark:text-zinc-900 px-4 py-1.5 rounded-full flex items-center gap-1.5 hover:opacity-90 transition-all shadow-sm">
                   Sign up
                   <ArrowRight
                     size={14}
@@ -120,6 +123,21 @@ export default function Header() {
                   <p>Campaigns</p>
                 </div>
               </HoverButton>
+              <HoverButton
+                onClick={createCampaign}
+                disabled={creating}
+                className="!bg-zinc-50 dark:!bg-[#08090a] border-neutral-200 dark:border-neutral-800/80 text-neutral-900 dark:text-neutral-200 rounded-lg shadow-sm h-8 flex items-center justify-center px-3 disabled:opacity-60"
+                glowColor="rgba(255, 255, 255, 0.2)"
+                hoverTextColor="white"
+              >
+                <div className="flex gap-2 text-xs py-0.5 items-center">
+                  <PlusCircle className="w-3 h-3" />
+                  <p>{creating ? "Creating…" : "New campaign"}</p>
+                </div>
+              </HoverButton>
+              <Suspense fallback={null}>
+                <InboxBell />
+              </Suspense>
               <UserButton />
             </Show>
           </div>
@@ -169,6 +187,25 @@ export default function Header() {
               ))} */}
                 <Show when="signed-in">
                   <Link
+                    href="/campaign"
+                    className="flex items-center gap-2 text-sm font-medium text-zinc-600 dark:text-zinc-400"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <HomeIcon size={16} />
+                    Campaigns
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      createCampaign();
+                    }}
+                    className="flex items-center gap-2 text-sm font-medium text-zinc-600 dark:text-zinc-400"
+                  >
+                    <PlusCircle size={16} />
+                    New campaign
+                  </button>
+                  <Link
                     href="/docs"
                     className="flex items-center gap-2 text-sm font-medium text-zinc-600 dark:text-zinc-400"
                     onClick={() => setMobileMenuOpen(false)}
@@ -182,7 +219,7 @@ export default function Header() {
                   <button className="w-full text-center py-2 text-sm font-medium border border-zinc-200 dark:border-zinc-800 rounded-lg">
                     Log in
                   </button>
-                  <button className="w-full text-center py-2 text-sm font-medium bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 rounded-lg">
+                  <button className="w-full text-center py-2 text-sm font-medium bg-zinc-900 text-white dark:bg-zinc-300 dark:text-zinc-900 rounded-lg">
                     Sign up
                   </button>
                 </div>

@@ -92,6 +92,14 @@ def test_great_fit_is_a_strong_buy():
     assert legacy["final_score"] == s.final_score and "score_breakdown" in legacy
 
 
+def test_unknown_country_is_ranked_lower_and_flagged():
+    known = score_creator(judgment(**GOOD), metrics())
+    unknown = score_creator(judgment(**GOOD), metrics(), country_unknown=True)
+    assert unknown.final_score == pytest.approx(known.final_score * K.COUNTRY_UNKNOWN_FACTOR, abs=0.1)
+    assert "country_unknown" in unknown.flags and "country_unknown" not in known.flags
+    assert not unknown.dropped  # kept, not dropped
+
+
 def test_poor_fit_is_avoid():
     s = score_creator(judgment(**{**GOOD, "topic_fit": 0, "audience_stage": 0, "pain_point": 0.0}), metrics())
     assert s.deal_status == "Avoid"
@@ -160,3 +168,59 @@ def test_platform_selection_without_jev_uses_preset():
     out = select_platforms(K.PRESET_PLATFORMS["consumer"], None, ["youtube", "x", "instagram", "linkedin"])
     assert [p for p, v in out.items() if v["selected"]] == ["youtube", "instagram"]
     assert out["x"]["weight"] == 0.0
+
+
+def test_score_parts_add_up_to_the_score():
+    """The panel's "why this score" bars must add up to the number shown."""
+    for kw in ({}, {"country_unknown": True}):
+        s = score_creator(judgment(**{**GOOD, "safety_risk": 1}), metrics(), **kw)
+        p = s.parts
+        total = (p["fit"] + p["health"] + p["bonus"] + p["risk"]) * (p["country_unknown_factor"] or 1)
+        assert 0 < s.final_score < 100
+        assert total == pytest.approx(s.final_score, abs=0.3)
+        assert p["risk"] <= 0 and (p["country_unknown_factor"] is not None) == bool(kw)
+
+
+# --- country by Jev (asked only when the platform lists no country) ----------------------------
+
+def _with_country(choice, confidence):
+    j = judgment(**GOOD)
+    j.answers["country"] = Answer("choice", choice, confidence)
+    return j
+
+
+def test_country_question_only_for_creators_without_a_listed_country():
+    yt = creator_questions(BRIEF, "youtube", ask_country=True)
+    assert set(yt["country"].criteria) == {"IN", "other", "not_stated"} and yt["country"].criteria["IN"] == "India"
+    assert "country" not in creator_questions(BRIEF, "youtube", ask_country=False)
+    assert "country" not in creator_questions(JudgeBrief(product="x", persona="y"), "youtube", ask_country=True)  # no targets
+    p = profile()
+    p["recent_posts"][0]["description"] = "Placement prep for TCS and Infosys, fees in ₹.\n\nLinks: https://x"
+    st = build_state(BRIEF, p, with_summaries=True)
+    assert st["creator"]["post_summaries"][0] == "Placement prep for TCS and Infosys, fees in ₹."
+    assert "post_summaries" not in build_state(BRIEF, p)["creator"]  # not sent when the country isn't asked
+
+
+@pytest.mark.parametrize("choice,conf,unknown,dropped,country", [
+    ("IN", 0.85, False, False, "IN"),       # Jev is confident it's a target country: no penalty
+    ("IN", 0.45, True, False, None),        # not confident enough: treated as unknown (x0.8)
+    ("other", 0.9, False, True, None),      # confidently elsewhere: dropped like a wrong country
+    ("other", 0.6, True, False, None),      # unsure it's elsewhere: kept as unknown
+    ("not_stated", 0.95, True, False, None),
+])
+def test_jev_country_answer_decides(choice, conf, unknown, dropped, country):
+    known = score_creator(judgment(**GOOD), metrics())
+    s = score_creator(_with_country(choice, conf), metrics(), country_unknown=True)
+    assert ("country_unknown" in s.flags) == unknown and s.dropped == dropped and s.country == country
+    assert ("country_by_jev" in s.flags) == bool(country)
+    if dropped:
+        assert "outside the target countries (judged from their posts)" in s.drop_reasons
+    elif unknown:
+        assert s.final_score == pytest.approx(known.final_score * K.COUNTRY_UNKNOWN_FACTOR, abs=0.1)
+    else:
+        assert s.final_score == known.final_score and s.parts["country_unknown_factor"] is None
+
+
+def test_country_answer_is_ignored_when_the_platform_lists_a_country():
+    s = score_creator(_with_country("other", 0.99), metrics(), country_unknown=False)
+    assert not s.dropped and s.country is None

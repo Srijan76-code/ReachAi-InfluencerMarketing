@@ -1,0 +1,75 @@
+{
+ "label": "after",
+ "simulated_db_delay_ms_each_way": 2.0,
+ "app_import_s": 0.85,
+ "requests_per_endpoint": 40,
+ "concurrency": 10,
+ "endpoints": {
+  "list campaigns": {
+   "status": 200,
+   "response_kb": 23.3,
+   "p50_ms": 37.1,
+   "p95_ms": 42.1,
+   "concurrent_p95_ms": 156.3,
+   "requests_per_s": 95.1,
+   "sql": 1.0,
+   "pool_connect": 0.0,
+   "extra_connect": 0.0
+  },
+  "campaign leads": {
+   "status": 200,
+   "response_kb": 90.3,
+   "p50_ms": 35.3,
+   "p95_ms": 39.6,
+   "concurrent_p95_ms": 122.6,
+   "requests_per_s": 143.3,
+   "sql": 1.0,
+   "pool_connect": 0.0,
+   "extra_connect": 0.0
+  },
+  "campaign status": {
+   "status": 200,
+   "response_kb": 0.2,
+   "p50_ms": 31.9,
+   "p95_ms": 36.5,
+   "concurrent_p95_ms": 110.7,
+   "requests_per_s": 154.8,
+   "sql": 1.0,
+   "pool_connect": 0.0,
+   "extra_connect": 0.0
+  },
+  "campaign details": {
+   "status": 200,
+   "response_kb": 0.7,
+   "p50_ms": 31.3,
+   "p95_ms": 35.4,
+   "concurrent_p95_ms": 117.2,
+   "requests_per_s": 164.3,
+   "sql": 1.0,
+   "pool_connect": 0.0,
+   "extra_connect": 0.0
+  },
+  "saved leads": {
+   "status": 200,
+   "response_kb": 4.6,
+   "p50_ms": 36.8,
+   "p95_ms": 45.5,
+   "concurrent_p95_ms": 73.0,
+   "requests_per_s": 152.7,
+   "sql": 2.0,
+   "pool_connect": 0.0,
+   "extra_connect": 0.0
+  },
+  "latest outreach": {
+   "status": 404,
+   "response_kb": 0.1,
+   "p50_ms": 31.7,
+   "p95_ms": 36.6,
+   "concurrent_p95_ms": 76.4,
+   "requests_per_s": 167.5,
+   "sql": 1.0,
+   "pool_connect": 0.0,
+   "extra_connect": 0.0
+  }
+ }
+}

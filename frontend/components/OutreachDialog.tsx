@@ -221,7 +221,8 @@ export function OutreachDialog({
 
       const jobId = res?.data?.outreach_job_id;
       setOpen(false);
-      router.push(`/campaign/${campaignId}/outreach${jobId ? `?job_id=${jobId}` : ""}`);
+      void jobId;
+      router.push(`/campaign/${campaignId}/outreach`); // each creator's chat shows "Writing…" until the draft lands
     } catch (err: any) {
       console.error("Outreach start failed:", err);
       setError(err?.message || "Failed to start outreach job. Please try again.");
@@ -243,7 +244,7 @@ export function OutreachDialog({
             className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 rounded-md hover:bg-zinc-800 dark:hover:bg-zinc-100 transition-colors shadow-sm focus:outline-none"
           >
             <Send size={13} />
-            Start Outreach ({influencers.length})
+            Write first messages ({influencers.length})
           </button>
         </DialogTrigger>
       )}
@@ -253,10 +254,10 @@ export function OutreachDialog({
         {/* Header */}
         <div className="px-5 py-4 border-b border-zinc-200 dark:border-white/5">
           <DialogTitle className="text-[15px] font-medium text-zinc-900 dark:text-[#ededed]">
-            Start Outreach
+            Write first messages
           </DialogTitle>
           <DialogDescription className="text-[13px] text-zinc-500 dark:text-[#a1a1aa] mt-1">
-            Configure pitches for {influencers.length} {influencers.length === 1 ? "creator" : "creators"}.
+            ReachAI drafts a first message for {influencers.length === 1 ? "this creator" : `each of the ${influencers.length} creators`}. Each lands in their chat in Outreach for you to check and send.
           </DialogDescription>
         </div>
 
@@ -424,7 +425,7 @@ export function OutreachDialog({
               </>
             ) : (
               <>
-                Generate pitches
+                Write drafts
                 <Send size={13} className="opacity-70" />
               </>
             )}

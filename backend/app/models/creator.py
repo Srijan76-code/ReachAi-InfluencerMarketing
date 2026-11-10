@@ -84,6 +84,7 @@ class Creator(Base):
     display_name = Column(String, nullable=True)
     bio = Column(Text, nullable=True)
     url = Column(String, nullable=True)
+    avatar_url = Column(String, nullable=True)
     followers = Column(Integer, nullable=True)
     tier = Column(String, nullable=True)
     country = Column(String, nullable=True)

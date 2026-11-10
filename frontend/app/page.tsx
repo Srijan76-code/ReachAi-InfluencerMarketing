@@ -7,7 +7,7 @@ export default function Home() {
   return (
     <main className="min-h-screen flex items-center justify-center px-6 pt-14">
       <div className="w-full max-w-xl flex flex-col items-center text-center gap-8">
-        <span className="inline-flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#0c0d0e] px-3 py-1 rounded-full">
+        <span className="inline-flex items-center gap-2 text-[11px] font-medium text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#0c0d0e] px-3 py-1 rounded-full">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
           ReachAI
         </span>
@@ -17,7 +17,7 @@ export default function Home() {
             Coming soon
           </h1>
           <p className="text-[15px] leading-relaxed text-zinc-500 dark:text-zinc-400 text-balance">
-            Creator marketing for founders. Find the creators who will actually convert for your product,
+            Influencer marketing for founders. Find the creators who will actually convert for your product,
             see what each one should cost, and reach them from one place.
           </p>
         </div>
@@ -25,7 +25,7 @@ export default function Home() {
         <div className="flex flex-wrap items-center justify-center gap-3">
           <Show when="signed-out">
             <SignUpButton>
-              <button className="group text-[13px] font-medium bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 px-5 py-2 rounded-full flex items-center gap-1.5 hover:opacity-90 transition-all shadow-sm">
+              <button className="group text-[13px] font-medium bg-zinc-900 text-white dark:bg-zinc-300 dark:text-zinc-900 px-5 py-2 rounded-full flex items-center gap-1.5 hover:opacity-90 transition-all shadow-sm">
                 Get early access
                 <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
               </button>
@@ -39,7 +39,7 @@ export default function Home() {
           <Show when="signed-in">
             <Link
               href="/campaign"
-              className="group text-[13px] font-medium bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 px-5 py-2 rounded-full flex items-center gap-1.5 hover:opacity-90 transition-all shadow-sm"
+              className="group text-[13px] font-medium bg-zinc-900 text-white dark:bg-zinc-300 dark:text-zinc-900 px-5 py-2 rounded-full flex items-center gap-1.5 hover:opacity-90 transition-all shadow-sm"
             >
               Go to your campaigns
               <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
@@ -64,6 +64,10 @@ export default function Home() {
             Read the docs
           </Link>
         </div>
+        <p className="mt-10 text-[11px] text-zinc-400 flex gap-4 justify-center">
+          <Link href="/privacy" className="hover:text-zinc-700 dark:hover:text-zinc-200">Privacy</Link>
+          <Link href="/terms" className="hover:text-zinc-700 dark:hover:text-zinc-200">Terms</Link>
+        </p>
       </div>
     </main>
   );

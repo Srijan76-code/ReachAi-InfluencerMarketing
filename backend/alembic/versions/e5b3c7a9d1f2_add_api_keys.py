@@ -1,7 +1,7 @@
 """add api_keys (personal API keys for agent access over MCP)
 
 Revision ID: e5b3c7a9d1f2
-Revises: d7a2e5c9b1f3
+Revises: a7c3e9f2d4b1
 Create Date: 2026-11-10
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "e5b3c7a9d1f2"
-down_revision: Union[str, Sequence[str], None] = "d7a2e5c9b1f3"
+down_revision: Union[str, Sequence[str], None] = "a7c3e9f2d4b1"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

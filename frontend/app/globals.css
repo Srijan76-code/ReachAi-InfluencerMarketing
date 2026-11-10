@@ -127,6 +127,30 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /* Anything you can click shows a pointer; disabled controls show they can't be used. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="tab"],
+  [role="link"],
+  [role="menuitem"],
+  [role="menuitemradio"],
+  [role="menuitemcheckbox"],
+  [role="option"],
+  [role="switch"],
+  a[href],
+  summary,
+  select,
+  label:has(> input[type="checkbox"]:not(:disabled)),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled) {
+    cursor: pointer;
+  }
+  button:disabled,
+  [aria-disabled="true"],
+  input:disabled,
+  select:disabled {
+    cursor: not-allowed;
+  }
   /* One fixed page background everywhere (the /campaign look), so reloads,
      loading screens and short pages never flash a different colour. */
   html,
@@ -263,4 +287,44 @@ opacity: 0;
 100% {
 opacity: 1;
 }
+}
+
+/* --- Docs (/docs): the app's theme + gentle motion ------------------------------------------- */
+/* Fumadocs colours mapped to the app's tokens, so docs and app look like one product. */
+:root {
+  --color-fd-foreground: var(--foreground);
+  --color-fd-muted: var(--muted);
+  --color-fd-muted-foreground: var(--muted-foreground);
+  --color-fd-card: #ffffff;
+  --color-fd-card-foreground: var(--foreground);
+  --color-fd-popover: #ffffff;
+  --color-fd-border: var(--border);
+  --color-fd-primary: oklch(0.205 0 0);
+  --color-fd-primary-foreground: oklch(0.985 0 0);
+  --color-fd-accent: oklch(0.97 0 0);
+  --color-fd-accent-foreground: oklch(0.205 0 0);
+  --color-fd-ring: oklch(0.708 0 0);
+}
+.dark {
+  --color-fd-card: #0c0d0e;
+  --color-fd-popover: #0c0d0e;
+  --color-fd-primary: oklch(0.922 0 0);
+  --color-fd-primary-foreground: oklch(0.205 0 0);
+  --color-fd-accent: oklch(0.269 0 0);
+  --color-fd-accent-foreground: oklch(0.985 0 0);
+}
+.rd-docs table { font-size: 13px; }
+.rd-docs th { font-weight: 600; }
+.rd-docs td, .rd-docs th { font-variant-numeric: tabular-nums; }
+
+/* docs motion: content rises in gently, items one after another; off for reduced motion */
+@keyframes rd-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes rd-fade { from { opacity: 0; } to { opacity: 1; } }
+.rd-docs > * { animation: rd-rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.rd-rise { animation: rd-rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; animation-delay: calc(var(--rd-i, 0) * 60ms); }
+.rd-fade { animation: rd-fade 0.6s ease both; animation-delay: calc(var(--rd-i, 0) * 60ms); }
+.rd-rise { transition: border-color 0.2s ease, transform 0.2s ease; }
+.rd-rise:hover { border-color: oklch(0.708 0 0 / 0.6); }
+@media (prefers-reduced-motion: reduce) {
+  .rd-docs > *, .rd-rise, .rd-fade { animation: none; }
 }

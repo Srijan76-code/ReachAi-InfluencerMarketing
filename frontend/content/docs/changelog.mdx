@@ -10,6 +10,199 @@ description: What's new in ReachAI. Updated every time we ship.
 - Your agent can list your campaigns, check progress, show ranked creators with their scores and estimated values, and save or remove creators on your shortlist. See [Use ReachAI from your agent](/docs/mcp).
 - Keys can be revoked at any time.
 
+## November 5, 2026
+
+**Cleaner Track and buttons**
+- Posts are redesigned: the views sit on the thumbnail, with three clear stats below (views per day, vs channel average, signups) and a short line on what viewers say.
+- **Count signups** is now a small popup: choose what your site is built with, copy, test.
+- Shorter labels everywhere, with standard names (CPM, CTR, ROI). **Highlights** replaces "What stands out".
+- Main buttons are a soft off-white in dark mode, and **New campaign** matches **Campaigns** in the top bar.
+
+
+**Track is easier to read, and counting signups is easier to set up**
+- Track has three views: **Overview** (goal, forecast, chart, four numbers and **What stands out**), **Creators** and **Posts**.
+- **Creators** puts results and payment in one row: filter by To pay, Late or Rebook, sort by value, results, views or cost, and open a row to see their posts. **Pay $40** and **Paid** are right in the row.
+- **Posts** is a gallery you can filter and sort. Each post shows views per day, how it compares with the creator's usual views (**Trending** at 2× or more), engagement, results and what the comments say.
+- **Highlights**: findings from your numbers, like which format or channel size is cheapest, who converts best, a post that's trending, late posts, and how your prices compare with fair prices.
+- **Count signups**: pick what your site is built with (Next.js, React, HTML, your server, Webflow, Framer, WordPress, Wix, Squarespace, Lovable and other AI builders, Google Tag Manager, Shopify, Stripe) and get exact steps with a block to copy or a file to download. **Test it** opens your site and turns green when it's working.
+
+
+**Track: see what your creators brought you**
+- A new **Track** tab: your goal with progress and a forecast, the last 30 days in a chart, and four numbers (spent, views, clicks, cost per signup or return).
+- ReachAI finds each agreed creator's post by itself every day (their link or code in the description, else our judge reads their new videos), then keeps its views up to date. Paste a link if it wasn't found.
+- 3 days after a post is live, ReachAI reads its comments: how people feel, interest in your product, complaints about the ad.
+- Creators ranked best value first, with **Rebook**, **OK** or **Skip next time**.
+- Count signups with a small snippet on your site, by pasting code uses from your store, or by hand.
+- **To pay**: who's due and how much; **Mark paid** records the amount, date and method.
+- **Download results** as a CSV. This replaces the old pitch exports.
+- The Content view in Outreach is gone: posts and payments live in Track. Tracking links now add the creator's code to your address so the snippet can credit them.
+
+
+**Outreach and Deals are one tab: Outreach**
+- Every creator you contact gets one chat, from the first message to the agreed deal. The separate Deals tab is gone (old links still work).
+- **Add creators** drafts a first message in each creator's chat. They show "Writing a first message…", then the draft lands in the message box with a subject line, ready to check and send.
+- **How you reach them**: a chip in each chat picks Email, Instagram DM, X DM, WhatsApp or somewhere else. Email sends from your Gmail; DMs are copied and their profile opens.
+- **Send N checked** sends the first emails you've opened and checked, in one go, within Gmail's daily limit.
+- **Agreeing** opens a panel for the price, when they're paid, and each post with its own date (a deal can have several posts). ReachAI makes their tracking link and discount code and drafts the confirmation for you to send. Their link's clicks show at the top of the chat.
+- The old pitch list and its Instantly, Smartlead and CSV exports were removed with the old Outreach page.
+
+
+**A better chat for negotiating**
+- The chat fills the page. Messages show **You** and the creator's name, a divider for each day, and the time on hover. Your messages use the same dark style as theirs, just a shade lighter.
+- ReachAI's suggested reply now sits **in the message box**, ready to send, edit, reword or discard. Hover ⓘ to see why.
+- A **You | their name** switch in the message box: switch to their name to paste a reply that came by DM. Each side keeps its own unsent text.
+- Messages show **Sending…**, then the time. If one can't go out it says why, with **Retry** or **Reconnect**.
+- **Details** (email, terms, fair price) moved to a side panel, so the chat stays clean. The creator list has search and folds down to photos.
+- **Alerts**: unread counts in the list and on the Deals tab, "(2)" in the browser tab title, a bell listing everyone waiting across campaigns, and browser notifications if you turn them on.
+
+**Fixes from the first real test**
+- An email reply no longer shows up twice when Deals opens while the background check runs, and the "On Thu… wrote:" line from Gmail is removed even when Gmail splits it over two lines. Your existing duplicate was cleaned up.
+- Pasting a reply that already came in by Gmail is caught.
+- "They ask for an extra $10" after agreeing $12 is now read as $22, and the deal stays agreed: you choose to keep $12 (ReachAI drafts the reply) or accept $22.
+
+
+**Deals is now an inbox and a checklist**
+- **Negotiating** works like an inbox: creators on the left (Your turn, Waiting for them, Agreed), the conversation on the right as a chat. ReachAI's suggested reply sits at the bottom with Send, Edit, Reword or Skip.
+- Write your own message to a creator and send it from your Gmail, or paste a reply that came by DM.
+- **Content** lists agreed creators with three steps, Agreed → Posted → Paid, and one button for what's next.
+- The board, the To do list and the long deal panel are gone. "Contacted" and "Negotiating" are one status now.
+
+
+**Deals fixes from the first real test**
+- If the agent can't suggest a reply, the deal now says why. When a creator has no fair price (for example a channel with almost no views), set one yourself and press **Suggest again**.
+- Emails now go out with your Gmail name ("Srijan Patel", with your address), not just your address, and pitch subject lines avoid phrases spam filters dislike (like "Quick question"). This helps first emails land in the inbox.
+- Board columns have a fixed height and scroll on their own.
+
+
+**Fixed: "Token has expired"**
+- Actions could fail with "Token has expired" when ReachAI took a few seconds to respond (for example when adding a creator by link). Sign-in tokens now refresh by themselves and the request goes through.
+
+
+**A negotiation agent replaces the fixed formula**
+- When a creator replies, ReachAI reads what they asked for, decides your move (accept, counter, change the deal type, hold, or walk away), picks the commission and how far to move, and writes a reply to what they actually said. You approve it in To do.
+- It weighs their views, recent sponsors, your goal and budget, every message so far, and what similar creators agreed.
+- Type what they asked for in your own words, like "$7 + 20% commission". (Before, this was misread as $720.)
+- Your limits always hold: never far above the fair price, never over your budget, never below what you already offered.
+- The Deals summary is now one quiet line instead of boxes.
+
+
+**Send from your own Gmail**
+- **Connect Gmail** in Deals or Outreach. Approved messages go from your address, in the same thread.
+- In Outreach, check and edit a pitch, then **Send from you@gmail.com**. The creator moves to Contacted in Deals.
+- Creators' replies come into their deals by themselves (when you open Deals, and every 30 minutes). The next step appears in To do. No more pasting.
+- Each deal shows **Their email**, filled in from their channel when they publish one.
+- Add a creator you already know by their **channel link**, measured the same way as a search.
+- New [privacy policy](/privacy) and [terms](/terms) pages.
+
+## November 4, 2026
+
+**Deals remembers the negotiation, and is simpler to use**
+- Counters now build on what you already offered and what they asked: each round moves part of the way, never below your last offer, and ends with a final offer. Their reply is read against your last offer.
+- Fixed: an AI-worded message could mention a price you never offered. It now can't.
+- **Board | To do** switch: all suggested next steps in one list, with **Select all**, edits, and **Approve** or **Skip** together. Board cards show a dot when something's waiting.
+- The deal panel shows only what matters at each stage. Their quote has a **Save** button and shows when it's checking. Terms are one line you can edit. Notes and history are folded away.
+- Labels across the app are in normal sentence case, and explanations open from a small ⓘ instead of covering the fields above.
+- Small creators' fair prices round to the dollar (no more "$10–$10").
+
+**Needs you: ReachAI suggests every deal's next step**
+- A **Needs you** list at the top of Deals: follow-ups when a creator goes quiet, counters and acceptances with ready messages, agreeing when they accept your offer, chasing late posts, moving to Live and marking paid.
+- Nothing happens until you approve. Approve (messages are copied for you to send), edit, reword with AI, or skip.
+- Paste a creator's reply into their deal and our judge reads it to pick the next step. Everything you approve or skip is on the deal's timeline.
+- Messages greet the creator by first name only when the channel name looks like a person's name; otherwise "Hi there,".
+
+**Deals looks like the rest of ReachAI**
+- The Deals board, cards and deal panel now use the same fonts, sizes, colours and dropdowns as the Creators page and creator panel.
+- Column names are in plain sentence case with a short hint under each.
+- The negotiation helper is easier to find: a **Reply to them** section shows on deals you're still negotiating, and tells you to enter their quote if you haven't yet. The fair price and our read of their quote sit side by side in two tiles.
+
+**One place for everything you've shared**
+- **Share** now opens a Sharing panel: **People** (who has access), **Activity** (who opened it and when, and every approval, rejection and comment) and **By creator** (👍/👎 counts and comments per creator).
+- A dot on **Share** shows new activity since you last looked.
+- **Shortlist approved** and **Add approved to deals** in one click, and new filters: **Approved by reviewers** and **Has feedback**.
+
+**Deals**
+- A new **Deals** tab: track each creator from Contacted to Paid on a board you can drag cards across.
+- Write down what you agreed (deliverable, post-by date, deal type, usage rights, exclusivity, #ad) and see your committed spend against your budget.
+- A negotiation helper compares their quote with the fair price for that exact deal and writes the reply for you (optionally reworded by AI, always with ReachAI's numbers).
+- Add creators from their panel, from a selection, or from your shortlist. See [Outreach](/docs/outreach).
+
+**Simpler sharing**
+- The Share window is now like Google Drive: invite by email (the link is copied for you), choose **Can view** or **Can review**, and set **Restricted** or **Anyone with the link**. Prices and removing access live in each person's **⋯** menu.
+- Contact details are never shared through links, so there's no email-code step.
+
+**Smoother to use**
+- Sharing from the **Shortlist** view now offers your shortlist (not every creator).
+- Buttons, tabs and menu items press in slightly when clicked (with a tiny vibration on Android phones). Switches like All | Shortlist and the post tabs slide between options, and campaign tabs fade in. All of it turns off if your system is set to reduce motion.
+
+**Reviewers on shared links**
+- Invite someone who **Can review**: they approve or reject each creator and can leave a comment, no account needed. You see their feedback on your list and in each creator's panel.
+
+**Cleaner results page**
+- The post summary in the creator panel is now three tiles (On brief, Sponsored, Usual views) in the same style as the rest of the panel.
+- Everything you can click now shows a pointer, and the left side of the toolbar matches the right (same height, border and text).
+- Campaign tabs are now **Brief**, **Creators** and **Outreach**, and **New campaign** sits in the top bar on every page.
+- One tidy toolbar: search (press `/`), Filter, Sort, Share, Start outreach, and a **⋯** menu with Export and keyboard shortcuts. "347 checked · 31 kept" is a small chip; click it for the reasons.
+- Saved creators are now a **Shortlist** you can switch to at the top of the list (before, they were saved to a page you couldn't reach).
+- Rows: long names are shortened instead of overlapping, every badge shows (as icons when there are several), labels fit on one line, and the score is a whole number whose ring colour matches its label.
+- The creator panel shows posts right after the fit analysis, says **View on YouTube** instead of "Full analytics", and opens the photo larger when you click it. The highlight on a creator clears when you close the panel.
+
+**Share and compare**
+- **Compare** 2 to 4 creators side by side, with the best value in each row highlighted.
+- **Share** a shortlist like a Google Drive file: add people by email (each gets their own link) or create an "anyone with the link" link. View only, no ReachAI account needed, contact details never shown, fair prices only if you turn them on. Remove access at any time and see when each link was opened.
+
+**Better country matching**
+- When a YouTube channel doesn't list its country, Jev now judges where its audience is from its bio and posts. Creators clearly in your countries are no longer ranked lower (their country shows *judged from their posts*), creators clearly elsewhere are left out, and only real unknowns are ranked a little lower.
+
+**A tidier campaigns page**
+- Campaigns are named from their brief (*DataLaunch · Sales · India*) instead of "Untitled Campaign", and you can rename them.
+- **Delete** in a campaign's menu now works (it asks first and removes the campaign's saved creators and outreach drafts too).
+- Cards show how many creators were found, a clear status (**Ready**, **Searching**, **No creators**, **Failed**, **Draft**) and when the campaign was last updated ("2 days ago").
+- Drafts you never ran no longer pile up on the page.
+
+**A creator panel that shows its working**
+- **Why this score**: the points from brand fit, channel health, bonus and risk that add up to the score.
+- Posts in three tabs, **Best match**, **Above their usual** and **Latest**, with thumbnails, the brief topics each post matches, a **Sponsored** tag, and how it did against the creator's usual.
+- A summary of how many recent posts match your brief and which brands sponsored them.
+- How fresh the numbers are, a views trend, and a tick for verified creators.
+- Posts under a week old show **New** instead of looking like a flop.
+
+**Finding the right creator faster**
+- New sorts: best value (cost per 1,000 views), most views and highest engagement.
+- New filters: rising, on trend, hide unusual engagement and saved only, plus a count of active filters and **Reset filters**.
+- Search creators by name or niche.
+- Your sort and filters are remembered per campaign.
+- A note above the list shows how many creators were looked at and why the rest were left out.
+- Keyboard shortcuts: `j`/`k` to move, `Enter` to open, `s` to save, `x` to select, `/` to search, `?` for the list.
+- Results load with placeholder rows instead of a spinner, and a save that fails now tells you instead of silently undoing.
+
+**Creators you can trust at a glance**
+- Creator profile photos in your results, the creator panel and outreach. Older results get their photos added automatically.
+- Every recent video opens on YouTube, creator names open their channel, and **Full analytics** opens their videos page.
+- Social icons are only clickable when we found that account; missing ones are dimmed and say so.
+
+**Docs**
+- Redesigned docs in the app's own look, with diagrams for every workflow, charts, headline numbers and a new [Pricing](/docs/pricing) page (plans are coming soon).
+
+**Faster pages**
+- The campaigns list and campaign pages load faster, especially the first load after a quiet period. The campaigns list is about 4× faster and holds up much better when many people use it at once.
+
+**Fixes**
+- Audience location is now sent correctly for every country. Before, the country was read from the first two letters of its name, so "United States" didn't work and "Germany" was searched as Georgia.
+- A campaign can't be started with the brand name, product, audience or location missing. Before, empty fields were silently filled with a sample brand.
+- Creator languages now follow the country you pick (for example English and Hindi for India), instead of always English and Hindi.
+- Reopening a campaign now restores its location and creator size correctly.
+- The progress bar keeps showing the current step while a search runs, and **Retry** on a failed search now starts it again.
+
+**Results stay current**
+- Every night, creators in your results and saved leads get fresh YouTube numbers. A creator that can't be updated after 30 days shows **Data expired** with its numbers hidden, as YouTube's rules require. See [Understanding your results](/docs/understanding-results#results-older-than-30-days).
+
+**New discovery engine**
+- Pick the platforms to search in the brief, or leave them unticked and ReachAI chooses for you. YouTube is available now; Instagram, X and LinkedIn are shown as coming soon.
+- Every campaign now runs on the new engine: platforms searched in parallel, a second search when too few creators qualify, runs that pick up where they stopped, and reasons that agree with each creator's label. See [How it works](/docs/how-it-works).
+- Size and country limits are always respected. The old engine sometimes returned creators above your maximum size.
+- New scoring with recalibrated labels: Strong Buy from 60, Consider from 45. See [Understanding your results](/docs/understanding-results).
+- Badges on creators (Rising, On trend, Check engagement, Country unknown) and a live count of creators scored while a search runs.
+
 ## November 3, 2026
 
 **Demo and landing page**
@@ -22,10 +215,10 @@ description: What's new in ReachAI. Updated every time we ship.
 **Fixes**
 - Fixed the pitch export: Instagram, Twitter and Status columns were empty. LinkedIn is now included.
 
-**Behind the scenes** (rolls out with the next discovery update)
+**Behind the scenes**
 - Backup AI models, so a run can switch provider if one is down.
 - Cost tracking for every AI call.
-- A shared cache, so repeated searches will be faster and cheaper.
+- A shared cache, so repeated searches are faster and cheaper.
 
 ## Earlier
 

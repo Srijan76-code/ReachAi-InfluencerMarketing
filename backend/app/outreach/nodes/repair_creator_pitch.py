@@ -1,12 +1,11 @@
-import asyncio
 import json
 
-from app.core.model import model
+from app.llm.client import achat
 from langgraph.types import Command, Send
 from app.outreach.nodes.generate_creator_pitch import _generation_prompt
 from app.schemas.outreach import PitchBundle
 from app.outreach.state import OutreachState
-from app.outreach.utils import current_creator_input
+from app.outreach.utils import current_creator_input, cost_context
 
 
 async def repair_creator_pitch(state: OutreachState) -> OutreachState:
@@ -27,9 +26,7 @@ CURRENT PITCH:
 VALIDATION ERRORS:
 {json.dumps(validation.get("errors") or [], default=str)}
 """.strip()
-    structured_llm = model.with_structured_output(PitchBundle)
-    result = await asyncio.to_thread(structured_llm.invoke, prompt)
-    bundle = result if isinstance(result, PitchBundle) else PitchBundle.model_validate(result)
+    bundle = await achat("pitch", prompt, PitchBundle, context=cost_context(state))
     repaired_bundle = bundle.model_dump()
     repair_count = (state.get("creator_repair_counts") or {}).get(creator_id, 0) + 1
     return Command(

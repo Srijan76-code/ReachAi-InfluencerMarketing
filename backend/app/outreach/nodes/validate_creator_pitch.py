@@ -115,6 +115,8 @@ async def validate_creator_pitch(state: OutreachState) -> OutreachState:
         goto=Send(
             destination,
             {
+                "outreach_job_id": state.get("outreach_job_id"),
+                "campaign_id": state.get("campaign_id"),
                 "creator_input": creator_input,
                 "creator_pitch_bundles": {creator_id: bundle},
                 "creator_validations": validation,

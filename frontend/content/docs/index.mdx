@@ -1,29 +1,48 @@
 ---
-title: Welcome to ReachAI
-description: Find the creators who will actually convert for your product, and know what to pay them.
+title: ReachAI
+description: Influencer marketing for founders. Find the influencers who will sell your product, know what to pay them, and reach them.
 ---
 
-ReachAI helps startup and solo founders run creator campaigns without a marketing team. You describe your product and audience once. ReachAI searches for creators, checks they're real and active, ranks them by how well they fit **your** product, estimates a fair price for each one, and writes a personal first message.
+<Lead>
+  Influencers sell. The hard part is knowing **which** ones will sell **your** product, and **what to pay them**. ReachAI answers both from one brief, in under a minute.
+</Lead>
+
+<Stats items={[
+  { value: "< 30 s", label: "to a ranked shortlist", note: "Measured on live runs" },
+  { value: "Fair price", label: "for every creator", note: "From their real views and your industry" },
+  { value: "$0", label: "to write pitches", note: "Personal and checked, unlimited" },
+  { value: "$49/mo", label: "planned starting price", note: "Creator databases: $199–600/mo" },
+]} />
+
+## How a campaign works
+
+<Mermaid chart={`
+flowchart LR
+  B([Brief]) --> D[Discover<br/>by fit]
+  D --> P[Price<br/>fair range]
+  P --> R[Reach<br/>pitch]
+  R --> T[Track<br/>post live]
+  T --> Y[Pay<br/>when verified]
+`} />
+
+## What you can do
+
+<Features items={[
+  { title: "Find creators who fit", text: "Ranked by fit with your product, not followers. A reason for each.", status: "live" },
+  { title: "Know the fair price", text: "Typical views, engagement, expected clicks and a fair price range.", status: "live" },
+  { title: "Avoid bad deals", text: "Inactive, fake-looking, wrong-size and wrong-country creators filtered out.", status: "live" },
+  { title: "Pitch personally", text: "One message each, from their real videos. Export to Instantly or Smartlead.", status: "live" },
+  { title: "X, Instagram, LinkedIn", text: "The right platforms for your product, or pick them yourself.", status: "soon" },
+  { title: "Send, track and pay", text: "Send from your inbox, follow-ups, post checks, pay after the post is live.", status: "soon" },
+]} />
 
 <Callout title="See it first">
-  Open the [demo campaign](/demo) to see a finished campaign: the brief, ranked creators and outreach pitches. No sign-in needed.
+  Open the [demo campaign](/demo): a real brief, ranked creators and pitches. No sign-in needed.
 </Callout>
 
 <Cards>
-  <Card title="Getting started" href="/docs/getting-started" description="Run your first campaign in about 5 minutes." />
-  <Card title="Writing a good brief" href="/docs/writing-a-good-brief" description="What to put in each field to get better matches." />
-  <Card title="Understanding your results" href="/docs/understanding-results" description="Scores, fair price, risk flags and what they mean." />
-  <Card title="Outreach" href="/docs/outreach" description="Generate personal pitches and export them." />
+  <Card title="Get started" href="/docs/getting-started" description="Your first campaign in about 5 minutes." />
+  <Card title="Understand your results" href="/docs/understanding-results" description="Scores, fair price and badges." />
+  <Card title="Pricing" href="/docs/pricing" description="Plans, credits and the return on a plan." />
+  <Card title="How it works" href="/docs/how-it-works" description="The engine, and the numbers behind it." />
 </Cards>
-
-## What you get from a campaign
-
-- **A ranked list of creators** that fit your product, each with a one-line reason.
-- **Real performance numbers:** typical views, reliability, engagement and expected clicks per video.
-- **A fair price** for each creator, so you know when a quote is too high.
-- **Risk checks:** inactive channels and suspicious engagement are filtered out before you see them.
-- **Personal pitches** for email and social, ready to copy or export.
-
-<Callout title="Platforms">
-  Discovery covers **YouTube** today. X, Instagram and LinkedIn are next. See the [changelog](/docs/changelog) for what's shipping.
-</Callout>

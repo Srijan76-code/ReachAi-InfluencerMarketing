@@ -5,45 +5,51 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import { Loader2, Sparkles } from "lucide-react";
 import { useCampaignStore, CampaignState } from "@/store/campaignStore";
+import { countryCode, languagesFor } from "@/lib/countries";
+import { stepToSubscribers } from "@/lib/creatorSize";
 
-function transformPayload(store: CampaignState) {
-  const tickToNumber: Record<number, number> = {
-    1: 1000, 2: 5000, 3: 10000, 4: 20000, 5: 50000, 6: 100000,
-    7: 200000, 8: 500000, 9: 1000000, 10: 2000000, 11: 5000000,
-    12: 10000000, 13: 12000000,
-  };
-  const businessModelMap: Record<string, string> = { "1": "b2b", "2": "b2c", "3": "d2c" };
-  const priceRangeMap: Record<string, string> = { "1": "low_ticket", "2": "mid_ticket", "3": "high_ticket" };
-  const goalMap: Record<string, string> = { "1": "awareness", "2": "signups", "3": "sales" };
-  const authorityMap: Record<string, string> = { "1": "peer", "2": "mentor", "3": "expert" };
-  const platformMap: Record<string, string> = { "1": "youtube", "2": "instagram" };
-  const getCountryCode = (name: string) => name ? name.substring(0, 2).toUpperCase() : "IN";
+const businessModelMap: Record<string, string> = { "1": "b2b", "2": "b2c", "3": "d2c" };
+const priceRangeMap: Record<string, string> = { "1": "low_ticket", "2": "mid_ticket", "3": "high_ticket" };
+const goalMap: Record<string, string> = { "1": "awareness", "2": "signups", "3": "sales" };
+const authorityMap: Record<string, string> = { "1": "peer", "2": "mentor", "3": "expert" };
 
+/** What's missing before a run can start (empty list = ready). */
+export function missingFields(store: CampaignState): string[] {
+  const missing: string[] = [];
+  if (!store.brandName.trim()) missing.push("brand name");
+  if (!store.pitch.trim()) missing.push("what you sell");
+  if (!store.targetAudience.trim()) missing.push("target audience");
+  if (!countryCode(store.audienceLocation)) missing.push("audience location");
+  return missing;
+}
+
+export function transformPayload(store: CampaignState) {
+  const country = countryCode(store.audienceLocation);
+  const countries = country ? [country] : [];
   return {
     brand: {
-      name: store.brandName || "DataLaunch",
-      website: "https://datalaunch.io",
-      industry: store.industry || "edtech",
+      name: store.brandName.trim(),
+      industry: store.industry || "other",
       business_model: businessModelMap[store.businessModel] || "b2c",
-      product_price_range: priceRangeMap[store.productPriceRange] || "high_ticket",
-      core_outcome: store.pitch || "A 12-week intensive Data Science bootcamp.",
+      product_price_range: priceRangeMap[store.productPriceRange] || "mid_ticket",
+      core_outcome: store.pitch.trim(),
     },
     audience: {
-      target_persona: store.targetAudience || "Junior developers and fresh CS graduates.",
-      locations: [getCountryCode(store.audienceLocation)],
-      languages: ["en", "hi"],
+      target_persona: store.targetAudience.trim(),
+      locations: countries,
+      languages: languagesFor(country),
     },
     campaign: {
       goal: goalMap[store.campaignGoal] || "signups",
-      creator_authority_level: authorityMap[store.creatorAuthority] || "mentor",
-      platform: platformMap[store.platforms[0]] || "youtube",
+      creator_authority_level: authorityMap[store.creatorAuthority] || "peer",
+      platforms: store.platforms, // empty = ReachAI chooses (preset for the business type + a quick AI check)
       budget_total: parseInt(store.totalBudget) || 5000,
       creator_count: store.numberOfCreators[0] || 5,
     },
     constraints: {
-      min_subscribers: tickToNumber[store.creatorSize[0]] || 10000,
-      max_subscribers: tickToNumber[store.creatorSize[1]] || 500000,
-      target_countries: [getCountryCode(store.audienceLocation)],
+      min_subscribers: stepToSubscribers(store.creatorSize[0], 10000),
+      max_subscribers: stepToSubscribers(store.creatorSize[1], 500000),
+      target_countries: countries,
       exclude_kids_content: true,
     },
   };
@@ -54,9 +60,16 @@ export default function SubmitCampaignButton({ id }: { id: string }) {
   const router = useRouter();
   const { getToken } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async () => {
     if (isSubmitting) return;
+    const missing = missingFields(store);
+    if (missing.length) {
+      setError(`Please fill in: ${missing.join(", ")}.`);
+      return;
+    }
+    setError(null);
     const finalPayload = transformPayload(store);
     setIsSubmitting(true);
     store.setField("isGenerating", true);
@@ -83,10 +96,13 @@ export default function SubmitCampaignButton({ id }: { id: string }) {
       console.error("Error submitting campaign to backend:", error);
       store.setField("isGenerating", false);
       setIsSubmitting(false);
+      setError("Couldn't start the search. Please try again.");
     }
   };
 
   return (
+    <div className="space-y-2">
+    {error && <p role="alert" className="text-[12px] text-rose-500">{error}</p>}
     <button
       type="button"
       onClick={handleSubmit}
@@ -105,6 +121,7 @@ export default function SubmitCampaignButton({ id }: { id: string }) {
         </>
       )}
     </button>
+    </div>
   );
 }
 

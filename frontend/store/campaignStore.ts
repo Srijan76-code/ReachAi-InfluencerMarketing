@@ -1,4 +1,6 @@
 import { create } from "zustand";
+import { countryName } from "@/lib/countries";
+import { subscribersToStep } from "@/lib/creatorSize";
 
 export interface CachedCampaign {
   id: string;
@@ -41,6 +43,7 @@ export interface CampaignState {
   // Saved Leads Map (for fast lookup by id) and Array
   savedLeadsMap: Record<string, boolean>;
   savedLeadsList: any[];
+  saveError: string | null; // shown briefly when a save/unsave didn't reach the server
 
   // Cache by Campaign ID for fast navigation without latency
   campaignsCache: Record<string, CachedCampaign>;
@@ -59,7 +62,8 @@ const businessModelReverseMap: Record<string, string> = { b2b: "1", b2c: "2", d2
 const priceRangeReverseMap: Record<string, string> = { low_ticket: "1", mid_ticket: "2", high_ticket: "3" };
 const goalReverseMap: Record<string, string> = { awareness: "1", signups: "2", sales: "3" };
 const authorityReverseMap: Record<string, string> = { peer: "1", mentor: "2", expert: "3" };
-const platformReverseMap: Record<string, string> = { youtube: "1", instagram: "2" };
+
+const savesInFlight = new Set<string>();
 
 export const useCampaignStore = create<CampaignState>((set, get) => ({
   brandName: "",
@@ -68,7 +72,7 @@ export const useCampaignStore = create<CampaignState>((set, get) => ({
   productPriceRange: "1",
   campaignGoal: "1",
   creatorAuthority: "1",
-  platforms: ["1"], // YouTube default
+  platforms: [], // empty = let ReachAI choose the platforms
   audienceLocation: "",
   pitch: "",
   targetAudience: "",
@@ -87,6 +91,7 @@ export const useCampaignStore = create<CampaignState>((set, get) => ({
 
   savedLeadsMap: {},
   savedLeadsList: [],
+  saveError: null,
   campaignsCache: {},
 
   setField: (field, value) => set({ [field]: value }),
@@ -119,10 +124,15 @@ export const useCampaignStore = create<CampaignState>((set, get) => ({
       productPriceRange: priceRangeReverseMap[brand.product_price_range] || "1",
       pitch: brand.core_outcome || "",
       targetAudience: audience.target_persona || "",
-      audienceLocation: Array.isArray(audience.locations) && audience.locations[0] ? audience.locations[0] : "",
+      // Briefs store a country code ("US"); the picker shows names ("United States").
+      audienceLocation: countryName(
+        (Array.isArray(constraints.target_countries) && constraints.target_countries[0]) ||
+          (Array.isArray(audience.locations) && audience.locations[0]) || "",
+      ),
+      creatorSize: [subscribersToStep(constraints.min_subscribers, 3), subscribersToStep(constraints.max_subscribers, 8)],
       campaignGoal: goalReverseMap[campaign.goal] || "1",
       creatorAuthority: authorityReverseMap[campaign.creator_authority_level] || "1",
-      platforms: [platformReverseMap[campaign.platform] || "1"],
+      platforms: Array.isArray(campaign.platforms) ? campaign.platforms : [],
       totalBudget: campaign.budget_total ? String(campaign.budget_total) : "",
       numberOfCreators: campaign.creator_count ? [campaign.creator_count] : [3],
     });
@@ -215,7 +225,8 @@ export const useCampaignStore = create<CampaignState>((set, get) => ({
 
   toggleSaveLead: async (campaignId: string, lead: any, api: any) => {
     const leadId = lead.id;
-    if (!leadId) return;
+    if (!leadId || savesInFlight.has(leadId)) return; // a second click while saving would race the first
+    savesInFlight.add(leadId);
 
     const currentMap = { ...get().savedLeadsMap };
     const isCurrentlySaved = !!currentMap[leadId];
@@ -248,10 +259,14 @@ export const useCampaignStore = create<CampaignState>((set, get) => ({
           data: lead,
         });
       }
+      set({ saveError: null });
     } catch (err) {
       console.error("Error toggling saved lead:", err);
-      // Revert on error
-      get().fetchSavedLeads(campaignId, api);
+      // Revert on error, and say so: a silent undo looks like the click didn't work
+      set({ saveError: isCurrentlySaved ? `Couldn't remove ${lead.title || "this creator"}. Try again.` : `Couldn't save ${lead.title || "this creator"}. Try again.` });
+      await get().fetchSavedLeads(campaignId, api);
+    } finally {
+      savesInFlight.delete(leadId);
     }
   },
 }));

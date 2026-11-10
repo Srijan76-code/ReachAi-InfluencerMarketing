@@ -84,6 +84,7 @@ def _row_values(profile: CreatorProfile, now: datetime) -> dict:
         "display_name": profile.get("display_name"),
         "bio": profile.get("bio"),
         "url": profile.get("url"),
+        "avatar_url": profile.get("avatar_url"),
         "followers": profile.get("followers"),
         "tier": follower_tier(profile.get("followers")),
         "country": profile.get("country"),
@@ -157,6 +158,8 @@ def _profile_from_row(row: Creator, posts: Optional[list] = None) -> CreatorProf
         display_name=row.display_name,
         bio=row.bio or "",
         url=row.url,
+        avatar_url=row.avatar_url,
+        person_id=row.person_id,
         followers=row.followers or 0,
         country=row.country,
         language=row.language,
@@ -217,6 +220,43 @@ async def get_creator(creator_id: str, *, with_latest_posts: bool = True, sessio
             ).scalar_one_or_none()
             posts = snap.recent_posts if snap else None
         return _profile_from_row(row, posts)
+
+
+async def get_creators(creator_ids: Sequence[str], *, session_factory=None) -> dict[str, CreatorProfile]:
+    """Many creators with their latest posts, in two queries (for pipeline steps)."""
+    ids = list(dict.fromkeys(creator_ids))
+    if not ids:
+        return {}
+    async with _factory(session_factory)() as session:
+        rows = (await session.execute(select(Creator).where(Creator.creator_id.in_(ids)))).scalars().all()
+        snaps = (
+            await session.execute(
+                select(CreatorSnapshot).where(CreatorSnapshot.creator_id.in_(ids)).order_by(CreatorSnapshot.captured_at)
+            )
+        ).scalars().all()
+    latest = {s.creator_id: s for s in snaps}  # ordered by time, so the last one wins
+    out = {}
+    for row in rows:
+        snap = latest.get(row.creator_id)
+        profile = _profile_from_row(row, snap.recent_posts if snap else None)
+        profile["metrics"] = snap.metrics if snap else None
+        out[row.creator_id] = profile
+    return out
+
+
+async def creator_ids_for(platform: str, platform_ids: Sequence[str], *, session_factory=None) -> dict[str, str]:
+    """platform_id -> creator_id for accounts already in the database."""
+    if not platform_ids:
+        return {}
+    async with _factory(session_factory)() as session:
+        rows = (
+            await session.execute(
+                select(Creator.platform_id, Creator.creator_id).where(
+                    Creator.platform == platform, Creator.platform_id.in_(list(platform_ids))
+                )
+            )
+        ).all()
+    return {r[0]: r[1] for r in rows}
 
 
 # --- Peers and training data -----------------------------------------------------------------------

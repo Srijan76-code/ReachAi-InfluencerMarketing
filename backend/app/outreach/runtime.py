@@ -132,6 +132,9 @@ async def run_outreach_graph(outreach_job_id: str, run_id: str, thread_id: str) 
                 pitch.validation_errors = result.get("validation_errors") or []
                 pitch.repair_count = result.get("repair_count", 0)
 
+            from app.outreach.drafts import drafts_from_job
+
+            await drafts_from_job(db, job, results_by_creator, leads_by_id)  # each creator's chat gets its first message
             job.status = "COMPLETED"
             job.pitch_pack = pitch_pack
             job.generation_stats = stats

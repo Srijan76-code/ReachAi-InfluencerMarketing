@@ -1,20 +1,12 @@
-import OutreachClient from "./OutreachClient";
-import WorkflowStatus from "../WorkflowStatus";
+import { Suspense } from "react";
+import DealsBoard from "@/components/deals/DealsBoard";
 
-export default async function Page({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ id: string }>;
-  searchParams: Promise<{ job_id?: string }>;
-}) {
+/** Outreach: every creator you contact is one chat, from the first message to agreed (spec §0 "Tabs and chat"). */
+export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { job_id } = await searchParams;
-
   return (
-    <div className="max-w-full overflow-x-hidden">
-      {/* <WorkflowStatus campaignId={id} /> */}
-      <OutreachClient campaignId={id} initialJobId={job_id} />
-    </div>
+    <Suspense fallback={null}>
+      <DealsBoard campaignId={id} />
+    </Suspense>
   );
 }

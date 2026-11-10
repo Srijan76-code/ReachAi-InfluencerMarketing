@@ -1,0 +1,101 @@
+---
+title: Track
+description: Was it worth it? Posts, views, clicks, signups, who to rebook and who to pay, on one page.
+---
+
+The **Track** tab shows what your agreed creators' posts brought you. You don't have to do anything: ReachAI checks for new posts and fresh numbers every day, and again when you open Track (or press **Check now**).
+
+It has three views, so it stays tidy with many creators:
+
+| View | What's in it |
+|---|---|
+| **Overview** | Your goal, the forecast, the last 30 days, four numbers, and highlights |
+| **Creators** | One row per creator: results, verdict and payment. Open a row to see their posts |
+| **Posts** | Every post as a card, with how it's doing next to the creator's usual |
+
+## Your goal
+
+At the top: how many signups (or sales, views or clicks) you've got so far, against your goal. Press the pencil to set the goal and, for signups or sales, what one is worth to you. With a value set, ReachAI shows your **return**: what the results are worth next to what you paid creators.
+
+**On pace for ~64 by Dec 1** is a forecast: each live post's views so far, scaled to 30 days by how YouTube videos usually grow (most views come in the first week), with results growing at the same rate. It shows once a post has two days of data and is always marked as an estimate.
+
+The chart shows the last 30 days: your goal's results, views or clicks per day.
+
+## Highlights
+
+Short findings, each shown only when your numbers back it up. For example:
+
+- "Shorts: $1.11 CPM vs $3.40 for sponsored segments"
+- "Smaller channels: $1.80 per signup vs $4.30"
+- "Srijan converts best: 1 signup per 835 views"
+- "Srijan's video: 4.7× their average views"
+- "Paying 18% under fair price on average"
+- "1 post late · Asha Tech"
+
+They're worked out in code from your numbers, not written by AI.
+
+## The four numbers
+
+| Number | What it is |
+|---|---|
+| **Spent** | What you agreed to pay creators, against your budget |
+| **Views** | All their posts' views, with **CPM** (cost per 1,000 views) |
+| **Clicks** | Visits through their tracking links, with **CTR** (clicks per view) |
+| **Cost per signup** or **ROI** | What each signup cost you; or, with a value set, what you got back for each dollar |
+
+## Posts
+
+One card per post you agreed: due, late or live. Filter by status, creator or format, and sort by newest, most views, best against their usual, most engagement or most results.
+
+Each live post shows:
+- **Views** and **views per day**, with a small trend line.
+- **vs channel avg**: its views next to the creator's average views. 2× or more is marked in orange.
+- **Engagement**: likes and comments per view.
+- **Signups** (or sales): when it's the creator's only live post. With several posts, they're counted for the creator, since we can't tell which video brought them.
+- **Viewers**, 3 days after it's live: how the comments feel (positive, mixed, negative), and whether people want the product, ask about it, or dislike the ad. The most liked comment is shown.
+
+**Found by themselves:** every day ReachAI looks at each creator's new uploads. A video whose description has their ReachAI link or code is their post. If none has it, Jev reads the new videos' titles and descriptions and says whether one is your sponsored post. Each video is only checked once. Not found? **Add link** pastes it yourself. Late posts have **Remind them**, which opens their chat with a reminder ready to send.
+
+## Creators
+
+One row per creator with what they cost, their views, their signups (or clicks), cost per result, a verdict and their payment. Filter by **To pay**, **Late** or **Rebook**, and sort by best value, results, views, cost or what's left to pay. Open a row to see their posts and their link, code and payment details.
+
+Verdicts are worked out in code, not by AI:
+
+| Verdict | When |
+|---|---|
+| **Rebook** | 1.2× or more the views we expected, or cheaper per result than your typical creator |
+| **OK** | About what we expected |
+| **Skip next time** | Under half the views we expected, or 1.5× or more your typical cost per result |
+| **Too early** | Their posts have been live for less than 3 days |
+
+**Paying:** when a creator's post is live (or earlier, if you agreed to pay before they post), their row shows **Pay $40**. Pay them the way you agreed, then press it to record the amount, date, how (PayPal, bank transfer, UPI, Wise or other) and a note. ReachAI never moves money. Paid rows show **Paid $40**; **Undo paid** is in the **⋯** menu, along with adding signups by hand and copying their link or code.
+
+## Counting signups and sales
+
+Clicks on creators' links count by themselves. To count **signups or sales**, press **Count signups** at the top of Track and choose what your site is built with. You get the steps and a block to copy (with your key in it), or a file to download:
+
+| Built with | What you do |
+|---|---|
+| **Next.js** | Download `ReachAI.tsx`, put `<ReachAI />` in your layout, call `reachaiSignup()` after signup |
+| **React** (Vite, CRA) | Download `reachai.ts`, call `loadReachAI()` once and `reachaiSignup()` after signup |
+| **HTML or other code** | Paste one line on every page, and a second on your thank-you page |
+| **Your server** (any language) | Send one request after signup (curl, Node and Python examples). Works with ad blockers |
+| **Webflow, Framer, WordPress, Wix, Squarespace** | Paste into the named custom-code box, step by step |
+| **Lovable, Bolt, v0, Replit** | Paste a ready message into your AI builder's chat |
+| **Google Tag Manager** | Two tags to paste |
+| **Shopify** | Upload the "sales by discount" export; the script also counts visits if you want |
+| **Stripe or another store** | Upload a CSV of each code and how often it was used |
+| **By hand** | Add numbers from a creator's **⋯** menu |
+
+Then enter your site and press **Test**. Your site opens in a new tab, and when the code is in place it shows **Working**.
+
+**How it works:** each creator's link sends people to your site with their code (`?ref=SRIJAN42`). The script remembers it for 30 days, only in the visitor's browser on your site, and when they sign up it tells ReachAI "one signup for SRIJAN42". Nothing about the person is sent, and no cookies are used. We count the last creator link someone came through, or the code they typed; someone who watched a video and later typed your address in won't be counted.
+
+## Download your results
+
+**Results** at the top downloads a CSV with one row per creator: price, posts and their links, views, clicks, signups, code uses, cost per result, verdict, their code and link, and when and how you paid. Good for your team, investors or your accountant.
+
+<Callout title="Coming soon">
+  Instagram and X numbers (they need the creator to sign in), sales from Stripe or Shopify directly, and alerts when a post goes live.
+</Callout>

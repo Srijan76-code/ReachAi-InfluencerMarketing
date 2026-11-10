@@ -1,37 +1,67 @@
 ---
 title: How it works
-description: How ReachAI finds creators quickly, cheaply and accurately.
+description: The discovery engine, and the measured numbers behind it.
 ---
 
 ## Cheap work first, expensive work last
 
-Every campaign runs as a pipeline. Each step narrows the list before a more expensive step runs:
+Each step narrows the list before a more expensive one runs. AI only writes text for the creators you'll actually contact.
 
-| Step | Who does it | What happens |
+<Mermaid chart={`
+flowchart TD
+  A([Your brief]) --> S[Plan the search<br/>AI, once per brief]
+  S --> Y[YouTube] & X[X] & L[LinkedIn] & I[Instagram]
+  Y & X & L & I --> C{Right size<br/>and country?}
+  C -- no --> Z[Skipped, costs nothing more]
+  C -- yes --> M[Measure views,<br/>engagement, activity]
+  M --> H[Shortlist the<br/>closest content]
+  H --> J[Judge fit and risk<br/>Jev]
+  J --> F[Score and fair price]
+  F --> W([Your list, with a reason<br/>for the top picks])
+`} caption="X, Instagram and LinkedIn are coming soon; YouTube is live." />
+
+| Who does it | What it does | Why |
 |---|---|---|
-| Understand the brief | Language model (1 call) | Topics, audience problems, formats and search terms |
-| Find candidates | Platform API | Search for creators across many angles of your brief |
-| Filter and measure | Code | Size, country, activity, views, reliability, engagement |
-| Shortlist | Semantic search | Keep the creators whose content is closest to your brief |
-| Judge fit | Language model, in batches | Brand and audience fit for the shortlist only |
-| Score | Code | Fit + health → final score, fair price, forecast |
-| Explain | Language model | One-line reason, only for the creators you get |
+| **Code** | Views, engagement, fair price, forecasts, scores | Numbers must be exact and repeatable |
+| **[Jev](https://docs.typesafe.ai/introduction)** | Yes/no, labels and scales: fit, safety, real person | Fast, cheap, and gives real probabilities |
+| **Language model** | The strategy, the reasons, the pitches | Only where people read the words |
 
-## How we made it 99% cheaper
+## Built not to waste your time
 
-The first version cost about **$5 per run** and took **4+ minutes**. By batching work, running steps in parallel, filtering in code before calling AI, and only writing reasons for the final list, a run now costs about **$0.04** and takes **1–2 minutes**.
+- **Platforms run in parallel.** A small test search runs on each extra platform; it only gets a full search if it finds creators who beat your list.
+- **A second search** runs when too few creators pass your size and country limits.
+- **Runs pick up where they stopped.** If anything fails, the retry continues from the last finished step.
+- **Repeat searches are faster.** Briefs, searches, judgments and creator data are remembered.
 
-## What's next: judgments by Jev
+<Mermaid chart={`
+flowchart LR
+  A[Step 1 done] --> B[Step 2 done] --> C[Step 3 fails]
+  C -- retry --> D[Resume at step 3<br/>steps 1-2 not redone]
+  D --> E([Finished])
+`} />
 
-Most AI work in creator discovery is judging, not writing: *is this a real person? does the audience match? is it brand-safe?* We're moving these judgments to **[Jev](https://docs.typesafe.ai/introduction)**, a fast model built for yes/no, label and scale questions:
+## The numbers
 
-- about **100 ms** per request, with all of a creator's questions answered at once;
-- about **$0.006 to judge 100 creators**;
-- answers come with **probabilities**, so thresholds mean something and we can tune them.
+<Stats items={[
+  { value: "$5 → < $0.01", label: "AI cost per search", note: "v1 vs today, logged per call" },
+  { value: "< 30 s", label: "search time (was 4+ min)", note: "Live runs today: 10–30 s" },
+  { value: "7.7 → 0.6 s", label: "first load after idle", note: "Production, measured" },
+  { value: "233", label: "automated tests", note: "No live API calls in tests" },
+]} />
 
-Language models will only write the text you read: the reasons and the pitches. Numbers like views, growth and fair price always stay in code.
+**Page speed.** Measured with production-shaped data (6,010 campaigns, 18,000 saved leads) and the same benchmark before and after:
 
-## Reliability
+| Page data | Before | After | 10 users at once |
+|---|---|---|---|
+| Campaign list | 151.5 ms | **37.1 ms** | 742 → **153 ms** |
+| Creators (leads) | 40.0 ms | **35.0 ms** | 186 → **112 ms** |
+| Saved creators | 46.6 ms | **37.4 ms** | 144 → **73 ms** |
+| Run status | 53.0 ms | **31.5 ms** | 150 → **107 ms** |
 
-- Runs happen in the background and survive restarts; you can close the page.
-- Coming with the next discovery update: automatic backup AI models if a provider is down, and cost tracking for every AI call, so pricing stays fair and sustainable.
+**Quality.** Before the new engine went live, old and new were run on the same 3 briefs and every creator was rated blind (the rater didn't know which engine found it). The new engine never broke your size or country limits; the old one did 5 times.
+
+## Your data
+
+- Creator data comes from the platforms' official sources at search time.
+- YouTube numbers are refreshed or removed after 30 days, as YouTube's rules require. Old results then show **Data expired**.
+- Nothing an AI writes can send a message or a payment on its own.

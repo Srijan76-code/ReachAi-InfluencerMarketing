@@ -12,7 +12,7 @@ import { demoBrief, demoCollaboration, demoLeads, demoPitches, type DemoChannel 
 type Tab = "leads" | "outreach";
 
 const card = "bg-white dark:bg-[#0c0d0e] border border-zinc-200 dark:border-zinc-800/80 rounded-xl";
-const label = "text-[11px] font-medium uppercase tracking-[0.12em] text-zinc-400 dark:text-zinc-500";
+const label = "text-[11px] font-medium text-zinc-400 dark:text-zinc-500";
 
 function BriefCard({ title, rows }: { title: string; rows: [string, string][] }) {
   return (
@@ -162,7 +162,7 @@ export default function DemoCampaign() {
           </div>
           <Show when="signed-out">
             <SignUpButton>
-              <button className="group text-[13px] font-medium bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 px-4 py-2 rounded-full flex items-center gap-1.5 hover:opacity-90 transition-all shadow-sm">
+              <button className="group text-[13px] font-medium bg-zinc-900 text-white dark:bg-zinc-300 dark:text-zinc-900 px-4 py-2 rounded-full flex items-center gap-1.5 hover:opacity-90 transition-all shadow-sm">
                 Run your own campaign
                 <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
               </button>
@@ -171,7 +171,7 @@ export default function DemoCampaign() {
           <Show when="signed-in">
             <Link
               href="/campaign"
-              className="group text-[13px] font-medium bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 px-4 py-2 rounded-full flex items-center gap-1.5 hover:opacity-90 transition-all shadow-sm"
+              className="group text-[13px] font-medium bg-zinc-900 text-white dark:bg-zinc-300 dark:text-zinc-900 px-4 py-2 rounded-full flex items-center gap-1.5 hover:opacity-90 transition-all shadow-sm"
             >
               Run your own campaign
               <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
@@ -238,7 +238,7 @@ export default function DemoCampaign() {
                     <Sheet key={lead.id}>
                       <SheetTrigger asChild>
                         <div>
-                          <InfluencerRow influencer={lead} rank={index + 1} />
+                          <InfluencerRow influencer={lead} rank={index + 1} readOnly />
                         </div>
                       </SheetTrigger>
                       <InfluencerDetailSheet influencer={lead} />

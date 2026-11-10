@@ -1,11 +1,10 @@
-import asyncio
 import json
 
-from app.core.model import model
+from app.llm.client import achat
 from langgraph.types import Command, Send
 
 from app.outreach.state import OutreachState
-from app.outreach.utils import current_creator_input
+from app.outreach.utils import current_creator_input, cost_context
 from app.schemas.outreach import PitchBundle
 
 
@@ -42,7 +41,7 @@ Tone & Style Rules (CRITICAL):
    - Paragraph 2: Brief 1-2 sentence intro of {brand.get('name', 'the brand')} and why it provides real value to their specific audience.
    - Paragraph 3: A simple, low-friction collaboration invitation (e.g., "Would you be open to exploring a potential collaboration?").
 5. Formatting & Constraints:
-   - Email: Concise, 3 short paragraphs max. Subject line must look like a personal 1-on-1 note, not marketing spam.
+   - Email: Concise, 3 short paragraphs max. Subject line must look like a personal 1-on-1 note, not marketing spam: name something specific from their content, 3-7 words. Never use spam-trigger openers such as "Quick question", "Collaboration opportunity", "Partnership", "Sponsorship", "Opportunity", all caps or exclamation marks.
    - Social DMs (IG/Twitter): 2-4 punchy, conversational sentences max.
    - Use the exact creator_id from input.
    - Use only evidence_id values supplied in evidence.
@@ -63,9 +62,7 @@ CREATOR CONTEXT & EVIDENCE:
 
 async def generate_creator_pitch(state: OutreachState) -> OutreachState:
     creator_input = current_creator_input(state)
-    structured_llm = model.with_structured_output(PitchBundle)
-    result = await asyncio.to_thread(structured_llm.invoke, _generation_prompt(creator_input))
-    bundle = result if isinstance(result, PitchBundle) else PitchBundle.model_validate(result)
+    bundle = await achat("pitch", _generation_prompt(creator_input), PitchBundle, context=cost_context(state))
     bundle_data = bundle.model_dump()
     return Command(
         update={
@@ -76,6 +73,8 @@ async def generate_creator_pitch(state: OutreachState) -> OutreachState:
         goto=Send(
             "validate_creator_pitch",
             {
+                "outreach_job_id": state.get("outreach_job_id"),
+                "campaign_id": state.get("campaign_id"),
                 "creator_input": creator_input,
                 "creator_pitch_bundles": {creator_input.get("creator_id", ""): bundle_data},
             },

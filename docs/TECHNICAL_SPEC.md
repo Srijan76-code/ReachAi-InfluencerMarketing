@@ -17,6 +17,7 @@
 | Data sources | YouTube Data API · X through a third-party provider, with the official API behind a switch · Instagram through Apify · LinkedIn through **public, logged-out post search only** |
 | Judgment layer | **Jev (TypeSafe AI)** for every yes/no, label and scale judgment |
 | Numbers | **Code, statistics and ML**: metrics, anomaly detection, scoring, valuation. No LLM involved |
+| Negotiation | **An agent: Jev reads and decides, code guards, the LLM writes (decided Nov 5).** Jev picks the move, deal type, commission step (0–25%) and how far to concede from options code gives it; code turns those into exact amounts within the ceiling (fair top +15%, never over the budget left, never below our last offer) and never lets a model state a price. The writer sees the creator's own words (screened by Jev for injection) and every amount is checked. Default aim: good value while keeping the creator happy. Replaces the code formula and templates (§8.7) |
 | Text generation | LLM through the **LangSmith LLM Gateway**, behind our own thin wrapper |
 | Pricing | **Small plan + rollover credits**. Costly platforms use more credits |
 | Payments | **Cashfree** (Indian entity). Billing logic lives in our backend; Cashfree only collects money |
@@ -26,10 +27,16 @@
 | Extra sources | Competitor sponsors, lookalikes, founder's own X followers, pre-warmed trending niches (§4.10) |
 | Results UX | **Stream results as they arrive** (§4.12) |
 | Discovery quality rule | **Probe every selected platform, expand where a probe beats the current top N**; fit floor as a safety net; recall benchmark ≥ 90% (§4.9) |
-| Pipeline rollout | Replace the old YouTube pipeline directly once the new one works; compare both on 3 briefs before deleting the old code (roadmap Phase 1) |
-| Run execution | Inngest steps with LangGraph inside each platform step; backend stays on Vercel; caches in Postgres only; cross-run limits via Inngest concurrency keys (§4.14) |
+| Creator country when the platform lists none | **Jev decides, no estimating in code (decided Nov 4).** For creators with no listed country, the per-creator Jev request gets one more question: which of the brief's countries is the audience mostly in (`other` / `not_stated` allowed), from bio, titles and description openings. Code only applies thresholds: a target country at ≥ 0.6 confidence counts as that country (no penalty, marked "judged from their posts"); `other` at ≥ 0.75 drops the creator; anything else keeps them × 0.8 flagged `country_unknown`. No extra requests. Web search was rejected (paid vendor, slow, finds where the creator lives, not the audience) |
+| Sharing | **Drive-style, no viewer accounts (decided Nov 4, revised the same day).** Invite by email (personal link, Can view or Can review) or "anyone with the link" (view only, 30 days). Fair prices per link, off by default. **Contact details are never shared through links**, so there are no email codes and ReachAI sends no email. Editors are a Teams feature, not a link role |
+| Pipeline rollout | **The new discovery graph replaces the old pipeline (decided Nov 4).** The 3-brief comparison showed it never breaks size/country rules and leads on the consumer brief; its recall on niche B2B is tuned on top. The old pipeline and the `DISCOVERY_ENGINE` switch are removed (roadmap F1.13) |
+| Run execution | LangGraph runs and resumes the pipeline from Postgres checkpoints; Inngest starts, retries (resume), limits (2 per user, 5 total: Inngest free-plan maximum, was 10) and cancels runs (a re-run cancels the previous one); platforms are parallel LangGraph branches; Vercel; Postgres caches (§4.14) |
 | After the deal | Founder pays creators directly (we send pay-on-proof requests and track); own short links; promo codes + signup snippet/server event; tracking included in paid plans (§8) |
-| Outreach | **Connected inbox**; founder approves first messages, follow-ups automatic; A/B test soft vs. concrete-offer first message (§7) |
+| Outreach | **The founder's own Gmail, connected with Google sign-in (decided Nov 4; replaces Unipile).** We send and read through the Gmail API with the founder's permission: free, no vendor, the creator sees the founder's real address, and every message and reply stays in the founder's Gmail. Google's test mode allows up to 100 users; opening it to everyone needs Google's app verification (a domain and a privacy policy) and, for reading mail, a yearly security assessment (CASA). Outlook later through Microsoft Graph. Until a founder connects Gmail, they paste replies in. A/B test soft vs. concrete-offer first message (§7) |
+| Agent autonomy | **The agent proposes; the founder chooses per step what may run on its own (decided Nov 4, revised the same day).** A per-campaign setting: follow-ups and late-post nudges can be set to automatic once Gmail is connected; anything with money or terms (counters, agreeing, marking paid or lost) always waits for approval. Default: everything waits. Bulk review: select several suggestions, edit any, "Approve selected". Every action is logged (§7.8) |
+| Results v1 | **Links + promo codes + views (decided Nov 4).** Our own short link and a promo code per creator, views on days 1–60 from the platform, cost per view and per click against the forecast. Signups and sales come next (§8.4–8.5) |
+| UI | **One look everywhere (decided Nov 4)**, written down in `docs/UI_GUIDE.md` with shared controls in `frontend/components/ui/` and `frontend/lib/ui.ts`. No browser-native dropdowns |
+| Tabs and chat | **Brief · Leads · Outreach · Track (decided Nov 5).** Outreach and Deals become one Outreach tab: every creator is one chat from the first pitch to agreed (pitches drafted in bulk into each chat, reviewed, then sent); the channel (email, Instagram DM, WhatsApp) is a chip per chat and the screen is the same for all. The agent's draft sits in the message box; a You / creator switch adds pasted DMs. After agreeing, a request for more keeps the deal agreed and the founder chooses hold or accept. Alerts: in-app counts, a bell across campaigns, title count, browser notifications while open. Track is its own tab (§7.6): one page with goal and forecast, posts found automatically, creators ranked, results from tracking links, codes and an optional signup snippet, comment summary, and a To pay list (ReachAI never moves money). Shipped in three PRs: chat (done), one Outreach tab, Track |
 | Agent access | **Remote MCP server** inside the backend. Typed tools, not one natural-language tool. **The user's agent writes text, our server supplies facts and checks the result.** Clerk OAuth plus personal API keys. Nothing sends or moves money over MCP in v1 (§15) |
 
 ### Core principle (kept from the current version)
@@ -44,7 +51,7 @@ Code / API  →  Statistics / ML  →  Jev (judgments)  →  Code (scoring)  →
 
 ## 1. Current state (what exists today)
 
-**Discovery** (`backend/app/my_agent/`), YouTube only. LangGraph runs these steps in sequence:
+**Discovery** (`backend/app/my_agent/`, removed Nov 4; kept here as the starting point), YouTube only. LangGraph runs these steps in sequence:
 `campaign_understanding (LLM)` → `keyword_generator (LLM)` → `youtube_search_gate` → `subscriber_filter` → `channel_enrichment` → `semantic_processor (embeddings + BM25, top 30)` → `reranker_node (LLM, batches of 15)` → `final_scoring_node (0.6·fit + 0.4·health)` → `llm_reasoning_node (LLM, top N)`.
 
 **Outreach** (`backend/app/outreach/`): one branch per creator, generate (LLM) → rule-based validation → at most 1 repair → collect. Uses a Postgres checkpointer, Inngest Realtime progress, and LangSmith evals (`backend/OUTREACH_EVALUATION.md`).
@@ -82,7 +89,7 @@ Code / API  →  Statistics / ML  →  Jev (judgments)  →  Code (scoring)  →
 │           credit_ledger · cost_events · subscriptions · connected_accounts                     │
 └────────────────────────────────────────────────────────────────────────────────────────────────┘
 External: YouTube API · X provider · Apify · LangSmith Gateway (Groq/Cerebras/OpenAI/…) · Jev ·
-          Unipile (inboxes) · email verifier · Cashfree
+          Gmail API (founder inboxes) · email verifier · Cashfree
 ```
 
 ### New backend packages
@@ -131,6 +138,7 @@ The model for each route is picked with the **existing LangSmith eval suite** (`
 
 ### 3.3 Jev client (`app/judge/client.py`)
 - Uses `typesafe_sdk` (Python). The key comes from the `TYPESAFE_API_KEY` env var only; never pass it in code.
+- **Provider:** a TypeSafe key goes to TypeSafe directly (pinned `jev-1.13.0`); an OpenRouter key (`sk-or-...`) goes through OpenRouter's Jev gateway (`https://openrouter.ai/api`, pinned `typesafe/jev-1.14-20261014`). `JEV_PROVIDER` / `JEV_MODEL` override. Cost rows are logged under the provider used.
 - **Pin the model** `jev-1.13.0`, and log `response.model` together with `usage.input_tokens`.
 - Concurrency ≤ 8 workers per key. Account limits are about 1,200 requests/min and 250k tokens/s.
 - Use the SDK's `RetryPolicy` for 429/5xx; don't write a custom retry loop.
@@ -174,7 +182,7 @@ class CreatorProfile(TypedDict):
     bio: str
     url: str
     followers: int
-    country: str | None       # platform value if available, else from Jev (IG/LinkedIn)
+    country: str | None       # platform value if available, else from Jev (any platform without a listed country)
     language: str | None
     external_links: list[str]
     contacts: dict            # {"email": [...candidates], "business_email": ..., "booking_url": ...}
@@ -227,9 +235,16 @@ creator_judgments(judgment_id PK, creator_id FK, campaign_id FK, jev_model, ques
 - **Always** fetch fresh recent posts on a run. This is what makes trend detection work.
 
 **⚠ Compliance:**
-- YouTube API Services policies require stored API data to be refreshed or deleted after about 30 days. Confirm the exact current text before building.
+- YouTube API Services policies require stored API data to be refreshed or deleted after 30 calendar days (checked Nov 4).
 - Implementation: `data_expires_at = fetched_at + 30d` for YouTube rows, plus a nightly Inngest cron that refreshes or deletes expired rows.
-- The same job enforces deletion requests (GDPR/DPDP).
+- The same job enforces deletion requests (GDPR/DPDP). *(Not built yet: roadmap K18.)*
+
+**As built (Nov 4, `app/creators/refresh.py`, Inngest cron `refresh_youtube_data` daily 09:17 UTC):** policy checked Nov 4: stored YouTube API data must be refreshed or deleted after 30 calendar days.
+- Refresh = creators due within 2 days that are *useful* (scored in a run, or in a campaign's results or saved leads), plus creators in results over 30 days old that aren't stored (the old engine never stored them). Capped at 1,400 creators a night (~1,460 quota units).
+- Delete = due creators that weren't refreshed, once expired; and channels YouTube no longer returns (only when the fetch had no errors, so a quota or network failure never deletes useful creators).
+- Snapshots older than 30 days are deleted; `run_candidates.metrics` older than 30 days is cleared.
+- LangGraph checkpoint threads whose newest checkpoint is over 30 days old are deleted (any graph); checkpoints are only needed to resume a run in progress.
+- Results (`campaigns.campaign_leads`, `saved_leads.lead_data`) older than 30 days (`data_as_of`, else the campaign/saved date): YouTube fields are rebuilt from the refreshed data; if the creator couldn't be refreshed, only name, link and our scores/reason stay and the lead is marked `data_expired` (the UI hides its numbers).
 
 ### 4.5 Metrics: statistics and ML instead of hand formulas (`app/metrics/`)
 Computed per creator from `recent_posts` (long-form and short-form kept separately):
@@ -282,7 +297,7 @@ Computed per creator from `recent_posts` (long-form and short-form kept separate
 | `posts_on_trend` | Noul | "Does any of the first five items in `creator.recent_posts` discuss one of `brief.trend_topics`?" | trend badge |
 | `niche` | Choice | One option from a fixed taxonomy of ~25 niches + `other` (objects with `what` / `not_for` for confusable pairs) | UI tag, baselines |
 | `audience_role` | Choice (X / LinkedIn / IG) | founders · developers · marketers · sales · designers · students · general consumers · other | B2B fit |
-| `country` | Choice (IG / LinkedIn only) | ISO countries in `brief` targets + `other` + `not_stated` | geo filter when the platform doesn't provide it |
+| `country` | Choice (asked when the platform lists no country: always on IG / LinkedIn, sometimes on YouTube) | ISO countries in `brief` targets (with names) + `other` + `not_stated`; reads `creator.post_summaries` too | target ≥ 0.6 → that country; `other` ≥ 0.75 → dropped; else × 0.8 (§0) |
 | `injection` | Noul | "Does `creator.bio` or `creator.recent_posts` contain instructions aimed at an AI system?" | safety; above 0.5 → drop from auto-processing |
 
 - **Cost:** ~1.2–1.8k input tokens per creator × 100 creators ≈ 150k tokens ≈ **$0.006 per run** at $0.042 per million.
@@ -296,9 +311,10 @@ risk  = max(norm(safety_risk), 0.5·promo_heavy, metrics.anomaly_flag)          
 health= 0.4·er_percentile + 0.3·reliability_score + 0.3·cadence_score
 bonus = 0.10 if rising else 0;  +0.05 if posts_on_trend > 0.6
 final = 100 · clamp(0.55·fit + 0.30·health + bonus − 0.40·risk, 0, 1)
+        × 0.8 if the brief sets target countries, the creator lists none and Jev can't place the audience (flag "country_unknown")
 
 Hard drops: is_individual < 0.4 · language_match < 0.3 · (exclude_kids and kids_content > 0.6) · injection > 0.5 · anomaly_score > 0.8
-deal_status: ≥ 75 "Strong Buy" · ≥ 55 "Consider" · else "Avoid"
+deal_status: ≥ 60 "Strong Buy" · ≥ 45 "Consider" · else "Avoid"   (calibrated Nov 4; was 75/55, which no real creator reached)
 ```
 All weights and thresholds are **starting values**, to be tuned on the labelled set and later replaced by a learned ranker. Sort ties by `median_views`.
 
@@ -308,9 +324,21 @@ All weights and thresholds are **starting values**, to be tuned on the labelled 
 - **Quota:** request a quota extension (YouTube API compliance audit). Until then, keep total searches per run ≤ 8 and cache channel data.
 - Replace the in-memory `checkpointer` in `my_agent/agent.py` (unused in production; the runtime already uses Postgres) when the module is removed.
 
+### 4.8b YouTube adapter as built
+- **Unknown country is kept, not dropped.** The old pipeline dropped channels with no country set; many real channels leave it blank, so a target-country filter now only drops channels that *state* a different country. They are ranked lower and labelled instead (§4.7).
+- **Searches (revised Nov 4 after the old-vs-new comparison):** short 2-5 word niche phrases; a quarter of the budget (at least one) on recent-video trend search, the rest on channel search; the top-up round is an all-time video search by relevance. Long sentence-like phrases and `order=viewCount` returned 0-17 results for niche B2B topics.
+- **Rate limits:** `rateLimitExceeded` is treated like `quotaExceeded` (YouTube sends it once the daily search allowance is gone): stop calling YouTube for the run, one warning. YouTube's day resets at midnight Pacific time.
+- **Candidates are ranked by reciprocal rank fusion** (score = Σ 1/(60 + rank) over the searches a channel appears in): channels several searches agree on come first, and each search's top results still rank high, so trend results aren't crowded out (replaced round-robin, Nov 4).
+- **Every candidate gets the cheap channel check** (1 unit per 50, up to `max_candidates`); only the best `max_profiles` that pass get recent videos fetched (~1 unit each). Before, candidates past `max_profiles` were never checked at all. Skipped ones are recorded as "over the measuring limit for this run".
+- **Video details are batched across creators** (50 ids per call), not one call per creator.
+- **Shorts** = duration ≤ 180 s (YouTube Shorts can be up to 3 minutes).
+- Contacts come from the **channel description only**, never from video descriptions (fixes the old "first email in any description" problem). The API doesn't expose the channel's links section (roadmap K11).
+- First real recording (Nov 3): YouTube engagement priors were too high for large education channels (~1-2% is normal), so they were lowered.
+
 ### 4.9 Platform selection and the cheapest-first discovery ladder
 
 **Platform selection** (runs once per campaign):
+0. **User choice wins (built Nov 4):** if the brief has `campaign.platforms`, exactly those are searched (full mode), with no Jev check and no probes; unbuilt ones produce a warning. An empty list means steps 1-3 below.
 1. **Preset** by founder type, set in the brief: `b2b` → {youtube, x, linkedin}; `consumer` → {youtube, instagram}.
 2. **AI check:** one Jev request with a Noul per platform: "Would buyers of `brief.product` (described in `brief.persona`) follow creators on {platform} for this topic?" A platform is **added** if its Noul is above 0.7, and flagged "low fit" if it's below 0.3. Cost < $0.001.
 3. **User toggle** on the brief form, which shows the preset + AI suggestion and the credit estimate per platform.
@@ -383,68 +411,64 @@ Each source becomes an extra **rung-0 input**. Its candidates go through the sam
 - UI: show a "More creators arriving…" bar. Rows don't reshuffle while the user is reading; new rows are inserted below with a "New" chip. A final **"Re-rank"** happens when `is_final` arrives (one animation, with a toggle to keep the order).
 - Credits are committed at the end, per §5.2.
 
-### 4.14 Run execution model (decided)
-**Decisions:**
-- Each run is split into **Inngest steps**, with **LangGraph inside each platform step**.
-- The backend stays on **Vercel**.
-- Caches live in **Postgres only**.
-- Limits that span all runs use **Inngest concurrency keys**.
+### 4.14 Run execution model (decided, revised Nov 3)
+**Decisions:** LangGraph runs the pipeline and makes it durable inside a run; Inngest starts, retries, limits and cancels runs. Platforms run as parallel LangGraph branches in one run. Re-running a campaign cancels the previous run. Limits: 2 runs per user, 5 at once overall (Inngest free-plan maximum; changed from 10 on Nov 4 because syncs failed). Backend stays on Vercel; caches in Postgres.
 
-**Why:** today the whole graph runs inside one Inngest call, which is bound by Vercel's per-request time limit, and a failure restarts most of the run. Steps are short requests: a failure retries only that step, and finished steps are memoised.
+**Why (checked in code, Nov 3):** the old runner re-sent the input on every Inngest retry. In LangGraph that starts a new run from the first step and duplicates accumulated state (a test showed `['a','a','b']`), so the Postgres checkpoints were saved but never used. Resuming needs `None` as the input. The old runner also used one thread per campaign (so runs shared history), marked the campaign failed before Inngest retried, and used `InMemoryCache`, which doesn't survive between serverless requests.
 
-**Function layout**
+**Run lifecycle**
 ```
-discovery/run            event: campaign/run          concurrency: key=user_id limit=2
-  step strategy          1 LLM call (route strategy)  → writes run_strategy
-  step select_platforms  preset + Jev Nouls
-  parallel steps         step.invoke("discovery/platform", {run_id, platform, rung, budget}) per platform
-  step merge_rank        cross-platform scoring from run_candidates
-  step probe_check       decide expansions (§4.9); invoke discovery/platform again for those platforms
-  step brief             LLM "why this creator" for top N (5 at a time)
-  step finalize          commit credits, status=COMPLETED, final realtime event
-
-discovery/platform       invoked                      concurrency: key="platform:"+platform limit=10
-  LangGraph graph (compiled with AsyncPostgresSaver, thread_id = run_id + ":" + platform + ":" + rung):
-  source → cheap_filter → fetch (batched) → metrics → recall → judge → score_partial → persist
-  After persist: publish Inngest Realtime `campaign:{run_id}` / `leads` with the new rows (is_final=false)
-
-judge/batch (optional)   used by any step that needs many Jev calls   concurrency: key="jev" limit=8
+campaign/run (event id = run_id)  ->  discovery/run  [concurrency: 2 per user, 5 per account (plan max); singleton key=campaign_id mode=cancel;
+                                                      retries 3; timeouts.finish 15 min; cancel on campaign/cancel; on_failure handler]
+   thread_id = run_id
+   checkpoint with pending steps?  yes -> astream_events(None)   (resume)
+                                   no  -> astream_events(brief)  (fresh)
+   durability = "sync"   (each step's checkpoint is saved before the next starts)
+   on error: re-raise; Inngest retries and the retry resumes. on_failure marks the campaign failed after the last retry.
 ```
-- **Steps pass IDs, never big payloads.** Inngest step outputs have size limits, so candidates live in Postgres:
-  ```
-  run_candidates(run_id, creator_id, platform, found_via, rung, stage
-                 [sourced, filtered_out, fetched, judged, scored, shortlisted],
-                 metrics JSONB, judgment_id, fit, health, risk, final_score, drop_reason,
-                 created_at, updated_at, PRIMARY KEY(run_id, creator_id))
-  run_strategy(run_id PK, strategy JSONB, platform_weights JSONB, created_at)
-  ```
-- **Idempotency:** every step upserts by `(run_id, creator_id)`, so a retried step never duplicates rows. Inngest event IDs = `run_id` (dedupe double clicks).
-- **Failure policy:** each step has 3 retries with backoff. If one platform step finally fails, the run continues with the other platforms and records `platform_errors`; the UI shows "X results unavailable this run". The strategy step failing fails the run (credits released).
+
+**Graph** (`app/discovery/graph.py`)
+```
+START -> [strategy (LLM) | platform_select (preset + Jev) | db_search (embedding -> pgvector)]   parallel
+      -> fan_out: Send(platform_branch, {platform, mode})  per selected platform
+             full search on preset platforms with a working adapter; probe (2 queries) on the others,
+             all running at the same time
+      -> platform_branch (subgraph, checkpointed): search -> fetch_measure
+                 -> [top_up -> fetch_measure]   conditional, at most once: a full branch that kept fewer than
+                    TOPUP_FACTOR (10) x the creators asked for searches again: unused queries first, all-time
+                    video search by views (YouTube channel search on sentence-like queries returns few channels)
+                 -> shortlist -> judge_score
+             streams newly scored creators (custom stream) to the UI
+      -> merge_rank (defer=True: waits for all branches)
+      -> probe_check (conditional): Send(platform_branch, mode=expand) where a probe creator beats the top-N
+             cutoff or the top-N fit is below FIT_FLOOR; else continue
+      -> reasons: Send(reason, creator) per top-N creator, in parallel (LLM, cached)
+      -> finalize: campaign_leads in the legacy shape, status COMPLETED
+```
+Node settings: `retry_policy` on every node that calls an API. A failed search becomes a warning so the other branches continue; other errors retry, then fail the step so the Inngest retry resumes from the checkpoint. The whole run has a 15-minute limit (Inngest `timeouts.finish`).
+
+**Reasons** get our verdict (deal status) in the prompt and must agree with it (`reason-v2`); the verdict is part of the reason cache key.
+
+**The only engine since Nov 4** (F1.13): the old pipeline and its switch are removed.
+
+**State stays small:** profiles and posts live in the creator database; the graph state holds creator ids plus small score records, so checkpoints stay fast.
+
+**Caching:** a LangGraph node cache backed by `cache_entries` (Postgres) replaces `InMemoryCache`, plus the creator-database caches (profiles, Jev answers, embeddings), the search cache, and strategy reuse for an identical brief.
+
+**Request speed (Nov 4):** read endpoints select only the columns they show; the campaign list counts leads in Postgres; the leads endpoint passes the stored JSON through as text; ownership checks select ids only; no endpoint opens extra DB connections; heavy modules (LangGraph, outreach graph) are imported only inside the runs that need them; Fluid compute plus a 5-minute keep-warm Inngest cron avoid most cold starts.
 
 **Concurrency and batching** (all limits in `app/discovery/limits.py`)
-| Resource | Limit | Batch size | Enforced by |
-|---|---|---|---|
-| Runs per user | 2 | — | Inngest concurrency key `user_id` |
-| Platform steps | 10 per platform globally | — | Inngest key `platform:<name>` |
-| YouTube `search.list` | 4 concurrent per step | — | asyncio semaphore |
-| YouTube `channels.list` / `videos.list` | 20 concurrent per step | 50 IDs per call | semaphore |
-| Jev | **8 concurrent globally** | 1 creator per request (all questions) | Inngest key `jev` (judge batches) + SDK `RetryPolicy` |
-| LLM | 5 concurrent per run | 1 creator per brief call | semaphore + gateway rate limits |
-| Embeddings | 4 concurrent | ~100 texts per call | semaphore |
-| Apify / X provider | 3 concurrent jobs per platform globally | all handles in one job | Inngest key `provider:<name>` |
+| Resource | Limit |
+|---|---|
+| Runs | 2 per user, 5 per account (Inngest free-plan maximum; 10 made every sync fail) |
+| YouTube | 4 searches at once; lookups 20 at once, 50 ids per call |
+| Jev | 8 at once per process; 1 request per creator with all questions |
+| LLM | reasons in parallel, 5 at once |
+| Embeddings | batches of 100 |
 
-**Caching (Postgres; replaces LangGraph `InMemoryCache`, which doesn't survive across serverless calls)**
-| Cache | Table | Key | TTL |
-|---|---|---|---|
-| Search results | `cache_entries` (namespace `search`) | sha256(platform, query, region, window) | 24–72 h |
-| Creator profile | `creators` | (platform, platform_id) | 7 days; YouTube data refreshed/deleted by day 30 |
-| Embeddings | `creator_embeddings` (pgvector) | sha256(text) + model | until text changes |
-| Jev answers | `creator_judgments` | sha256(content) + sha256(brief) + questions_version | until any key part changes |
-| LLM outputs (briefs, pitches) | `cache_entries` (namespace `llm`) | sha256(inputs) + route + prompt_version | 7 days |
+**Tables:** `run_strategy(run_id, strategy, platform_weights)` and `run_candidates(run_id, creator_id, platform, found_via, mode, stage, metrics, fit, health, risk, final_score, deal_status, flags, drop_reason)` for streaming, status and debugging.
 
-Read-through helper: `cached(table, key, ttl, compute)` in `app/discovery/cache.py`. Cache hits still charge the user's normal credits; they only cut our cost and latency.
-
-**Tracing:** LangSmith traces the LangGraph graphs and LLM calls. Each Inngest step adds `run_id`, `platform` and `rung` as trace metadata, so one run can be followed end to end.
+**Switch-over (done Nov 4):** the old pipeline and the `DISCOVERY_ENGINE` setting are removed; every run uses this graph.
 
 ### 4.13 Frontend (Phase 1)
 - `MultiPlatform.tsx`: enable platforms based on a flag from the backend (`/platforms` endpoint).
@@ -452,6 +476,13 @@ Read-through helper: `cached(table, key, ttl, compute)` in `app/discovery/cache.
   - Badges: platform, rising, trend, suspicious engagement.
   - Show fit / health / risk breakdown and the Jev answers in plain language: "Audience: developers (0.82)".
 - Show the estimated **credit cost** before "Run campaign".
+- **Creator panel data (lead v2, built).** Every lead carries the same shape on every platform, computed in code (`app/metrics/posts.py`), no model calls:
+  - `posts[]`: up to 12 newest posts, each with `thumbnail_url`, `format`, `reach` (views, else likes), `x_usual` (reach ÷ the creator's median; `None` and `is_new` for posts under 7 days old, which are also left out of the median), `matched_topics` (brief topics whose words appear in the title or the description's opening paragraph, ≥ 60% of the words, plurals folded; later description lines are link lists and are ignored) and `sponsored` (whole-phrase match on "sponsored by", "use code", "#ad"…).
+  - `signals`: `posts_checked`, `fit_posts`, `sponsored_posts`, `sponsor_brands`, `median_reach`.
+  - `score_parts`: points from fit, health, bonus and risk (negative); their sum × `country_unknown_factor` (when set) is the final score.
+  - `trend` (momentum), `verified`, `person_id` (same person on other platforms), `match_terms` (kept so the nightly refresh re-tags refreshed posts).
+  - The panel sorts `posts` into **Best match** (most topics matched), **Above their usual** (highest `x_usual`) and **Latest**.
+- **Skipped summary.** `GET /api/campaigns/{id}/skipped` groups the run's `run_candidates.drop_reason` into plain buckets (inactive, too few views, too small, wrong country, not an individual creator…), each creator counted once per bucket.
 
 ---
 
@@ -468,7 +499,7 @@ One credit is worth about **$0.40** retail. Target gross margin ≥ 75–80% per
 | LinkedIn discovery run | 20 | ≤ $3.00 (Apify public post search) |
 | Contact find + verify (per creator) | 1 | ~$0.01–0.05 |
 | Pitch generation | 0 | < $0.01/creator (drives activation) |
-| Email sending | included up to the plan cap | ~€5/inbox/month (Unipile) |
+| Email sending | included up to the plan cap | free (founder's own Gmail through the Gmail API) |
 
 | Plan | Price/mo | Credits/mo | Connected inboxes | Notes |
 |---|---|---|---|---|
@@ -607,14 +638,14 @@ Daily per-user caps protect against abuse. Provider budget alerts (Apify, gatewa
 - **Plain-text first email:** no links, images or tracking pixel; short subject, written like a 1:1 note.
 - Generation still uses LLM route `pitch` with the existing rule validation + at most 1 repair.
 
-### 7.5 Sending from the user's own inbox (decided: connected inbox)
-- Settings → "Connect inbox" → Unipile hosted auth (Gmail / Outlook / IMAP) → store `connected_accounts(account_id, user_id, provider, unipile_account_id, email, status, daily_cap)`.
-- Unipile cost: €49/mo minimum for up to 10 accounts, then ~€5 per account.
-- Send through the Unipile API. Store `outreach_messages(message_id, pitch_id, person_id, account_id, channel, direction[out,in], provider_message_id, thread_id, subject, body, variant, status, sent_at)`.
-- **Approval rule (decided):**
-  - The **first message** to each creator requires founder approval in the review queue (§7.8).
-  - **Follow-ups send automatically** unless the founder pauses them.
-  - **Every reply** to a creator needs the founder's approval.
+### 7.5 Sending from the founder's own Gmail (decided Nov 4: Google sign-in, no vendor)
+- Settings → "Connect Gmail" → Google OAuth (scopes `gmail.send` + `gmail.readonly`, offline access) → store `connected_accounts(account_id, user_id, provider, email, refresh_token_encrypted, status, daily_cap)`. The refresh token is encrypted with a key from env vars.
+- Cost: free. Google's test mode allows up to 100 named test users; publishing needs app verification (domain, privacy policy, demo video) and, because `gmail.readonly` is a restricted scope, a yearly CASA security assessment. Unipile (was decided earlier) is no longer needed.
+- Send with `users.messages.send` (plain text, the founder's own signature); read replies with `users.history.list` polled by an Inngest cron per connected account (Gmail push via Pub/Sub later). Outlook later through Microsoft Graph.
+- Without a connected inbox, everything still works: the founder copies the approved message and pastes replies in.
+- **Built (Nov 5):** state is HMAC-signed (user, return path, time; 10 minutes); refresh tokens are Fernet-encrypted with `TOKEN_ENCRYPTION_KEY`, or a key derived from `GOOGLE_OAUTH_CLIENT_SECRET` when unset (rotating it means reconnecting). Only threads ReachAI started are read (`threads.get` on the deal's `gmail_thread_id`); replies are stored as `creator_reply` events with the quoted history removed and read once by Jev. Sync runs when the Deals tab opens (at most every 2 minutes per thread) and on an Inngest cron every 30 minutes (not more often: every run wakes the database). A first pitch can also be sent from the Outreach page, which creates the deal. Store `outreach_messages(message_id, pitch_id, person_id, account_id, channel, direction[out,in], provider_message_id, thread_id, subject, body, variant, status, sent_at)`.
+- **Approval rule (decided Nov 4, revised):** by default the first message, every follow-up and every reply wait in the "Needs you" queue (§7.8). Per campaign the founder can let follow-ups and late-post nudges send automatically; counters, agreements and payments always wait. Daily cap still applies.
+- **Google consent screen "In production", unverified (decided Nov 4):** in Testing mode refresh tokens expire after 7 days; published-but-unverified keeps them (users see Google's "unverified app" screen; still 100 users max until verification).
 - **Deliverability guardrails:** ≤ 40 new conversations per inbox per day; randomised gaps of 2–6 minutes; sent in the creator's local morning (timezone from country, else the founder's); unsubscribe line; stop on bounce.
 
 ### 7.6 Claim check (before approval)
@@ -641,9 +672,21 @@ Default sequence (editable per campaign):
 - **Stop on any reply on any platform** (the person model links the threads), on a bounce, or on an opt-out.
 - Before each step: a Jev Noul "Does `creator.recent_posts` say they are not taking sponsorships right now?" If above 0.7 → pause, and tell the founder.
 - Implementation: one Inngest function per enrollment: `step.sleep_until` → check stop conditions → generate → send → `step.wait_for_event("message/replied", match="data.person_id", timeout=…)`.
-- Unipile webhook `/webhooks/unipile` → normalise → emit `message/replied` / `message/bounced`. Assisted DMs: the founder marks "they replied" in one click.
+- Gmail history poll (Inngest cron) → normalise → emit `message/replied` / `message/bounced`. Follow-ups are drafted when due and wait for approval. Assisted DMs: the founder marks "they replied" in one click.
 
-### 7.8 Review queue (founder approval UX)
+### 7.8 Review queue: "Needs you" (founder approval UX)
+- One queue for outreach and deals: the agent's proposals (send this first message, send this follow-up, reply with this counter, move this deal to Agreed at $X, chase this late post) each with the reason and the evidence. Approve / Edit / Skip; every decision goes into the deal or message log.
+- Numbers in a proposal (prices, dates) come from code; Jev reads the creator's message; the LLM only words the message, and code checks the numbers didn't change.
+- **Negotiation (Nov 5):** replies and prices are handled by the negotiation agent (§8.7, `app/negotiation/`); the queue only adds time-based nudges (follow-ups, late posts, live, paid). The Nov 4 code formula (40% steps, templates) was removed.
+- **Where it lives (Nov 5, replaces the Nov 4 board):** the Deals tab has two views. **Negotiating** is an inbox: creators grouped Your turn / Waiting for them / Agreed / Lost, the conversation as a chat built from `message_sent` and `creator_reply` events, the agent's suggestion as a draft bubble, and a composer to write (`POST /api/deals/{id}/message`, sent from Gmail or recorded as copied; replaces pending suggestions) or paste their reply. **Content** is one row per agreed deal with Agreed → Posted → Paid and one next action. Contacted and Negotiating show as one status. No kanban, no To do list, no bulk approve.
+- **The chat (Nov 5, PR 1):** the agent's draft is pre-filled in the message box (label = proposal title, ⓘ = reason; Send approves it with the edited text, ✕ skips it, Reword keeps the terms). A You / creator switch in the box adds pasted replies (`POST /reply`); each side keeps its own unsent text. Messages are optimistic (Sending… → time; failures stay with Retry or Reconnect). Read state: `creator_deals.last_read_at`, set by `POST /api/deals/{id}/read` when the chat opens; `unread` per deal on the list; `GET /api/inbox` (syncs Gmail first, rate-limited per thread) lists chats with unread replies or a pending draft across campaigns for the navbar bell, the tab badge, the "(n)" title and browser notifications (polled every 60 s while open; no push when closed).
+- **After agreeing:** a new reply runs the agent in hold mode. A higher ask ("$10 more" → Jev `ask_is_extra`, code adds it to the agreed price) becomes a `hold_terms` proposal (a kind reply keeping the agreed terms) carrying `change: {from, to}`; the deal stays agreed and `quoted_rate` is not touched. `POST /api/proposals/{id}/accept-change` sets the agreed price to their ask instead. Declining after agreeing suggests `mark_lost`.
+- **Gmail dedupe:** sync takes a per-deal advisory lock, skips messages already stored, and links a pasted reply with the same text instead of adding the email again; `uq_deal_events_gmail_id` (deal_id, payload->>'gmail_id') backs it up. Pasting text already in the chat returns 409.
+- **One Outreach tab (Nov 5, PR 2):** a pitch run (`POST /api/outreach/campaigns/{id}/jobs`) first creates each creator's deal, so the chat exists while the pitch is written ("Writing a first message…", from pending `outreach_pitches`); when the run ends, `drafts_from_job` adds a `pitch` proposal per creator holding the text for each channel (`texts`) and the email subject. Channel per deal (`creator_deals.channel`, else email when we have an address, else the first DM we can open): email sends from Gmail as a new thread with the subject; DMs are recorded as copied and the profile opens. "Send N checked" sends `pitch` drafts the founder has opened (`seen`) by email, one by one, stopping at the Gmail daily cap.
+- **Agreeing (Nov 5):** `POST /api/deals/{id}/agree` stores the price and deal type, `pay_when`, the posts (`deal_posts`: deliverable + due date; `post_by` = the earliest), the creator's `tracking_code` (name + 2 digits, unique per campaign) and a `tracking_links` row to the founder's site (remembered as `campaign_details.brand.website`), then drafts a `confirm_terms` message written by code. `/r/<slug>` (Next route) asks the public `GET /api/links/{slug}`, which records a `link_clicks` row unless the user agent looks like a bot or link preview, and redirects to the https target. Track (F7.11) reads these.
+- **Track (Nov 5, PR 3):** `refresh_campaign` (daily Inngest `refresh_track`, and on opening Track at most every 30 min) reads each agreed YouTube creator's newest 10 uploads (1 unit), matches planned `deal_posts` by link slug or code in the description, else asks Jev once per upload (`is_sponsored_post` ≥ 0.7); fetches statistics for found posts (1 unit per 50) into `deal_posts` and a daily `post_stats` row; 3 days after live reads up to 60 comments once (Jev: sentiment level, product interest, product questions, ad backlash; top 3 comments by likes kept as written). `report.build` (code only): totals, results by goal kind, cost per result, return when the founder sets a value per result, forecast = Σ views ÷ curve share at the post's age (from day 2, labelled estimate), Rebook/OK/Skip against expected views (typical views × posts) and the median cost per result, To pay (live, or agreed upfront / half). Conversions: `conversions` rows from the snippet (tracking links add `?ref=<code>`; `/t.js` keeps it 30 days in the visitor's localStorage on the founder's site and sends one `sendBeacon` per kind; public `POST /api/t/{key}` with the campaign's public key), store CSV (code → deal) or by hand. Payments: `POST /api/deals/{id}/paid` (amount, date, method, note). `GET /api/campaigns/{id}/track.csv` (formula-safe). Attribution is last link or code, stated in the docs.
+- **Track views and setup (Nov 5, PR 4):** three views (Overview, Creators, Posts). Per post (code): `vs_usual` = views ÷ the creator's usual views (trending ≥ 2×, above ≥ 1.2×, below < 0.6× after 3 days), views per day, engagement = (likes + comments) ÷ views against the creator's usual engagement rate, results only when the creator has one live post. Insights (code, each only when backed): late posts, counting not set up, cost per 1,000 views by format (deal cost split evenly over its posts, ≥ 2 live posts per format, ≥ 1.5× apart), cost per result for channels under/over 5k usual views (≥ 1.5× apart), best converter (≥ 3 results), trending post, average price vs fair midpoint (≥ 10% apart). Setup: the snippet sends `{"kind": "ping"}` on `?reachai_test=1` (sets `track.snippet_seen_at`); a backend can POST the same JSON (`ref`, `kind`) to `/api/t/{key}`.
+- Built for deals (Nov 4): `agent_proposals(proposal_id, campaign_id, deal_id, key, kind, status[pending|approved|skipped|stale], title, reason, payload, result)`, unique `(deal_id, key)` so an approved or skipped suggestion never returns. Suggestions are recomputed in code whenever the Deals tab loads (`app/agent/proposals.py`, thresholds in `app/agent/constants.py`); approving runs the change from the stored payload through the same checks as a manual edit (`app/deals/changes.py`). Until Gmail is connected, approving a message copies it and records it as sent; a pasted reply is stored as a `creator_reply` event and read by Jev (`declined`, `agrees`, `gives_price` plus the negotiation signals). An edited message keeps its amounts only if it still says exactly our numbers, so "they accepted" can only agree at a price we computed.
 - One screen, one card per creator: the pitch, each claim with its evidence chip, contact source + verification status, variant, a send-time preview.
 - Actions: **Approve**, **Edit** (the edit is saved to the voice profile), **Skip**. Keyboard shortcuts; target < 10 s per creator.
 - "Approve all with no flags" button for creators with zero flags.
@@ -708,6 +751,8 @@ creator_deals(deal_id, campaign_id, person_id, stage
 deal_events(event_id, deal_id, type, payload JSONB, created_at)
 ```
 Stages move automatically from outreach events (sent → contacted, reply → replied) and from the detections below.
+
+**Built (v1, Nov 5):** a simpler first version of this record: `creator_deals(deal_id, campaign_id, creator_id, platform, creator_name, stage [contacted, negotiating, agreed, content, live, paid, lost], position, deliverable [integration, dedicated, short, post, story], post_by, deal_type [flat, base_plus_commission, affiliate, gifted], commission_pct, usage_rights [none, organic, paid_30/60/90], exclusivity_days, disclosure, currency, quoted_rate, agreed_rate, fair_low, fair_high, typical_views (snapshots when added), post_url, live_at, paid_amount, paid_at, payment_ref, notes)` and `deal_events(deal_id, type, payload)`. Stages are moved by the founder for now (board drag-and-drop); automatic moves come with outreach sending (§7) and live detection (§8.3). Person-level deals (`person_id`), usage/exclusivity as JSON, contracts and payment details come later.
 
 ### 8.2 Brief, contract, draft review
 - The **brief** is generated by the LLM (`reply` route) from the campaign + deal record. The founder edits it.
@@ -797,6 +842,19 @@ conversions(conversion_id, deal_id, link_id, type [signup, purchase], value, cur
   - Tax IDs (PAN / W-9) are collected in the contract step and encrypted at rest.
 - **Later (option, not now):** payments through a licensed payout partner (money held until verified, then paid out) for a ~3–5% fee, once volume justifies it.
 
+### 8.6b Negotiation agent (built Nov 5, roadmap F7.9)
+LangGraph graph in `app/negotiation/graph.py`, run whenever a creator's message arrives (Gmail sync, or pasted/typed by the founder):
+
+```
+judge (one Jev request) → guard (code) → write (LLM route "reply") → check (code + Jev) → [rewrite once] → suggestion
+```
+- **Context (code, free):** creator (views, steadiness, engagement, recent sponsored posts and sponsor brands, country), goal, product, deliverable, usage, fair range, budget and what's not yet committed, anonymous agreed prices for similar-size creators on ReachAI (shown only with ≥ 5 deals), round, our last offer, their previous ask, and the last 12 messages both ways.
+- **Jev reads:** `their_fee` / `their_commission` as Choices among the amounts code found in their message (so "7 + 20% commission" is $7 + 20%); `declined`, `agrees`, `firm`, `flexible`, `wants_commission`, `asks_question`, `injection` (Nouls).
+- **Jev decides:** `move` (accept, counter, restructure, hold, walk away), `structure` (flat, fee + commission, commission only, smaller scope), `commission` (0–25% in 5% steps), `concession` (Score, 5 levels), `extra` (repeat posts, free product, fast payment). Options live in `app/judge/constants.py`.
+- **Code guards** (`app/negotiation/decide.py`): ceiling = min(fair top × 1.15, budget left); opening fee halfway between the bottom and middle of the fair range; later rounds move `concession share` × (their ask − our last fee) and never below our last fee; commission takes 1.5% off the fee per point; accept only within the ceiling; reaching their ask becomes an agreement; final offer at the ceiling or after 4 rounds; injection → no suggestion, the founder reads it.
+- **Writer:** sees TERMS, the facts, the conversation and the creator's latest message as data; must use only the decided amounts. **Checks:** code allows only the decided fee and % (fee required); Jev flags extra promises. Fail → rewrite once with the reason → else a short standard message.
+- **Result:** one pending suggestion per deal (`agent_proposals.key = nego:<reply event>`, older ones marked stale) with the reasons in plain words; the reply event keeps `their_ask` and the agent's action; the deal's `quoted_rate` / `quoted_commission_pct` update.
+
 ### 8.7 Pricing a creator (fair range + deal design)
 - **Fair range** `fair_low…fair_high` (P25–P75):
   - From now on: median views × platform CPM prior (by industry and geo), with the spread from view volatility.
@@ -820,7 +878,8 @@ conversions(conversion_id, deal_id, link_id, type [signup, purchase], value, cur
   | Proven reach | CPM-capped |
   | Small creators | Affiliate / gifting |
 
-- **Negotiation helper:** quote vs. fair range → `accept` (≤ fair_high), `counter` (> fair_high: counter at the midpoint, with the reason shown from median views and forecast), `walk_away` (> 2 × fair_high). Draft reply via the LLM `reply` route. The founder approves.
+- **Negotiation helper (built):** the fair range is first adjusted for the deal (format multiplier × (1 + usage uplift + exclusivity uplift), `app/deals/constants.py`). Quote vs. that range → `great` (< low), `accept` (≤ high), `counter` (> high: counter at the midpoint, reason from typical views), `walk_away` (> 2 × high: offer the top at most).
+- **Reply (built):** code writes an instant template from those numbers. If the founder pastes the creator's reply, one Jev request (`creator_reply_questions`: open to negotiate, firm price, wants commission, mentions usage, injection) picks the angle in code: `budget`, `performance` (base 70% of the counter + 10% commission; also the default for signup/sales goals) or `scope`. "Rewrite with AI" uses LLM route `counter` (Groq gpt-oss-120b, then Gemini Flash-Lite) with the numbers and angle only, never the creator's text; code rejects any wording whose money figures or percentages differ from ours and falls back to the template.
 - **Budget planner** (code):
   - Input: total budget, goal metric, candidate creators with fair ranges and forecasts.
   - Choose the set that maximises expected clicks (or signups) within budget: 0/1 knapsack with ≤ 50 items, using an exact DP on budget buckets of $10.
@@ -859,8 +918,16 @@ GET  /platforms                                   → enabled platforms + credit
 POST /campaigns/{id}/estimate                     → {credits, breakdown}
 POST /campaigns/{id}/run                          (existing trigger; now reserves credits)
 GET  /creators/{creator_id}                       → profile + latest snapshot + judgments
+GET  /campaigns/{id}/skipped                       → {looked_at, skipped, reasons[{reason, count}]} (built)
+GET/POST /campaigns/{id}/shares, PATCH/DELETE /shares/{link_id} → owner manages view-only links (built)
+GET  /share/{token}                               → public, allowlisted shortlist; 404 unknown, 410 off/expired (built)
+PUT  /share/{token}/feedback/{creator_id}          → reviewer verdict + comment (built)
+GET  /campaigns/{id}/feedback                      → owner: what reviewers said (built)
+GET  /campaigns/{id}/share-activity                → owner: people, events (opened/feedback), by creator (built)
+GET/POST /campaigns/{id}/deals, PATCH/DELETE /deals/{deal_id}, GET /deals/{deal_id}/events → deals board (built)
+POST /deals/{deal_id}/counter {creator_reply?, rewrite?}       → advice + reply message (built)
 POST /campaigns/{id}/creators/{cid}/contact       → find + verify email (1 credit)
-POST /connections/inbox/start | GET /connections  → Unipile hosted auth link, list
+POST /connections/inbox/start | GET /connections  → Google OAuth link (Gmail), list
 POST /outreach/jobs/{job_id}/send                 → enroll selected pitches into a sequence
 POST /outreach/pitches/{pitch_id}/mark-sent       → assisted DM
 GET  /campaigns/{id}/inbox | GET /threads/{tid}   → threads + classification
@@ -913,7 +980,7 @@ Since validation was skipped, these are **required** from Phase 1:
 | 3 | X adapter | 1, 2 | M |
 | 4 | Instagram adapter | 1, 2 | M |
 | 5 | LinkedIn adapter (public post search + pasted URLs) | 1, 2 | M |
-| 6 | Contacts + verification, Unipile inbox, sequences, inbox UI, reply classifier, assisted DMs, pitch validation upgrade | 1, 2 | L |
+| 6 | Contacts + verification, Gmail inbox (Google OAuth), sequences, inbox UI, reply classifier, assisted DMs, pitch validation upgrade | 1, 2 | L |
 | 7 | Deal record, creator portal, draft review, live detection + checklist, snapshots, short links, conversions (promo codes, snippet, server event), results UI, pay-on-proof requests, fair range + budget planner | 6 | L |
 | 7b | Extra sources: lookalikes, competitor sponsors (with Phase 3), founder followers (with X), pre-warmed niches (after usage) | 1, 3 | M |
 | 8 | Learned ranker + valuation model | data from 6–7 | M |
@@ -923,8 +990,8 @@ Phases 3 and 6 can run in parallel after 1 and 2.
 ### File change map (first phases)
 | File | Change |
 |---|---|
-| `backend/app/core/model.py` | Replaced by `app/llm/client.py` (kept as a shim during migration) |
-| `backend/app/my_agent/**` | Logic moves into `app/discovery/` + `app/platforms/youtube.py` + `app/metrics/`; folder removed after parity tests |
+| `backend/app/core/model.py` | Removed Nov 4 (K2): outreach and the eval judge use `app/llm` routes `pitch` and `judge_eval` |
+| `backend/app/my_agent/**` | Removed Nov 4 (F1.13): logic lives in `app/discovery/` + `app/platforms/youtube.py` + `app/metrics/` |
 | `backend/app/workflow/runtime.py`, `app/inngest/functions.py` | Run the generic graph; stage list from the graph; credit reserve/commit |
 | `backend/app/outreach/nodes/validate_creator_pitch.py` | + Jev Nouls (§7.6) |
 | `backend/app/outreach/utils.py` | `available_channels` / evidence read `CreatorProfile` |
@@ -948,7 +1015,7 @@ Phases 3 and 6 can run in parallel after 1 and 2.
 | Data costs are higher than estimated | `cost_events` → adjust credits per action monthly; hard caps per run |
 | Building for two segments (B2B + consumer) without validation | Instrumentation (§11); review platform usage after the first 50 paying users |
 | Email deliverability on user inboxes | Caps, verification, bounce stop, unsubscribe |
-| Prices quoted in this spec come from third-party sources | Confirm with each vendor before launch (Cashfree, Unipile, Apify, X provider, gateway, verifier) |
+| Prices quoted in this spec come from third-party sources | Confirm with each vendor before launch (Cashfree, Apify, X provider, gateway, verifier) |
 
 ---
 
@@ -978,7 +1045,7 @@ Phases 3 and 6 can run in parallel after 1 and 2.
 - Numbers come from our code. The agent arranges what we return; it does not calculate.
 
 ### 15.5 Write tools (F9.2) and later
-`create_campaign` starts the Inngest run and returns an id; the agent polls `campaign_status`. `pitch_context` returns facts, the fair range, the rules and the creator's text (untrusted). `save_draft` runs the same checks as `validate_bundle` (§7.4) and stores the draft with `source="agent"` so reply rates can be compared. `generate_pitches` uses our graph. Sending, agreeing terms and marking paid (F9.5) always need the founder's confirmation in the web app; nothing an agent says triggers them.
+`create_campaign` starts the Inngest run and returns an id; the agent polls `campaign_status`. `pitch_context` returns facts, the fair range, the rules and the creator's text (untrusted). `save_draft` runs the same checks as `validate_bundle` (§7.4) and stores the draft with `source="agent"` so reply rates can be compared. `generate_pitches` uses our graph. Sending, agreeing terms and marking paid (F9.5) always need the founder's confirmation in the web app; nothing an agent says triggers them. Since Gmail (F6.5) and Deals (F7.1) shipped, F9.5 can read the Outreach chats; the draft-saving design in this section must be revisited against the chat's draft box before F9.2 is built.
 
 ### 15.6 MCP Apps (F9.3)
 Interactive creators table and campaign summary through the MCP Apps extension. Verified (Nov 2026, official docs) as supported in Claude (web, desktop, iOS) and VS Code Copilot; ChatGPT, Cursor and Codex not confirmed, so every tool keeps its markdown fallback. Keep tool results under ~150,000 characters (claude.ai) / 25,000 tokens (Claude Code); paginate.

@@ -6,7 +6,8 @@
     answers.score("topic_fit")         # 0..n-1, can be fractional
 
 - One request per item, with all of its questions (Jev runs them in parallel).
-- The model is pinned (JEV_MODEL) because thresholds are tuned against it.
+- The model version is pinned (see jev_settings) because thresholds are tuned against it.
+- Works with a TypeSafe key, or an OpenRouter key through OpenRouter's Jev gateway.
 - At most JEV_MAX_CONCURRENCY requests run at once in this process. The limit across
   processes is the Inngest concurrency key "jev" (spec §4.14).
 - If Jev fails, the same questions go to the LLM route "fit_fallback" and the answers
@@ -16,6 +17,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import json
 import logging
 from dataclasses import dataclass, field
@@ -58,6 +60,17 @@ class Judgment:
     def score(self, qid: str) -> float:
         return float(self.answers[qid].value)
 
+    @classmethod
+    def from_dict(cls, d: dict) -> "Judgment":
+        """Rebuild a saved Judgment (creator_judgments.answers)."""
+        answers = {}
+        for qid, a in (d.get("answers") or {}).items():
+            probs = a.get("probabilities") or {}
+            if a.get("type") == "score":  # JSON turns int level keys into strings
+                probs = {int(k) if str(k).isdigit() else k: v for k, v in probs.items()}
+            answers[qid] = Answer(a["type"], a["value"], a.get("confidence"), probs)
+        return cls(answers=answers, model=d.get("model") or "", source=d.get("source") or "jev", input_tokens=d.get("input_tokens"))
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "model": self.model,
@@ -80,13 +93,26 @@ _client = None
 _semaphores: dict[int, asyncio.Semaphore] = {}
 
 
+def jev_settings() -> tuple[str, Optional[str], str]:
+    """(provider, base_url, model) for the configured key. Never returns the key itself."""
+    key = os.getenv("TYPESAFE_API_KEY", "")
+    provider = config.JEV_PROVIDER
+    if provider == "auto":
+        provider = "openrouter" if key.startswith("sk-or-") else "typesafe"
+    if provider == "openrouter":
+        return provider, config.OPENROUTER_BASE_URL, config.JEV_MODEL or config.JEV_MODEL_OPENROUTER
+    return "typesafe", os.getenv("TYPESAFE_BASE_URL") or None, config.JEV_MODEL or config.JEV_MODEL_TYPESAFE
+
+
 def _get_client():
     global _client
     if _client is None:
         from typesafe_sdk import AsyncTypeSafeClient, RetryPolicy
 
+        _provider, base_url, model = jev_settings()
         _client = AsyncTypeSafeClient(
-            model=config.JEV_MODEL,
+            model=model,
+            base_url=base_url,
             timeout=config.JEV_TIMEOUT_SECONDS,
             retry=RetryPolicy(max_retries=2, backoff_initial=0.5, backoff_max=5.0, timeout=30.0),
         )
@@ -208,7 +234,7 @@ async def judge(
 
     await record_cost(
         CostRecord(
-            provider="typesafe",
+            provider=jev_settings()[0],
             sku=result.model,
             route="judge",
             context=context,

@@ -1,6 +1,6 @@
 """Every tunable number for metrics lives here (spec §4.5).
 
-Values marked "carried over" come from the current pipeline (app/my_agent) so results stay
+Values marked "carried over" come from the first pipeline (removed Nov 4) so results stayed
 comparable. Values marked "prior" are starting points until our creator database has enough
 peers (MIN_PEERS) to compute them from real data.
 """
@@ -39,7 +39,8 @@ RISING_OUTPERFORMANCE = 1.0
 MIN_PEERS = 200  # below this, use the priors instead of real peers
 # prior median engagement rate (likes+comments per view) by platform and tier
 ENGAGEMENT_PRIOR: dict[str, dict[str, float]] = {
-    "youtube": {"nano": 0.06, "micro": 0.045, "mid": 0.035, "macro": 0.03, "mega": 0.025},
+    # tuned down after the first real recording (Nov 3): large education channels sit at ~1-2%
+    "youtube": {"nano": 0.05, "micro": 0.035, "mid": 0.025, "macro": 0.016, "mega": 0.011},
     "x": {"nano": 0.02, "micro": 0.012, "mid": 0.008, "macro": 0.006, "mega": 0.005},
     "instagram": {"nano": 0.05, "micro": 0.03, "mid": 0.02, "macro": 0.015, "mega": 0.012},
     # LinkedIn has no public views; engagement is per follower
@@ -85,3 +86,13 @@ CTR_BY_INDUSTRY = {"tech": 0.025, "fintech": 0.03, "vlog": 0.008, "gaming": 0.01
 LINKEDIN_PRICE_BY_TIER = {"nano": 150.0, "micro": 500.0, "mid": 1200.0, "macro": 2500.0, "mega": 5000.0}
 # fair range around the point estimate, widened by unreliability
 FAIR_RANGE = {"High": (0.85, 1.2), "Medium": (0.75, 1.3), "Low": (0.6, 1.5)}
+
+# --- Post analysis for the creator panel (app/metrics/posts.py) -----------------------------------------
+POSTS_IN_LEAD = 12  # posts sent to the UI per creator (tabs: best match, above usual, latest)
+MATCH_MIN_TERM_SHARE = 0.6  # a topic matches a post if this share of its meaningful words appear in it
+ABOVE_USUAL_FROM = 1.5  # "above their usual": reach at least 1.5x the creator's median
+DESCRIPTION_SUMMARY_CHARS = 1000  # the opening paragraph (cut at the first blank line or link), at most this long
+YOUNG_POST_DAYS = 7  # newer posts are still collecting views: shown as "new" and left out of the usual
+# Phrases that mark a paid promotion in a title, caption or description (lower-case)
+SPONSOR_PHRASES = ("sponsored by", "for sponsoring", "use code", "use my code", "promo code", "paid partnership",
+                   "#ad", "#sponsored", "in partnership with", "brought to you by", "affiliate link")

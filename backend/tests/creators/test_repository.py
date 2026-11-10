@@ -237,3 +237,12 @@ async def test_delete_creator_removes_everything(db):
     assert await repo.get_embedding(cid, "h", session_factory=db) is None
     assert await repo.get_cached_judgment(cid, "c", "b", "v", session_factory=db) is None
     assert await repo.get_creator(other, session_factory=db) is not None
+
+
+@pytest.mark.asyncio
+async def test_profile_photo_survives_the_database_round_trip(db):
+    cid = await repo.upsert_profile(profile(avatar_url="https://yt3.ggpht.com/photo=s240"), session_factory=db)
+    stored = (await repo.get_creators([cid], session_factory=db))[cid]
+    assert stored["avatar_url"] == "https://yt3.ggpht.com/photo=s240"
+    cid2 = await repo.upsert_profile(profile(avatar_url=None), session_factory=db)  # same account, photo removed
+    assert cid2 == cid and (await repo.get_creators([cid], session_factory=db))[cid]["avatar_url"] is None
