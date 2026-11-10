@@ -134,6 +134,9 @@ export default function AgentsPage() {
 
       <section className="space-y-3">
         <h2 className="text-sm font-medium text-neutral-900 dark:text-neutral-100">1. Add ReachAI to your agent</h2>
+        <p className="text-xs text-neutral-500">
+          Or tell your agent: <span className="font-mono">set up ReachAI from {mcpUrl.replace(/\/api\/mcp$/, "")}/llms.txt</span>
+        </p>
         <div className="flex items-center gap-2">
           <Input readOnly value={mcpUrl} aria-label="ReachAI MCP address" className="font-mono text-xs" />
           <CopyButton text={mcpUrl} />

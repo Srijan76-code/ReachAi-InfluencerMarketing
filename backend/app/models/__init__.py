@@ -10,3 +10,4 @@ from .api_key import ApiKey
 from .discovery_run import RunStrategy, RunCandidate
 from .share_link import ShareEvent, ShareFeedback, ShareLink
 from .deal import AgentProposal, ConnectedAccount, CreatorDeal, DealEvent
+from .agent_run import AgentRun

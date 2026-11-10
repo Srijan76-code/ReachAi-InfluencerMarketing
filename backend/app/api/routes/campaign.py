@@ -15,6 +15,7 @@ from app.models.user import User
 from app.models.campaign import Campaign, CampaignStatus
 from app.auth.user import get_db_user
 from app.inngest.client import inngest_client
+from app.api.campaign_runs import EnqueueError, start_run
 from app.api.campaign_names import EMPTY_DRAFT_HIDDEN_AFTER_DAYS, DEFAULT_NAME, clean_name, is_default, name_from_brief
 from pydantic import BaseModel
 import inngest
@@ -186,54 +187,11 @@ async def generate_campaign(
     if not campaign:
         raise HTTPException(404, "Campaign not found")
 
-    thread_id = campaign.thread_id or f"campaign-{campaign_id}"
-    run_id = str(uuid4())
     details = campaign_details if campaign_details is not None else (campaign.campaign_details or {})
-
-    await db.execute(
-        update(Campaign)
-        .where(Campaign.campaign_id == campaign_id)
-        .values(
-            # name it from the brief unless the user already named it
-            name=(name_from_brief(details) or DEFAULT_NAME) if is_default(campaign.name) else campaign.name,
-            campaign_details=details,
-            run_id=run_id,
-            thread_id=thread_id,
-            status=CampaignStatus.PENDING,
-            workflow_status={
-                "run_id": run_id,
-                "thread_id": thread_id,
-                "stage": "queued",
-                "status": "running",
-            },
-        )
-    )
-    await db.commit()
-
     try:
-        await inngest_client.send(
-            inngest.Event(
-                name="campaign/run",
-                data={
-                    "campaign_id": campaign_id,
-                    "campaign_details": details,
-                    "user_id": user.clerk_id,
-                    "run_id": run_id,
-                    "thread_id": thread_id,
-                },
-            )
-        )
-        logger.info(f"[Inngest] Sent campaign/run event for {campaign_id}")
-    except Exception as inngest_err:
-        logger.exception("[Inngest] Failed to enqueue campaign %s", campaign_id)
-        raise HTTPException(503, "Unable to enqueue campaign workflow") from inngest_err
-
-    return {
-        "success": True,
-        "campaign_id": campaign_id,
-        "run_id": run_id,
-        "thread_id": thread_id,
-    }
+        return await start_run(db, campaign, details, user.clerk_id)
+    except EnqueueError as err:
+        raise HTTPException(503, "Unable to enqueue campaign workflow") from err
 
 
 @router.get("/{campaign_id}/status")
