@@ -3,7 +3,7 @@
 import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, Github, ArrowRight, PlusCircle, HomeIcon, BookOpen } from "lucide-react";
+import { Menu, X, Github, ArrowRight, PlusCircle, HomeIcon, BookOpen, KeyRound } from "lucide-react";
 import { cn } from "@/lib/utils"; // standard shadcn helper
 import { Skiper26 } from "./ui/skiper-ui/skiper26";
 import { Show, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
@@ -104,6 +104,13 @@ export default function Header() {
               >
                 <BookOpen className="w-3.5 h-3.5" />
                 Docs
+              </Link>
+              <Link
+                href="/agents"
+                className="flex items-center gap-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 px-2 py-1 rounded-md transition-colors"
+              >
+                <KeyRound className="w-3.5 h-3.5" />
+                Agents
               </Link>
               <HoverButton
                 onClick={() => router.push("/campaign")}

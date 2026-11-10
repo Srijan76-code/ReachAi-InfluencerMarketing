@@ -1,0 +1,62 @@
+---
+title: Use ReachAI from your agent
+description: Connect Claude Code, Cursor or any MCP agent to ReachAI and work with your campaigns and creators from there.
+---
+
+ReachAI runs an [MCP](https://modelcontextprotocol.io) server. Once your agent is connected, you can ask it things like "which of my campaigns have finished?" or "show me the top 10 creators for the DataLaunch campaign" without opening the app. Anything your agent saves shows up in ReachAI straight away, because it is the same account and the same data.
+
+## Connect
+
+1. Open [Agents](/agents) in the app and create a key. Copy it right away: it is shown only once.
+2. Add ReachAI to your agent with the command the page gives you.
+
+**Claude Code**
+
+```bash
+claude mcp add --transport http reachai https://YOUR-REACHAI-HOST/api/mcp --header "Authorization: Bearer YOUR_KEY"
+```
+
+**Cursor** (`mcp.json`)
+
+```json
+{
+  "mcpServers": {
+    "reachai": {
+      "url": "https://YOUR-REACHAI-HOST/api/mcp",
+      "headers": { "Authorization": "Bearer YOUR_KEY" }
+    }
+  }
+}
+```
+
+Other agents that support MCP over HTTP with a custom header work the same way: use the address and the `Authorization: Bearer` header.
+
+Keys belong to you. Anyone with a key can see and change your campaigns, so keep it private. You can revoke a key on the [Agents](/agents) page at any time, and it stops working immediately.
+
+## What your agent can do
+
+| Ask for | What it does |
+|---|---|
+| Your campaigns | Lists them with status and number of creators found |
+| A campaign's details | Shows the brief and where the search is up to |
+| Search progress | Tells you whether the search has finished |
+| The creators | A ranked table with score, audience, engagement and estimated fair value, with sorting, a minimum score and pages |
+| One creator | Full numbers, score breakdown, recent videos and why they fit |
+| Saved creators | Lists, saves or removes creators on the campaign's shortlist (the same list as the Saved tab) |
+
+Scores, audience sizes and estimated values are calculated by ReachAI, not by your agent, so they match what you see in the app. The agent only lays them out.
+
+## What it can't do yet
+
+- Start a new search, write pitches or send anything. Those are still done in the app.
+- Nothing your agent does can send a message or move money.
+
+## A note on safety
+
+Creator names, bios and summaries come from the internet. ReachAI marks them as untrusted when it hands them to your agent, so a creator can't tell your agent what to do. If your agent also has tools that send email or spend money, keep those on "ask me first".
+
+## Coming soon
+
+- One-click sign-in for Claude (web and desktop) and ChatGPT, without a key.
+- Starting searches and drafting pitches from your agent.
+- Creator tables shown as interactive cards inside Claude.

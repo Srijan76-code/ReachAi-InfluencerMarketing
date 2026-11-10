@@ -155,6 +155,16 @@ Known gaps in what's built:
 | F8.2 | Pricing model from agreed rates | later | §9 |
 | F8.3 | Product event tracking + dashboards (needed from Phase 1) | later | §11 |
 
+## Phase 9: Agent access (MCP) · §15
+| ID | Feature | Status | Spec | Main files |
+|---|---|---|---|---|
+| F9.1 | Remote MCP server at `/api/mcp`: personal API keys (working), Clerk OAuth (built, not yet verified against a real client), 8 read/shortlist tools, markdown tables + structured data, presentation rules, Agents page, docs | done for API keys (`mcp-server`) | §15.1–15.4 | `backend/app/mcp/` (server, auth, tools, format), `backend/app/models/api_key.py`, `backend/app/api/routes/api_keys.py`, migration `e5b3c7a9d1f2`, `vercel.json`, `frontend/app/agents/`, `frontend/content/docs/mcp.mdx`, `backend/tests/mcp/` |
+| F9.1b | Turn on and verify Clerk OAuth with a real Claude custom connector: add the MCP server in the Clerk dashboard, set `CLERK_SECRET_KEY` + `MCP_PUBLIC_URL`, run `alembic upgrade head`, confirm `/.well-known/oauth-protected-resource/api/mcp` is served by the backend on Vercel; then add the sign-in connector to the Agents page and docs | next (user + agent) | §15.2 | `backend/app/mcp/auth.py`, `frontend/app/agents/page.tsx` |
+| F9.2 | Write tools: `create_campaign`, `pitch_context`, `save_draft` (server validates agent-written pitches), `generate_pitches`; prompts. Revisit the pitch design against the Outreach chat that main now has (first messages are drafted in each creator's chat); `/llms.txt`, `/skill.md`, docs page | next | §15.5 | `backend/app/mcp/tools/`, `frontend/content/docs/mcp.mdx` |
+| F9.3 | MCP Apps: interactive creators table and campaign summary (Claude, VS Code Copilot); test in Claude Desktop first | later | §15.6 | `backend/app/mcp/ui/` |
+| F9.4 | Connector directory listings (Claude, ChatGPT) | later | §15.7 | — |
+| F9.5 | Inbox, deal and send tools (sending always needs founder confirmation) | later (Gmail F6.5 and Deals F7.1 are now in the app, so this can start after F9.2) | §15.5 | `backend/app/mcp/tools/` |
+
 ---
 
 ## Known issues
@@ -184,5 +194,6 @@ Known gaps in what's built:
 | K3 | Route models for `strategy`, `pitch`, `reply` are placeholders (current Gemini first); pick them with the LangSmith evals | next |
 
 ## Open questions waiting on the user
+- MCP sign-in (F9.1b): add the MCP server in the Clerk dashboard (Agents → MCP servers, enable "Allow public clients to connect"), set `CLERK_SECRET_KEY` and `MCP_PUBLIC_URL`, and run `alembic upgrade head` in production (creates `api_keys`).
 - `TYPESAFE_API_KEY` must be added in the environment settings before testing Jev live.
 - Vendor prices in the spec come from third-party sources; confirm before launch.

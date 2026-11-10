@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.routes import campaign, deals, gmail, outreach, saved_lead, share, track
+from app.api.routes import api_keys, campaign, deals, gmail, outreach, saved_lead, share, track
 
 api_router = APIRouter()
 
@@ -11,3 +11,4 @@ api_router.include_router(share.router, tags=["Share links"])
 api_router.include_router(deals.router, tags=["Deals"])
 api_router.include_router(gmail.router, tags=["Gmail"])
 api_router.include_router(track.router, tags=["Track"])
+api_router.include_router(api_keys.router, prefix="/api/keys", tags=["API Keys"])

@@ -19,5 +19,6 @@ alembic
 clerk-backend-api
 langchain-openai
 typesafe-sdk
+mcp
 cryptography
 httpx
