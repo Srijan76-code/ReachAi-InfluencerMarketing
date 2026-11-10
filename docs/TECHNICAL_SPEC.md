@@ -30,6 +30,7 @@
 | Run execution | Inngest steps with LangGraph inside each platform step; backend stays on Vercel; caches in Postgres only; cross-run limits via Inngest concurrency keys (§4.14) |
 | After the deal | Founder pays creators directly (we send pay-on-proof requests and track); own short links; promo codes + signup snippet/server event; tracking included in paid plans (§8) |
 | Outreach | **Connected inbox**; founder approves first messages, follow-ups automatic; A/B test soft vs. concrete-offer first message (§7) |
+| Agent access | **Remote MCP server** inside the backend. Typed tools, not one natural-language tool. **The user's agent writes text, our server supplies facts and checks the result.** Clerk OAuth plus personal API keys. Nothing sends or moves money over MCP in v1 (§15) |
 
 ### Core principle (kept from the current version)
 Cheap filters first, expensive work last. Everything is batched, cached and resumable. The LLM only sees the final shortlist, and only to **write** text.
@@ -948,3 +949,39 @@ Phases 3 and 6 can run in parallel after 1 and 2.
 | Building for two segments (B2B + consumer) without validation | Instrumentation (§11); review platform usage after the first 50 paying users |
 | Email deliverability on user inboxes | Caps, verification, bounce stop, unsubscribe |
 | Prices quoted in this spec come from third-party sources | Confirm with each vendor before launch (Cashfree, Unipile, Apify, X provider, gateway, verifier) |
+
+---
+
+## 15. Agent access over MCP
+
+**Goal:** a founder drives ReachAI from their own agent (Claude, ChatGPT, Cursor, Claude Code, Codex, VS Code) and everything they do shows up in the web app, because it is the same database.
+
+**Why not a "do everything" tool:** the user's agent already plans. Typed tools let it chain steps, keep our cost near zero, and make results predictable. Our own LLM is not called on the MCP path unless the user asks for it (`generate_pitches`).
+
+### 15.1 Server
+- Official Python `mcp` SDK (`MCPServer`), stateless, JSON responses, mounted inside the FastAPI app at `/api/mcp` (Vercel already routes `/api/*` to the backend).
+- The HTTP app is built per request (no dependency on ASGI lifespan, which serverless hosts may not run). Tool definitions are built once.
+- Protected-resource metadata is served at `/.well-known/oauth-protected-resource/api/mcp` (RFC 9728); `vercel.json` rewrites that path to the backend.
+- Host/Origin allow-list comes from `MCP_PUBLIC_URL` (+ localhost). DNS-rebinding protection stays on.
+
+### 15.2 Auth (decided: Clerk OAuth + personal API keys)
+- **Clerk OAuth** (Clerk is the authorization server; CIMD for client registration). The server verifies `oat_` access tokens with Clerk's backend API (`CLERK_SECRET_KEY`), reads the user from `subject`, and maps it to our `users` row like `get_db_user`. If the verified payload carries an audience, it must include `MCP_PUBLIC_URL`.
+- **Personal API keys** (`rai_...`) for agents that cannot do OAuth. Created in the app, shown once, stored as SHA-256 only (`api_keys`: prefix, hash, name, last_used_at, revoked_at). Revocable.
+- Every tool runs as that user and only touches that user's rows.
+
+### 15.3 Tools (v1, read-mostly)
+`list_campaigns`, `get_campaign`, `campaign_status`, `list_creators`, `get_creator`, `list_saved`, `save_creator`, `unsave_creator`. Annotations mark read-only vs. writing tools. Creator text (names, bios, descriptions) is returned inside a field named `untrusted` and never mixed into instructions (architecture rule 7).
+
+### 15.4 Presentation
+- Each tool returns a markdown block (tables, a one-line metrics summary, a link to the web app) **and** `structuredContent`. Formatting lives in one module (`app/mcp/format.py`).
+- Server `instructions` carry the short presentation rules (tables for creators, numbers exactly as returned, never recompute prices). The longer playbook goes in the skill (F9.2). Only Claude Code and Codex load skills, so the short rules must live in the server.
+- Numbers come from our code. The agent arranges what we return; it does not calculate.
+
+### 15.5 Write tools (F9.2) and later
+`create_campaign` starts the Inngest run and returns an id; the agent polls `campaign_status`. `pitch_context` returns facts, the fair range, the rules and the creator's text (untrusted). `save_draft` runs the same checks as `validate_bundle` (§7.4) and stores the draft with `source="agent"` so reply rates can be compared. `generate_pitches` uses our graph. Sending, agreeing terms and marking paid (F9.5) always need the founder's confirmation in the web app; nothing an agent says triggers them.
+
+### 15.6 MCP Apps (F9.3)
+Interactive creators table and campaign summary through the MCP Apps extension. Verified (Nov 2026, official docs) as supported in Claude (web, desktop, iOS) and VS Code Copilot; ChatGPT, Cursor and Codex not confirmed, so every tool keeps its markdown fallback. Keep tool results under ~150,000 characters (claude.ai) / 25,000 tokens (Claude Code); paginate.
+
+### 15.7 Distribution
+`/llms.txt` + `/skill.md` + a docs page with the one-line add command per client. Directory listings (Claude, ChatGPT) after the OAuth flow is proven in a custom connector.

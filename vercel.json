@@ -11,6 +11,12 @@
   },
   "rewrites": [
     {
+      "source": "/.well-known/oauth-protected-resource/(.*)",
+      "destination": {
+        "service": "backend"
+      }
+    },
+    {
       "source": "/api/(.*)",
       "destination": {
         "service": "backend"

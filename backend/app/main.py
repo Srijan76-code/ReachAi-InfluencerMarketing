@@ -11,6 +11,7 @@ from app.api.router import api_router
 from app.models import *
 from app.inngest.client import inngest_client
 from app.inngest.functions import run_campaign, run_outreach
+from app.mcp.server import mcp_routes
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -70,6 +71,9 @@ async def handle_unexpected_error(request: Request, exc: Exception):
 
 # ROUTES
 app.include_router(api_router)
+
+# MCP (agent access, spec §15): /api/mcp and its OAuth metadata
+app.router.routes.extend(mcp_routes())
 
 
 # HEALTH
