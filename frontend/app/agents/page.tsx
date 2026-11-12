@@ -7,6 +7,7 @@ import { Check, Copy, KeyRound, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useApi } from "@/lib/api";
+import { OnboardAgent } from "@/components/OnboardAgent";
 
 type ApiKey = {
   key_id: string;
@@ -66,11 +67,12 @@ export default function AgentsPage() {
   const [creating, setCreating] = useState(false);
   const [newKey, setNewKey] = useState<NewKey | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [mcpUrl, setMcpUrl] = useState("https://YOUR-REACHAI-HOST/api/mcp");
+  const [origin, setOrigin] = useState("https://reach-ai-influencer-marketing.vercel.app");
 
   useEffect(() => {
-    setMcpUrl(`${window.location.origin}/api/mcp`);
+    setOrigin(window.location.origin);
   }, []);
+  const mcpUrl = `${origin}/api/mcp`;
 
   const loadKeys = useCallback(async () => {
     try {
@@ -121,45 +123,51 @@ export default function AgentsPage() {
 
   return (
     <main className="max-w-3xl mx-auto px-6 pt-24 pb-16 space-y-10">
-      <header className="space-y-2">
-        <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">Connect your agent</h1>
-        <p className="text-sm text-neutral-600 dark:text-neutral-400">
-          Use ReachAI from Claude, Cursor, Claude Code or any agent that supports MCP. It sees your campaigns and
-          creators, and anything it saves shows up here.{" "}
+      <header className="space-y-3">
+        <h1 className="text-[14px] font-medium text-zinc-900 dark:text-zinc-100">Connect your agent</h1>
+        <p className="text-xs text-zinc-500">
+          Use ReachAI from Claude, ChatGPT, Codex, Cursor or any MCP agent. Copy, paste into your agent, done.
+        </p>
+        <OnboardAgent origin={origin} />
+        <p className="text-[11px] text-zinc-500">
+          It finds creators, drafts first messages and checks replies. It never sends messages or spends money
+          without you.{" "}
           <Link href="/docs/mcp" className="underline underline-offset-2">
-            How it works
+            Docs
           </Link>
         </p>
       </header>
 
-      <section className="space-y-3">
-        <h2 className="text-sm font-medium text-neutral-900 dark:text-neutral-100">1. Add ReachAI to your agent</h2>
-        <p className="text-xs text-neutral-500">
-          Or tell your agent: <span className="font-mono">set up ReachAI from {mcpUrl.replace(/\/api\/mcp$/, "")}/llms.txt</span>
-        </p>
-        <div className="flex items-center gap-2">
-          <Input readOnly value={mcpUrl} aria-label="ReachAI MCP address" className="font-mono text-xs" />
-          <CopyButton text={mcpUrl} />
+      <details className="group rounded-lg border border-zinc-200 dark:border-zinc-800">
+        <summary className="cursor-pointer list-none flex items-center justify-between px-4 h-10 text-xs font-medium text-zinc-900 dark:text-zinc-100">
+          Set up by hand
+          <span className="text-zinc-400 transition-transform group-open:rotate-180">⌄</span>
+        </summary>
+        <div className="px-4 pb-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <Input readOnly value={mcpUrl} aria-label="ReachAI MCP address" className="font-mono text-xs" />
+            <CopyButton text={mcpUrl} />
+          </div>
+          <p className="text-[11px] text-zinc-500">
+            Claude and ChatGPT: add it as a custom connector and sign in. No key needed.
+          </p>
+          <Snippet title="Claude Code" code={`claude mcp add --transport http reachai ${mcpUrl}`} />
+          <Snippet
+            title="Cursor (mcp.json), with a key"
+            code={JSON.stringify(
+              { mcpServers: { reachai: { url: mcpUrl, headers: { Authorization: `Bearer ${keyForSnippets}` } } } },
+              null,
+              2,
+            )}
+          />
         </div>
-        <Snippet
-          title="Claude Code"
-          code={`claude mcp add --transport http reachai ${mcpUrl} --header "Authorization: Bearer ${keyForSnippets}"`}
-        />
-        <Snippet
-          title="Cursor (mcp.json)"
-          code={JSON.stringify(
-            { mcpServers: { reachai: { url: mcpUrl, headers: { Authorization: `Bearer ${keyForSnippets}` } } } },
-            null,
-            2,
-          )}
-        />
-        <p className="text-xs text-neutral-500">
-          These use a key from step 2. Sign-in connectors for Claude (web and desktop) and ChatGPT are coming.
-        </p>
-      </section>
+      </details>
 
       <section className="space-y-3">
-        <h2 className="text-sm font-medium text-neutral-900 dark:text-neutral-100">2. Personal API keys</h2>
+        <div className="space-y-1">
+          <h2 className="text-xs font-medium text-zinc-900 dark:text-zinc-100">API keys</h2>
+          <p className="text-[11px] text-zinc-500">Only for agents that can&apos;t sign in. Your agent will tell you if it needs one.</p>
+        </div>
 
         {newKey && (
           <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 p-3 space-y-2">
