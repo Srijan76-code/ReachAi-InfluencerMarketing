@@ -1,243 +1,196 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, Github, ArrowRight, PlusCircle, HomeIcon, BookOpen, KeyRound, Coins } from "lucide-react";
-import { cn } from "@/lib/utils"; // standard shadcn helper
-import { Skiper26 } from "./ui/skiper-ui/skiper26";
+import { usePathname } from "next/navigation";
+import { AnimatePresence, motion } from "motion/react";
+import { ArrowRight, Coins, KeyRound, Loader2, Menu, Plus, X } from "lucide-react";
 import { Show, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
-import BreadCumb from "./BreadCumb";
-import { HoverButton } from "./buttons/HoverButton";
-import { usePathname, useRouter } from "next/navigation";
+import { cn } from "@/lib/utils";
 import { useCreateCampaign } from "@/lib/useCreateCampaign";
+import { plural, useCredits } from "@/lib/credits";
+import { usagePanel } from "@/lib/usage";
 import { InboxBell } from "./InboxBell";
-import { CreditsPill } from "./CreditsPill";
+import { OnboardAgent } from "./OnboardAgent";
+import { UsageSheet } from "./billing/UsageSheet";
 
-const NAV_LINKS = [
-  { name: "Features", href: "#features" },
-  { name: "Solutions", href: "#solutions" },
-  { name: "Resources", href: "#resources" },
-  { name: "Pricing", href: "#pricing" },
+/** Left: where you go. Right: what you do. One style per group. */
+const LINKS = [
+  { name: "Campaigns", href: "/campaign", signedIn: true },
+  { name: "Pricing", href: "/pricing", signedIn: false },
+  { name: "Docs", href: "/docs", signedIn: false },
 ];
 
+const DEFAULT_ORIGIN = "https://reach-ai-influencer-marketing.vercel.app";
+
+function NavLink({ href, name, onClick }: { href: string; name: string; onClick?: () => void }) {
+  const path = usePathname();
+  const active = path === href || (href !== "/" && path?.startsWith(href));
+  return (
+    <Link
+      href={href}
+      onClick={onClick}
+      className={cn(
+        "text-[13px] transition-colors",
+        active ? "text-zinc-900 dark:text-zinc-100" : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100",
+      )}
+    >
+      {name}
+    </Link>
+  );
+}
+
+function AccountMenu() {
+  const credits = useCredits();
+  const summary = credits ? `${plural(credits.balance)} · ${credits.plan[0].toUpperCase()}${credits.plan.slice(1)}` : "Credits";
+  return (
+    <UserButton>
+      <UserButton.MenuItems>
+        <UserButton.Action label={summary} labelIcon={<Coins className="w-4 h-4" />} onClick={() => usagePanel.open()} />
+        <UserButton.Action label="Billing and usage" labelIcon={<Coins className="w-4 h-4" />} onClick={() => usagePanel.open()} />
+        <UserButton.Link label="API keys" labelIcon={<KeyRound className="w-4 h-4" />} href="/agents" />
+        <UserButton.Action label="manageAccount" />
+        <UserButton.Action label="signOut" />
+      </UserButton.MenuItems>
+    </UserButton>
+  );
+}
+
 export default function Header() {
-  const router = useRouter();
   const pathname = usePathname();
-  const [isScrolled, setIsScrolled] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [origin, setOrigin] = useState(DEFAULT_ORIGIN);
   const { create: createCampaign, creating } = useCreateCampaign();
 
-  useEffect(() => {
-    const handleScroll = () => setIsScrolled(window.scrollY > 20);
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+  useEffect(() => setOrigin(window.location.origin), []);
+  useEffect(() => setMobileOpen(false), [pathname]);
 
   // The docs have their own navigation bar.
   if (pathname?.startsWith("/docs")) return null;
 
   return (
-    <div className="dark:bg-[#08090a] z-50 fixed top-0 inset-x-0  h-2">
-
-      <nav
-        className={cn(
-          "fixed top-2   inset-x-0 z-40 h-10 transition-all duration-300  dark:bg-[#08090a]",
-
-        )}
-      >
-        <div className="max-w-7xl mx-auto h-full px-6 flex items-center justify-between">
-          {/* Logo */}
+    <div className="fixed top-0 inset-x-0 z-50 bg-zinc-50/90 dark:bg-[#08090a]/90 backdrop-blur">
+      <nav className="max-w-7xl mx-auto h-14 px-4 sm:px-6 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-7">
           <Link href="/" className="flex items-center gap-2 group">
             <div className="w-7 h-7 bg-zinc-900 dark:bg-neutral-300 rounded-lg flex items-center justify-center group-hover:rotate-6 transition-transform">
               <div className="w-3 h-3 bg-white dark:bg-zinc-900 rounded-sm" />
             </div>
-            <span className="font-bold text-sm tracking-tighter text-zinc-900 dark:text-zinc-100">
-              ReachAI
-            </span>
+            <span className="font-bold text-sm tracking-tighter text-zinc-900 dark:text-zinc-100">ReachAI</span>
           </Link>
-          {/* <BreadCumb /> */}
-
-          {/* Desktop Navigation */}
-          {/* <div className="hidden md:flex items-center gap-8">
-          {NAV_LINKS.map((link) => (
-            <Link
-              key={link.name}
-              href={link.href}
-              className="text-[13px] font-medium text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors"
-            >
-              {link.name}
-            </Link>
-          ))}
-        </div> */}
-
-          {/* Actions */}
-          <div className="hidden md:flex items-center gap-4">
-            {/* <button className="p-2 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors">
-            <Github size={18} />
-          </button> */}
-            {/* <Skiper26/> */}
-
-
-
-            <Show when="signed-out">
-              <SignInButton>
-                <button className="text-[13px] font-medium text-zinc-600 dark:text-zinc-400 px-4 py-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-all">
-                  Log in
-                </button>
-              </SignInButton>
-
-              <SignUpButton>
-                <button className="group text-[13px] font-medium bg-zinc-900 text-white dark:bg-zinc-300 dark:text-zinc-900 px-4 py-1.5 rounded-full flex items-center gap-1.5 hover:opacity-90 transition-all shadow-sm">
-                  Sign up
-                  <ArrowRight
-                    size={14}
-                    className="group-hover:translate-x-0.5 transition-transform"
-                  />
-                </button>
-              </SignUpButton>
-            </Show>
-
-            <Show when="signed-in">
-              <Link
-                href="/docs"
-                className="flex items-center gap-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 px-2 py-1 rounded-md transition-colors"
-              >
-                <BookOpen className="w-3.5 h-3.5" />
-                Docs
-              </Link>
-              <Link
-                href="/agents"
-                className="flex items-center gap-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 px-2 py-1 rounded-md transition-colors"
-              >
-                <KeyRound className="w-3.5 h-3.5" />
-                Agents
-              </Link>
-              <HoverButton
-                onClick={() => router.push("/campaign")}
-                className="!bg-zinc-50 dark:!bg-[#08090a] border-neutral-200 dark:border-neutral-800/80 text-neutral-900 dark:text-neutral-200 rounded-lg shadow-sm h-8 flex items-center justify-center px-3"
-                glowColor="rgba(255, 255, 255, 0.2)"
-                hoverTextColor="white"
-              >
-                <div className="flex gap-2 text-xs py-0.5 items-center">
-                  <HomeIcon className="w-3 h-3" />
-                  <p>Campaigns</p>
-                </div>
-              </HoverButton>
-              <HoverButton
-                onClick={createCampaign}
-                disabled={creating}
-                className="!bg-zinc-50 dark:!bg-[#08090a] border-neutral-200 dark:border-neutral-800/80 text-neutral-900 dark:text-neutral-200 rounded-lg shadow-sm h-8 flex items-center justify-center px-3 disabled:opacity-60"
-                glowColor="rgba(255, 255, 255, 0.2)"
-                hoverTextColor="white"
-              >
-                <div className="flex gap-2 text-xs py-0.5 items-center">
-                  <PlusCircle className="w-3 h-3" />
-                  <p>{creating ? "Creating…" : "New campaign"}</p>
-                </div>
-              </HoverButton>
-              <CreditsPill />
-              <Suspense fallback={null}>
-                <InboxBell />
-              </Suspense>
-              <UserButton />
-            </Show>
+          <div className="hidden md:flex items-center gap-6">
+            {LINKS.map((l) =>
+              l.signedIn ? (
+                <Show key={l.href} when="signed-in">
+                  <NavLink {...l} />
+                </Show>
+              ) : (
+                <NavLink key={l.href} {...l} />
+              ),
+            )}
           </div>
-
-          {/* <header className="flex justify-end items-center p-4 gap-4 h-16">
-                     <Show when="signed-out">
-                       <SignInButton />
-                       <SignUpButton>
-                         <button className="bg-purple-700 text-white rounded-full font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 cursor-pointer">
-                           Sign Up
-                         </button>
-                       </SignUpButton>
-                     </Show>
-                     <Show when="signed-in">
-                       <UserButton />
-                     </Show>
-                   </header> */}
-
-          {/* Mobile Toggle */}
-          <button
-            className="md:hidden p-2 text-zinc-600 dark:text-zinc-400"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          >
-            {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
-          </button>
         </div>
 
-        {/* Mobile Menu */}
-        <AnimatePresence>
-          {mobileMenuOpen && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              className="md:hidden bg-white dark:bg-zinc-950 border-b border-zinc-200 dark:border-zinc-800 overflow-hidden"
+        <div className="hidden md:flex items-center gap-2.5">
+          <Show when="signed-out">
+            <SignInButton>
+              <button className="h-8 px-3 text-[13px] text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors">
+                Log in
+              </button>
+            </SignInButton>
+            <SignUpButton>
+              <button className="group h-8 px-3 text-[13px] font-medium bg-zinc-900 text-white dark:bg-zinc-300 dark:text-zinc-900 rounded-lg flex items-center gap-1.5 hover:opacity-90 transition-opacity">
+                Sign up
+                <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
+              </button>
+            </SignUpButton>
+          </Show>
+          <Show when="signed-in">
+            <OnboardAgent origin={origin} compact />
+            <button
+              type="button"
+              onClick={createCampaign}
+              disabled={creating}
+              className="h-8 px-3 text-[13px] font-medium bg-zinc-900 text-white dark:bg-zinc-300 dark:text-zinc-900 rounded-lg flex items-center gap-1.5 hover:opacity-90 transition-opacity disabled:opacity-60"
             >
-              <div className="flex flex-col p-6 gap-4">
-                {/* {NAV_LINKS.map((link) => (
-                <Link
-                  key={link.name}
-                  href={link.href}
-                  className="text-sm font-medium text-zinc-600 dark:text-zinc-400"
-                  onClick={() => setMobileMenuOpen(false)}
+              {creating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+              New campaign
+            </button>
+            <Suspense fallback={null}>
+              <InboxBell />
+            </Suspense>
+            <AccountMenu />
+            <UsageSheet />
+          </Show>
+        </div>
+
+        <button
+          type="button"
+          aria-label={mobileOpen ? "Close menu" : "Open menu"}
+          className="md:hidden p-2 text-zinc-600 dark:text-zinc-400"
+          onClick={() => setMobileOpen((o) => !o)}
+        >
+          {mobileOpen ? <X size={20} /> : <Menu size={20} />}
+        </button>
+      </nav>
+
+      <AnimatePresence>
+        {mobileOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="md:hidden border-b border-zinc-200 dark:border-zinc-800 overflow-hidden"
+          >
+            <div className="flex flex-col p-4 gap-4">
+              <Show when="signed-in">
+                <NavLink href="/campaign" name="Campaigns" />
+              </Show>
+              <NavLink href="/pricing" name="Pricing" />
+              <NavLink href="/docs" name="Docs" />
+              <Show when="signed-in">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileOpen(false);
+                    usagePanel.open();
+                  }}
+                  className="text-left text-[13px] text-zinc-500"
                 >
-                  {link.name}
-                </Link>
-              ))} */}
-                <Show when="signed-in">
-                  <Link
-                    href="/campaign"
-                    className="flex items-center gap-2 text-sm font-medium text-zinc-600 dark:text-zinc-400"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    <HomeIcon size={16} />
-                    Campaigns
-                  </Link>
+                  Billing and usage
+                </button>
+                <NavLink href="/agents" name="API keys" />
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => {
-                      setMobileMenuOpen(false);
+                      setMobileOpen(false);
                       createCampaign();
                     }}
-                    className="flex items-center gap-2 text-sm font-medium text-zinc-600 dark:text-zinc-400"
+                    className="h-8 px-3 text-[13px] font-medium bg-zinc-900 text-white dark:bg-zinc-300 dark:text-zinc-900 rounded-lg flex items-center gap-1.5"
                   >
-                    <PlusCircle size={16} />
+                    <Plus className="w-3.5 h-3.5" />
                     New campaign
                   </button>
-                  <Link
-                    href="/docs"
-                    className="flex items-center gap-2 text-sm font-medium text-zinc-600 dark:text-zinc-400"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    <BookOpen size={16} />
-                    Docs
-                  </Link>
-                  <Link
-                    href="/billing"
-                    className="flex items-center gap-2 text-sm font-medium text-zinc-600 dark:text-zinc-400"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    <Coins size={16} />
-                    Billing
-                  </Link>
-                </Show>
-                <hr className="border-zinc-200 dark:border-zinc-800" />
-                <div className="flex flex-col gap-3">
-                  <button className="w-full text-center py-2 text-sm font-medium border border-zinc-200 dark:border-zinc-800 rounded-lg">
-                    Log in
-                  </button>
-                  <button className="w-full text-center py-2 text-sm font-medium bg-zinc-900 text-white dark:bg-zinc-300 dark:text-zinc-900 rounded-lg">
-                    Sign up
-                  </button>
+                  <OnboardAgent origin={origin} compact />
                 </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </nav>
+              </Show>
+              <Show when="signed-out">
+                <div className="flex gap-2">
+                  <SignInButton>
+                    <button className="flex-1 h-9 text-[13px] border border-zinc-200 dark:border-zinc-800 rounded-lg">Log in</button>
+                  </SignInButton>
+                  <SignUpButton>
+                    <button className="flex-1 h-9 text-[13px] font-medium bg-zinc-900 text-white dark:bg-zinc-300 dark:text-zinc-900 rounded-lg">
+                      Sign up
+                    </button>
+                  </SignUpButton>
+                </div>
+              </Show>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

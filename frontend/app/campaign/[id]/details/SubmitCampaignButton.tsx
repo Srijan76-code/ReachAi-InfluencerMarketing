@@ -122,7 +122,7 @@ export default function SubmitCampaignButton({ id }: { id: string }) {
     {error && (
       <p role="alert" className="text-[12px] text-rose-500">
         {error}{" "}
-        {error.includes("credit") && <Link href="/billing" className="underline">Billing</Link>}
+        {error.includes("credit") && <Link href="/pricing" className="underline">Get more credits</Link>}
       </p>
     )}
     <button

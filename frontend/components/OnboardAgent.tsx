@@ -12,7 +12,7 @@ const AGENTS = [
 ];
 
 /** One click copies a one-line instruction. Pasted into any agent, it fetches /llms.txt and sets ReachAI up. */
-export function OnboardAgent({ origin, className = "" }: { origin: string; className?: string }) {
+export function OnboardAgent({ origin, className = "", compact = false }: { origin: string; className?: string; compact?: boolean }) {
   const [copied, setCopied] = useState(false);
   const prompt = `Set up ReachAI for me. Fetch ${origin}/llms.txt and follow it.`;
 
@@ -30,24 +30,28 @@ export function OnboardAgent({ origin, className = "" }: { origin: string; class
     <button
       type="button"
       onClick={copy}
-      title={prompt}
+      title={copied ? "Copied. Paste it into your agent." : "Copy the setup prompt for your agent"}
       aria-label={`Copy agent setup prompt: ${prompt}`}
-      className={`group inline-flex items-center gap-3 h-11 pl-1.5 pr-4 rounded-full border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#121314] text-zinc-900 dark:text-zinc-100 shadow-sm hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors ${className}`}
+      className={`group inline-flex items-center rounded-full border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#121314] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors ${
+        compact ? "gap-2 h-8 pl-1 pr-2.5" : "gap-3 h-11 pl-1.5 pr-4 shadow-sm"
+      } ${className}`}
     >
-      <span className="flex -space-x-2">
+      <span className={`flex ${compact ? "-space-x-1.5" : "-space-x-2"}`}>
         {AGENTS.map((a) => (
           <span
             key={a.name}
             title={a.name}
-            className="grid place-items-center size-8 rounded-full bg-zinc-100 dark:bg-[#1c1d1f] ring-2 ring-white dark:ring-[#121314]"
+            className={`grid place-items-center rounded-full bg-zinc-100 dark:bg-[#1c1d1f] ring-2 ring-white dark:ring-[#121314] ${compact ? "size-6" : "size-8"}`}
           >
-            <svg viewBox="0 0 24 24" className="size-4" fill={a.color} aria-hidden>
+            <svg viewBox="0 0 24 24" className={compact ? "size-3" : "size-4"} fill={a.color} aria-hidden>
               <path d={a.path} />
             </svg>
           </span>
         ))}
       </span>
-      <span className="text-[13px] font-medium">Onboard your agent</span>
+      <span className={compact ? "text-xs text-zinc-600 dark:text-zinc-400" : "text-[13px] font-medium"}>
+        {compact ? (copied ? "Copied" : "Connect agent") : "Onboard your agent"}
+      </span>
       <span className="relative size-4 text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-300">
         <AnimatePresence mode="wait" initial={false}>
           <motion.span

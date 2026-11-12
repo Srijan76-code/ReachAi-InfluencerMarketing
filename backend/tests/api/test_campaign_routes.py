@@ -295,6 +295,11 @@ async def test_checkout_and_portal_routes(client, monkeypatch):
     assert (await client.post("/api/billing/checkout", json={"item": "pack_10"})).status_code == 503
     assert (await client.get("/api/billing/balance")).json()["payments"] is False
     monkeypatch.setenv("DODO_PAYMENTS_API_KEY", "test-key")
+    monkeypatch.delenv("DODO_TEST_USERS", raising=False)
+    assert (await client.post("/api/billing/checkout", json={"item": "pack_10"})).status_code == 503  # test mode, not allowed
+    assert (await client.get("/api/billing/balance")).json()["payments"] is False
+    monkeypatch.setenv("DODO_TEST_USERS", "someone-else, clerk-1")
+    assert (await client.get("/api/billing/balance")).json()["payments"] is True
     calls = []
 
     async def fake_checkout(product_id, **kw):
@@ -310,7 +315,7 @@ async def test_checkout_and_portal_routes(client, monkeypatch):
     assert resp.json() == {"checkout_url": "https://test.checkout.dodopayments.com/session/cks_x", "mode": "test"}
     pid, kw = calls[0]
     assert pid == dodo.TEST_PRODUCT_IDS["solo_monthly"] and kw["user_id"] == "u1" and kw["item"] == "solo_monthly"
-    assert kw["email"] == "f@example.com" and kw["return_url"].endswith("/billing?checkout=done")
+    assert kw["email"] == "f@example.com" and kw["return_url"].endswith("/pricing?checkout=done")
     assert (await client.post("/api/billing/portal")).status_code == 404  # no paid plan yet
 
     # now on Solo through Dodo: buying Pro changes the plan instead of a second subscription

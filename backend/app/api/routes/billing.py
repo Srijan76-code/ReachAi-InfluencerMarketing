@@ -28,7 +28,7 @@ webhook_router = APIRouter()  # no sign-in: Dodo calls it, the signature proves 
 async def balance(user: User = Depends(get_db_user), db: AsyncSession = Depends(get_db)):
     data = await ledger.summary(db, user.user_id)
     await db.commit()  # first read creates the Free plan and welcome credits
-    data["payments"] = bool(dodo.api_key() and dodo.product_ids())
+    data["payments"] = bool(dodo.api_key() and dodo.product_ids() and dodo.can_buy(user.clerk_id))
     return data
 
 
@@ -94,8 +94,8 @@ async def checkout(body: CheckoutIn, request: Request, user: User = Depends(get_
     if spec is None:
         raise HTTPException(400, "Unknown item")
     product_id = dodo.product_ids().get(body.item)
-    if not dodo.api_key() or not product_id:
-        raise HTTPException(503, "Payments aren't set up yet")
+    if not dodo.api_key() or not product_id or not dodo.can_buy(user.clerk_id):
+        raise HTTPException(503, "Payments aren't open yet")
     sub = await ledger.ensure_account(db, user.user_id)
     await db.commit()
     paid_active = sub.plan != C.DEFAULT_PLAN and sub.status in ("active", "past_due") and sub.provider_subscription_id
@@ -109,7 +109,7 @@ async def checkout(body: CheckoutIn, request: Request, user: User = Depends(get_
         email, name = (None, None) if sub.provider_customer_id else await _clerk_contact(user.clerk_id)
         url = await dodo.create_checkout(
             product_id, user_id=user.user_id, item=body.item,
-            return_url=f"{_app_url(request)}/billing?checkout=done",
+            return_url=f"{_app_url(request)}/pricing?checkout=done",
             customer_id=sub.provider_customer_id, email=email, name=name,
         )
     except dodo.DodoError as err:
@@ -126,7 +126,7 @@ async def portal(request: Request, user: User = Depends(get_db_user), db: AsyncS
     if not sub.provider_customer_id:
         raise HTTPException(404, "No paid plan yet")
     try:
-        return {"url": await dodo.portal_link(sub.provider_customer_id, f"{_app_url(request)}/billing")}
+        return {"url": await dodo.portal_link(sub.provider_customer_id, f"{_app_url(request)}/pricing")}
     except dodo.DodoError as err:
         logger.error("Dodo portal failed for %s: %s", user.user_id, err)
         raise HTTPException(502, "Couldn't open billing settings. Try again in a minute.") from err

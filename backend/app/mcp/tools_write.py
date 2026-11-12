@@ -198,7 +198,7 @@ def register_write_tools(server: MCPServer) -> None:
             if balance < q.credits:
                 raise ToolError(
                     f"Not enough credits: this search costs {cost} and the founder has {balance}. "
-                    f"Credits reset on {account['resets_at'][:10]}. More credits: {fmt.app_link('/billing')}"
+                    f"Credits reset on {account['resets_at'][:10]}. More credits: {fmt.app_link('/pricing')}"
                 )
             if not confirm:
                 kind = "Find more (re-run)" if q.find_more else "Search"
@@ -244,7 +244,7 @@ def register_write_tools(server: MCPServer) -> None:
             f"**{account['balance']} credits** on the {account['plan'].title()} plan "
             f"({account['monthly_credits']} a month, next reset {account['resets_at'][:10]}).\n"
             f"A search costs: {costs}. Outreach, drafts, negotiation and tracking are free.\n"
-            f"Billing: {fmt.app_link('/billing')}"
+            f"Pricing: {fmt.app_link('/pricing')}"
         )
         return fmt.result(text, account)
 

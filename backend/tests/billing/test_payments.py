@@ -195,3 +195,17 @@ async def test_subscription_payment_is_recorded_without_granting_pack_credits(db
 
 def _aware(dt):
     return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
+async def test_checkout_session_is_single_page_with_our_metadata(monkeypatch):
+    sent = {}
+
+    async def fake_call(method, path, *, json_body=None, params=None):
+        sent.update(method=method, path=path, body=json_body)
+        return {"checkout_url": "https://test.checkout.dodopayments.com/session/cks_1"}
+    monkeypatch.setattr(dodo, "_call", fake_call)
+    url = await dodo.create_checkout("pdt_1", user_id="u1", item="pack_10", return_url="https://app/pricing", email="f@x.com")
+    assert url.endswith("cks_1") and sent["path"] == "/checkouts"
+    body = sent["body"]
+    assert body["feature_flags"] == {"single_page": True} and body["minimal_address"] is True
+    assert body["metadata"] == {"user_id": "u1", "item": "pack_10"} and body["customer"] == {"email": "f@x.com"}
