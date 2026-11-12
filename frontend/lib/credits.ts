@@ -12,6 +12,10 @@ export type Credits = {
   monthly_credits: number;
   resets_at: string;
   search_credits: Record<string, number>;
+  status?: "active" | "past_due" | "cancelled";
+  cancel_at_period_end?: boolean;
+  can_manage?: boolean;
+  payments?: boolean;
 };
 
 export type Quote = { credits: number; platforms: string[]; find_more: boolean; balance: number; enough: boolean };

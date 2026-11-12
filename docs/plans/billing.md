@@ -15,7 +15,7 @@ Live task state for coding agents. Design: `docs/TECHNICAL_SPEC.md` §5. Roadmap
 ## Build order (one PR each)
 1. **F2.1 credits** (`billing-credits`, done Nov 12, with the F2.3 pill, billing page and cost line): tables + migration, `app/billing/constants.py`, ledger (reserve/commit/release/refund, bucket order monthly → rollover → pack/bonus), lazy monthly grants with rollover, welcome credits, guarantee, reservation sweeper (Inngest), `/api/billing/balance`, cost check in `campaign_runs.start_run` (web + MCP), MCP `credits` tool and cost in `start_search`. Existing users get the Free plan + welcome credits. No money yet.
 2. **F2.3 rest** (with F2.2): buy buttons, public `/pricing` page.
-3. **F2.2 Dodo** (`dodo-payments`): products, checkout, webhooks (signature + `billing_events` idempotency), portal, past-due grace. Test mode only.
+3. **F2.2 Dodo** (`dodo-payments`, built Nov 12): test products made via API (ids in `dodo.py`), overlay checkout, change-plan, portal, webhooks (signature + `billing_events` idempotency), past-due grace. Monthly plans + packs. Test mode only.
 4. **F2.4 referrals** (`referrals`).
 5. **F2.5 go live (user):** domain, Clerk production, Dodo verification, CA, refund policy; then `DODO_ENV=live`.
 
@@ -27,6 +27,8 @@ Live task state for coding agents. Design: `docs/TECHNICAL_SPEC.md` §5. Roadmap
 - MCP `start_search` without `confirm` shows the cost and starts nothing.
 
 ## User actions
-- [ ] Create a Dodo Payments account (test mode is enough to build); add `DODO_API_KEY` and `DODO_WEBHOOK_SECRET` in Vercel yourself (never paste keys in chat).
+- [x] Dodo test account (Nov 12); test key saved as a session network secret for building.
+- [ ] Vercel env: `DODO_PAYMENTS_API_KEY` (test key) and `DODO_PAYMENTS_WEBHOOK_KEY` (from the webhook endpoint); add the endpoint `https://<host>/api/webhooks/dodo` in Dodo with the subscription, payment and refund events.
+- [ ] Dodo dashboard: business display name "ReachAI" (checkout shows "reach-ai").
 - [ ] Submit the YouTube quota form (`docs/plans/youtube-quota.md`).
 - [ ] Domain, then CA on GST/LUT before live payments.

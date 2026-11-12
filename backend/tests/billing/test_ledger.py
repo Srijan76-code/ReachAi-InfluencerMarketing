@@ -122,20 +122,21 @@ async def test_free_month_expires_and_regrants_without_rollover(db):
     assert await balance(db) == {"monthly": 3, "rollover": 0, "bonus": 5, "pack": 0}
 
 
-async def test_paid_plan_rolls_unused_credits_over_for_one_month(db):
+async def test_paid_plan_without_a_renewal_falls_back_to_free(db):
     async with db() as s:
         await ledger.ensure_account(s, "u1", NOV)
         sub = await s.get(Subscription, "u1")
-        sub.plan = "solo"
+        sub.plan = "solo"  # set by hand: no payment provider will renew it
         await s.commit()
-    async with db() as s:  # December: Nov's 3 unused monthly credits roll over, 25 new
+    async with db() as s:  # December, inside the grace period: waits for the renewal
         await ledger.ensure_account(s, "u1", DEC)
         await s.commit()
-    assert await balance(db) == {"monthly": 25, "rollover": 3, "bonus": 5, "pack": 0}
-    async with db() as s:  # February, after a gap: old rollover expires, no rollover across the gap
+        assert (await s.get(Subscription, "u1")).plan == "solo"
+    async with db() as s:  # February: lapsed, back on Free with a fresh month
         await ledger.ensure_account(s, "u1", FEB)
         await s.commit()
-    assert await balance(db) == {"monthly": 25, "rollover": 0, "bonus": 5, "pack": 0}
+        assert (await s.get(Subscription, "u1")).plan == "free"
+    assert await balance(db) == {"monthly": 3, "rollover": 0, "bonus": 5, "pack": 0}
 
 
 async def test_users_never_touch_each_others_credits(db):

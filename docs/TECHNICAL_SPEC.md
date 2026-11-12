@@ -153,7 +153,7 @@ X_PROVIDER=twitterapi|official, X_PROVIDER_API_KEY, X_OFFICIAL_BEARER
 APIFY_TOKEN
 UNIPILE_DSN, UNIPILE_API_KEY
 EMAIL_VERIFIER_API_KEY
-DODO_API_KEY, DODO_WEBHOOK_SECRET, DODO_ENV=test|live
+DODO_PAYMENTS_API_KEY, DODO_PAYMENTS_WEBHOOK_KEY, DODO_PAYMENTS_ENVIRONMENT=test_mode|live_mode, DODO_PRODUCT_IDS (JSON, live only)
 ```
 
 ---
@@ -542,9 +542,10 @@ credit_reservations(reservation_id PK, user_id, amount, ref_type, ref_id,
 subscriptions(subscription_id PK, user_id UNIQUE, plan [free, solo, pro], interval [month, year],
               currency, status [active, past_due, cancelled], provider, provider_subscription_id,
               current_period_start, current_period_end, cancel_at_period_end)
-payments(payment_id PK, user_id, provider, provider_payment_id UNIQUE, kind [subscription, pack],
-              amount_minor, currency, status, created_at)
-billing_events(event_id PK = provider webhook id, type, received_at, processed_at)  -- idempotency
+payments(payment_id PK = provider id, user_id, provider, kind [subscription, pack], item,
+              amount_minor, currency, status [succeeded, refunded], created_at)
+billing_events(event_id PK = provider webhook id, type, user_id, received_at)  -- idempotency
+-- subscriptions also stores provider_customer_id (for the portal and to match webhooks)
 referrals(code PK, owner_user_id, referred_user_id UNIQUE NULL, granted_at)
 ```
 **Run flow:**
@@ -569,7 +570,8 @@ Daily caps per user (`MAX_SEARCHES_PER_DAY`) and the existing MCP cap still appl
   - cancelled → `cancel_at_period_end`; Free from the next period
   - refund/chargeback → `adjust` the unspent part
 - **Customer portal** (Dodo-hosted) for invoices, card changes and cancelling.
-- Env: `DODO_API_KEY`, `DODO_WEBHOOK_SECRET`, `DODO_ENV=test|live`. Test mode until the business checks pass.
+- Env: `DODO_PAYMENTS_API_KEY`, `DODO_PAYMENTS_WEBHOOK_KEY`, `DODO_PAYMENTS_ENVIRONMENT=test_mode|live_mode`, `DODO_PRODUCT_IDS` (JSON item → product id; test-mode ids are in `dodo.py`). Test mode until the business checks pass.
+- **Built (Nov 12):** overlay checkout (`dodopayments-checkout`, `manualRedirect`, the page polls the balance until the webhook lands); plan changes on an existing subscription go through `change-plan` (upgrade: prorated now, keep the old plan if the charge fails, the difference in credits is added at once; downgrade: from the next billing date, no charge); paid periods follow Dodo's billing dates and a paid plan with no renewal falls back to Free after `RENEWAL_GRACE` (3 days); unused credits roll over (up to the old plan's month) when a paid period renews straight into the next; a refunded pack takes back its unspent credits. Monthly plans only; annual plans are a follow-up.
 - **Compliance before going live:** CA confirms GST treatment (export of services via the merchant of record, LUT) and income tax; own domain for the business check; refund policy page.
 
 ### 5.5 Frontend

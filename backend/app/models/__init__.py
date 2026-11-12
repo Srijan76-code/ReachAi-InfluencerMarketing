@@ -11,4 +11,4 @@ from .discovery_run import RunStrategy, RunCandidate
 from .share_link import ShareEvent, ShareFeedback, ShareLink
 from .deal import AgentProposal, ConnectedAccount, CreatorDeal, DealEvent
 from .agent_run import AgentRun
-from .billing import CreditEntry, CreditReservation, Subscription
+from .billing import BillingEvent, CreditEntry, CreditReservation, Payment, Subscription

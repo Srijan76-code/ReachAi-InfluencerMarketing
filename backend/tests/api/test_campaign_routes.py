@@ -35,7 +35,7 @@ async def client(tmp_path, monkeypatch):
     from tests.discovery.conftest import create_tables, make_engine
 
     engine, is_pg = make_engine(tmp_path)
-    await create_tables(engine, is_pg, ["users", "campaigns", "saved_leads", "run_candidates", "share_links", "share_feedback", "creator_deals", "deal_events", "share_events", "agent_proposals", "connected_accounts", "deal_posts", "tracking_links", "link_clicks", "outreach_jobs", "outreach_pitches", "post_stats", "conversions", "credit_ledger", "credit_reservations", "subscriptions"])
+    await create_tables(engine, is_pg, ["users", "campaigns", "saved_leads", "run_candidates", "share_links", "share_feedback", "creator_deals", "deal_events", "share_events", "agent_proposals", "connected_accounts", "deal_posts", "tracking_links", "link_clicks", "outreach_jobs", "outreach_pitches", "post_stats", "conversions", "credit_ledger", "credit_reservations", "subscriptions", "payments", "billing_events"])
     sf = sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
     async with sf() as s:
         s.add_all([User(user_id="u1", clerk_id="clerk-1"), User(user_id="u2", clerk_id="clerk-2")])
@@ -239,6 +239,107 @@ async def test_search_spends_a_credit_and_is_refused_when_out_of_credits(client,
     assert resp.status_code == 402 and resp.json()["detail"]["code"] == "not_enough_credits"
     history = (await client.get("/api/billing/history")).json()["entries"]
     assert any(e["reason"] == "grant_welcome" for e in history)
+
+
+@needs_pg
+@pytest.mark.asyncio
+async def test_dodo_webhook_route_checks_signature_and_skips_repeats(client, monkeypatch):
+    import base64
+    import json as _json
+    import time as _time
+    from app.billing import dodo
+
+    secret = "whsec_" + base64.b64encode(b"route-test-secret-0123456789abcd").decode()
+    event = {"business_id": "bus_1", "type": "payment.succeeded", "timestamp": "2026-11-12T10:00:00Z",
+             "data": {"payload_type": "Payment", "payment_id": "pay_r1", "subscription_id": None, "total_amount": 800,
+                      "currency": "USD", "metadata": {"user_id": "u1", "item": "pack_10"}}}
+    body = _json.dumps(event).encode()
+
+    def signed(msg_id):
+        stamp = int(_time.time())
+        return {"webhook-id": msg_id, "webhook-timestamp": str(stamp), "content-type": "application/json",
+                "webhook-signature": dodo.sign_for_tests(body, msg_id, stamp, secret)}
+
+    monkeypatch.delenv("DODO_PAYMENTS_WEBHOOK_KEY", raising=False)
+    assert (await client.post("/api/webhooks/dodo", content=body, headers=signed("m1"))).status_code == 503
+    monkeypatch.setenv("DODO_PAYMENTS_WEBHOOK_KEY", secret)
+    bad = signed("m1")
+    bad["webhook-signature"] = "v1,AAAA"
+    assert (await client.post("/api/webhooks/dodo", content=body, headers=bad)).status_code == 401
+    ok = await client.post("/api/webhooks/dodo", content=body, headers=signed("m1"))
+    assert ok.status_code == 200 and ok.json() == {"received": True}
+    again = await client.post("/api/webhooks/dodo", content=body, headers=signed("m1"))
+    assert again.json()["duplicate"] is True
+    assert (await client.post("/api/webhooks/dodo", content=body, headers=signed("m2"))).status_code == 200  # new id, same payment
+    balance = (await client.get("/api/billing/balance")).json()
+    assert balance["buckets"]["pack"] == 10  # granted once
+
+    from app.billing import webhooks
+
+    async def boom(*a, **k):
+        raise RuntimeError("db down")
+    monkeypatch.setattr(webhooks, "handle", boom)
+    assert (await client.post("/api/webhooks/dodo", content=body, headers=signed("m3"))).status_code == 500
+    monkeypatch.undo()
+    monkeypatch.setenv("DODO_PAYMENTS_WEBHOOK_KEY", secret)
+    assert (await client.post("/api/webhooks/dodo", content=body, headers=signed("m3"))).json() == {"received": True}  # retried
+
+
+@needs_pg
+@pytest.mark.asyncio
+async def test_checkout_and_portal_routes(client, monkeypatch):
+    from app.billing import dodo
+    from app.api.routes import billing as routes
+
+    monkeypatch.delenv("DODO_PAYMENTS_API_KEY", raising=False)
+    assert (await client.post("/api/billing/checkout", json={"item": "pack_10"})).status_code == 503
+    assert (await client.get("/api/billing/balance")).json()["payments"] is False
+    monkeypatch.setenv("DODO_PAYMENTS_API_KEY", "test-key")
+    calls = []
+
+    async def fake_checkout(product_id, **kw):
+        calls.append((product_id, kw))
+        return "https://test.checkout.dodopayments.com/session/cks_x"
+
+    async def fake_contact(clerk_id):
+        return "f@example.com", "Founder"
+    monkeypatch.setattr(dodo, "create_checkout", fake_checkout)
+    monkeypatch.setattr(routes, "_clerk_contact", fake_contact)
+    assert (await client.post("/api/billing/checkout", json={"item": "gold"})).status_code == 400
+    resp = await client.post("/api/billing/checkout", json={"item": "solo_monthly"})
+    assert resp.json() == {"checkout_url": "https://test.checkout.dodopayments.com/session/cks_x", "mode": "test"}
+    pid, kw = calls[0]
+    assert pid == dodo.TEST_PRODUCT_IDS["solo_monthly"] and kw["user_id"] == "u1" and kw["item"] == "solo_monthly"
+    assert kw["email"] == "f@example.com" and kw["return_url"].endswith("/billing?checkout=done")
+    assert (await client.post("/api/billing/portal")).status_code == 404  # no paid plan yet
+
+    # now on Solo through Dodo: buying Pro changes the plan instead of a second subscription
+    from app.auth import user as auth
+    from app.models.billing import Subscription
+    async with auth.AsyncSessionLocal() as s:
+        sub = await s.get(Subscription, "u1")
+        sub.plan, sub.provider_subscription_id, sub.provider_customer_id = "solo", "sub_1", "cus_1"
+        await s.commit()
+    changes = []
+
+    async def fake_change(sub_id, product_id, upgrade):
+        changes.append((sub_id, product_id, upgrade))
+
+    async def fake_portal(customer_id, return_url):
+        return f"https://portal.test/{customer_id}"
+    monkeypatch.setattr(dodo, "change_plan", fake_change)
+    monkeypatch.setattr(dodo, "portal_link", fake_portal)
+    assert (await client.post("/api/billing/checkout", json={"item": "solo_monthly"})).status_code == 409
+    up = (await client.post("/api/billing/checkout", json={"item": "pro_monthly"})).json()
+    assert up == {"changed": True, "effective": "now", "plan": "pro"} and changes[-1] == ("sub_1", dodo.TEST_PRODUCT_IDS["pro_monthly"], True)
+    pack = await client.post("/api/billing/checkout", json={"item": "pack_30"})
+    assert pack.status_code == 200 and calls[-1][1]["customer_id"] == "cus_1"  # packs still use checkout
+    assert (await client.post("/api/billing/portal")).json() == {"url": "https://portal.test/cus_1"}
+
+    async def failing(*a, **k):
+        raise dodo.DodoError("HTTP 500")
+    monkeypatch.setattr(dodo, "create_checkout", failing)
+    assert (await client.post("/api/billing/checkout", json={"item": "pack_10"})).status_code == 502
 
 
 def test_name_from_brief():
