@@ -5,8 +5,8 @@ export const metadata: Metadata = { title: "Terms of service · ReachAI" };
 
 export default function Terms() {
   return (
-    <LegalPage title="Terms of service" updated="November 5, 2026">
-      <p>By using ReachAI you agree to these terms.</p>
+    <LegalPage title="Terms of service" updated="November 12, 2026">
+      <p>By using ReachAI you agree to these terms. ReachAI uses YouTube API Services, so by using it you also agree to the <a href="https://www.youtube.com/t/terms">YouTube Terms of Service</a>.</p>
       <h2>The service</h2>
       <p>ReachAI suggests creators, fair prices and messages. Suggestions are estimates; you decide what to send, agree and pay. ReachAI doesn&apos;t move money: you pay creators directly.</p>
       <h2>Your responsibilities</h2>

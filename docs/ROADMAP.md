@@ -91,10 +91,12 @@ Known gaps in what's built:
 ## Phase 2: Billing · §5
 | ID | Feature | Status | Spec | Main files |
 |---|---|---|---|---|
-| F2.1 | Credits ledger + reservations (reserve → commit/release) | later | §5.2 | `app/billing/ledger.py` |
-| F2.2 | Plans + credit costs per action | later | §5.1 | `app/billing/plans.py` |
-| F2.3 | Cashfree subscriptions, top-ups, webhooks | later | §5.3 | `app/billing/cashfree.py`, `/webhooks/cashfree` |
-| F2.4 | Billing page + credits pill | later | §5.3 | `frontend/app/billing`, `Header.tsx` |
+| F2.1 | Credits ledger, reservations, monthly grants with rollover, welcome credits, refund guarantee, costs per platform; cost shown before every search (web + MCP) | next | §5.1–5.3 | `app/billing/` (ledger, constants, grants), migration, `campaign_runs.py`, `app/mcp/tools_write.py` |
+| F2.2 | Dodo Payments: products (USD + INR), checkout, signed idempotent webhooks, customer portal; test mode until business checks pass | next | §5.4 | `app/billing/dodo.py`, `/api/webhooks/dodo` |
+| F2.3 | Billing page, credits pill, inline "buy credits", public pricing page + docs | next | §5.5 | `frontend/app/billing`, `frontend/app/pricing`, `Header.tsx`, `content/docs/pricing.mdx` |
+| F2.4 | Referrals (10 credits each, after the new user's first search; abuse limits) | next | §5.2 | `app/billing/referrals.py` |
+| F2.5 | Before charging real money: own domain, Clerk production instance, Dodo business verification, CA on GST/LUT, refund policy page | next (user) | §5.4 | — |
+| F2.6 | YouTube API quota increase (audit form). Prep: `docs/plans/youtube-quota.md` | next (user submits) | §12 | — |
 
 ## Phases 3–5: New platforms · §6
 | ID | Feature | Status | Spec |
