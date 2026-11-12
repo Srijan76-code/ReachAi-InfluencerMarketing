@@ -49,7 +49,27 @@ async def test_start_search_needs_confirmation_first(client, db, queued):
     preview = (await call_tool(client, token, "start_search", campaign_id="c3"))
     assert preview["structuredContent"]["started"] is False and preview["structuredContent"]["confirm_required"] is True
     assert "confirm=true" in preview["content"][0]["text"]
+    assert preview["structuredContent"]["credits"] == 1 and preview["structuredContent"]["balance"] == 8
+    assert "1 credit" in preview["content"][0]["text"]
     assert queued == [] and await rows(db, AgentRun) == []
+
+
+async def test_search_spends_credits_and_is_refused_without_them(client, db, queued):
+    from app.billing import ledger
+
+    token = await make_key(db)
+    result = await call_tool(client, token, "start_search", campaign_id="c3", confirm=True)
+    assert result["structuredContent"]["started"] is True and "1 credit used" in result["content"][0]["text"]
+    credits = await call_tool(client, token, "credits")
+    assert credits["structuredContent"]["balance"] == 7 and "7 credits" in credits["content"][0]["text"]
+    async with db() as s:
+        await ledger.adjust(s, "u1", -5, "test", "t1")
+        from app.models.billing import CreditEntry
+        s.add(CreditEntry(user_id="u1", delta=-2, bucket="monthly", reason="adjust", ref_type="admin", ref_id="t2"))
+        await s.commit()
+    out = await call_tool(client, token, "start_search", campaign_id="c1")
+    assert out["isError"] is True and "Not enough credits" in out["content"][0]["text"]
+    assert len(queued) == 1
 
 
 async def test_confirmed_search_is_queued_counted_and_marks_the_campaign_running(client, db, queued):

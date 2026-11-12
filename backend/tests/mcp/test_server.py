@@ -33,7 +33,7 @@ async def test_api_key_lists_all_tools(client, db):
     tools = {t["name"]: t for t in resp.json()["result"]["tools"]}
     assert set(tools) == {
         "list_campaigns", "get_campaign", "campaign_status", "list_creators",
-        "get_creator", "list_saved", "save_creator", "unsave_creator",
+        "get_creator", "list_saved", "save_creator", "unsave_creator", "credits",
         "create_campaign", "start_search", "pitch_context", "save_draft",
         "inbox", "list_deals", "track_summary",
     }

@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 WARM_CRON = "*/5 * * * *"
 from app.gmail import constants as GMAIL  # noqa: E402
 from app.tracking import constants as TRACK  # noqa: E402
+from app.billing import constants as BILLING  # noqa: E402
 
 async def _campaign_run_failed(ctx: inngest.Context):
     """Runs once, after the last retry of run_campaign: mark the campaign failed."""
@@ -138,6 +139,23 @@ async def sync_gmail_replies(ctx: inngest.Context):
             )).scalars())
             total += await sync_deals(db, a, deals, user_id=a.user_id)
     return {"accounts": len(accounts), "new_replies": total}
+
+
+@inngest_client.create_function(
+    fn_id="release_stale_credits",
+    trigger=inngest.TriggerCron(cron=BILLING.RELEASE_CRON),
+    concurrency=[inngest.Concurrency(limit=1)],
+    retries=1,
+)
+async def release_stale_credits(ctx: inngest.Context):
+    """Hourly: give back credits held by searches that never finished (spec §5.3)."""
+    from app.billing import ledger
+    from app.db.database import AsyncSessionLocal
+
+    async with AsyncSessionLocal() as db:
+        released = await ledger.release_expired(db)
+        await db.commit()
+    return {"released": released}
 
 
 @inngest_client.create_function(

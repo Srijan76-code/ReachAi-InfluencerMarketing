@@ -19,7 +19,7 @@ Full designs are in `docs/TECHNICAL_SPEC.md` (linked as §). Agents: update this
 
 Known gaps in what's built:
 - Email and socials are taken from the first regex match (spec §7, table at the top).
-- `users.credits` and `Transaction` are unused.
+- `users.credits` and `Transaction` are unused (the credits ledger replaced them, F2.1); drop them in a later migration.
 - Models are hard-coded to Gemini.
 - The YouTube quota caps us at ~10 runs/day.
 
@@ -91,9 +91,9 @@ Known gaps in what's built:
 ## Phase 2: Billing · §5
 | ID | Feature | Status | Spec | Main files |
 |---|---|---|---|---|
-| F2.1 | Credits ledger, reservations, monthly grants with rollover, welcome credits, refund guarantee, costs per platform; cost shown before every search (web + MCP) | next | §5.1–5.3 | `app/billing/` (ledger, constants, grants), migration, `campaign_runs.py`, `app/mcp/tools_write.py` |
+| F2.1 | Credits ledger, reservations, monthly grants with rollover, welcome credits, refund guarantee, costs per platform; cost shown before every search (web + MCP) | done (`billing-credits`) | §5.1–5.3 | `app/billing/` (`ledger.py`, `constants.py`), `app/models/billing.py`, migration `1930627d17d9`, `app/api/routes/billing.py`, `campaign_runs.py`, `discovery/runtime.py` (settle/release), Inngest `release_stale_credits`, MCP `credits` tool, `tests/billing/` |
 | F2.2 | Dodo Payments: products (USD + INR), checkout, signed idempotent webhooks, customer portal; test mode until business checks pass | next | §5.4 | `app/billing/dodo.py`, `/api/webhooks/dodo` |
-| F2.3 | Billing page, credits pill, inline "buy credits", public pricing page + docs | next | §5.5 | `frontend/app/billing`, `frontend/app/pricing`, `Header.tsx`, `content/docs/pricing.mdx` |
+| F2.3 | Billing page, credits pill, inline "buy credits", public pricing page + docs. Done in `billing-credits`: credits pill, `/billing` (balance, cost per search, plans marked coming soon, history), cost line under Find creators, credit errors on start/retry, docs `pricing.mdx`. Left: buy buttons (need F2.2), public `/pricing` page | in progress | §5.5 | `frontend/app/billing`, `frontend/app/pricing`, `Header.tsx`, `content/docs/pricing.mdx` |
 | F2.4 | Referrals (10 credits each, after the new user's first search; abuse limits) | next | §5.2 | `app/billing/referrals.py` |
 | F2.5 | Before charging real money: own domain, Clerk production instance, Dodo business verification, CA on GST/LUT, refund policy page | next (user) | §5.4 | — |
 | F2.6 | YouTube API quota increase (audit form). Prep: `docs/plans/youtube-quota.md` | next (user submits) | §12 | — |

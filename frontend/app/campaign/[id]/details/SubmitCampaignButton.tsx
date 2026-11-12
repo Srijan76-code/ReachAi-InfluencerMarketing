@@ -1,12 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import { Loader2, Sparkles } from "lucide-react";
 import { useCampaignStore, CampaignState } from "@/store/campaignStore";
 import { countryCode, languagesFor } from "@/lib/countries";
 import { stepToSubscribers } from "@/lib/creatorSize";
+import { useApi } from "@/lib/api";
+import { creditErrorText, creditsStore, plural, type Quote } from "@/lib/credits";
 
 const businessModelMap: Record<string, string> = { "1": "b2b", "2": "b2c", "3": "d2c" };
 const priceRangeMap: Record<string, string> = { "1": "low_ticket", "2": "mid_ticket", "3": "high_ticket" };
@@ -61,6 +64,14 @@ export default function SubmitCampaignButton({ id }: { id: string }) {
   const { getToken } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [quote, setQuote] = useState<Quote | null>(null);
+  const api = useApi();
+
+  useEffect(() => {
+    api(`/api/billing/quote/${id}`)
+      .then((r) => setQuote(r.data as Quote))
+      .catch(() => setQuote(null));
+  }, [api, id]);
 
   const handleSubmit = async () => {
     if (isSubmitting) return;
@@ -72,11 +83,6 @@ export default function SubmitCampaignButton({ id }: { id: string }) {
     setError(null);
     const finalPayload = transformPayload(store);
     setIsSubmitting(true);
-    store.setField("isGenerating", true);
-    store.setField("finalInfluencers", null);
-    store.setField("currentStage", "Starting LangGraph agent...");
-    store.setField("stageIndex", "0/9");
-    router.push(`/campaign/${id}/leads`);
 
     try {
       const token = await getToken();
@@ -91,10 +97,21 @@ export default function SubmitCampaignButton({ id }: { id: string }) {
           body: JSON.stringify(finalPayload),
         },
       );
-      if (!response.ok) throw new Error("Unable to enqueue campaign workflow");
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        const credit = creditErrorText(body?.detail);
+        setIsSubmitting(false);
+        setError(credit ?? "Couldn't start the search. Please try again.");
+        return;
+      }
+      creditsStore.refresh();
+      store.setField("isGenerating", true);
+      store.setField("finalInfluencers", null);
+      store.setField("currentStage", "Starting");
+      store.setField("stageIndex", "0/9");
+      router.push(`/campaign/${id}/leads`);
     } catch (error) {
       console.error("Error submitting campaign to backend:", error);
-      store.setField("isGenerating", false);
       setIsSubmitting(false);
       setError("Couldn't start the search. Please try again.");
     }
@@ -102,25 +119,35 @@ export default function SubmitCampaignButton({ id }: { id: string }) {
 
   return (
     <div className="space-y-2">
-    {error && <p role="alert" className="text-[12px] text-rose-500">{error}</p>}
+    {error && (
+      <p role="alert" className="text-[12px] text-rose-500">
+        {error}{" "}
+        {error.includes("credit") && <Link href="/billing" className="underline">Billing</Link>}
+      </p>
+    )}
     <button
       type="button"
       onClick={handleSubmit}
       disabled={isSubmitting}
-      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-[13px] font-medium bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 rounded-lg hover:bg-zinc-800 dark:hover:bg-zinc-100 transition-colors disabled:opacity-50 shadow-sm"
+      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-[13px] font-medium bg-zinc-900 text-white dark:bg-zinc-300 dark:text-zinc-900 rounded-lg hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors disabled:opacity-50 shadow-sm"
     >
       {isSubmitting ? (
         <>
           <Loader2 size={14} className="animate-spin" />
-          Starting campaign...
+          Starting…
         </>
       ) : (
         <>
           <Sparkles size={14} />
-          Find Creators
+          Find creators
         </>
       )}
     </button>
+    {quote && (
+      <p className={`text-center text-[11px] ${quote.enough ? "text-zinc-500" : "text-amber-600 dark:text-amber-400"}`}>
+        {quote.find_more ? "Run again" : "Search"} · {plural(quote.credits)} · you have {quote.balance}
+      </p>
+    )}
     </div>
   );
 }

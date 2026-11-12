@@ -16,6 +16,7 @@ from app.models.campaign import Campaign, CampaignStatus
 from app.auth.user import get_db_user
 from app.inngest.client import inngest_client
 from app.api.campaign_runs import EnqueueError, start_run
+from app.billing import ledger
 from app.api.campaign_names import EMPTY_DRAFT_HIDDEN_AFTER_DAYS, DEFAULT_NAME, clean_name, is_default, name_from_brief
 from pydantic import BaseModel
 import inngest
@@ -190,6 +191,13 @@ async def generate_campaign(
     details = campaign_details if campaign_details is not None else (campaign.campaign_details or {})
     try:
         return await start_run(db, campaign, details, user.clerk_id)
+    except ledger.NotEnoughCredits as err:
+        await db.rollback()
+        raise HTTPException(402, {"code": "not_enough_credits", "message": str(err),
+                                  "needed": err.needed, "balance": err.balance}) from err
+    except ledger.DailyLimitReached as err:
+        await db.rollback()
+        raise HTTPException(429, {"code": "daily_limit", "message": str(err)}) from err
     except EnqueueError as err:
         raise HTTPException(503, "Unable to enqueue campaign workflow") from err
 

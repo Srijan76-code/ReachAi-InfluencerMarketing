@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 from app.api.router import api_router
 from app.models import *
 from app.inngest.client import inngest_client
-from app.inngest.functions import keep_backend_warm, refresh_track, refresh_youtube_data, run_campaign, run_outreach, sync_gmail_replies
+from app.inngest.functions import keep_backend_warm, refresh_track, release_stale_credits, refresh_youtube_data, run_campaign, run_outreach, sync_gmail_replies
 from app.mcp.server import mcp_routes
 
 from dotenv import load_dotenv
@@ -86,7 +86,7 @@ async def health():
 inngest.fast_api.serve(
     app,
     inngest_client,
-    [run_campaign, run_outreach, refresh_youtube_data, keep_backend_warm, sync_gmail_replies, refresh_track],
+    [run_campaign, run_outreach, refresh_youtube_data, keep_backend_warm, sync_gmail_replies, refresh_track, release_stale_credits],
 )
 
 
