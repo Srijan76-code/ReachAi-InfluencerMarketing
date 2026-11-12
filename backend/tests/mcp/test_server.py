@@ -195,3 +195,13 @@ async def test_get_campaign_shows_the_sectioned_brief(client, db):
     brief = result["structuredContent"]["brief"]
     assert brief["brand.name"] == "DataLaunch" and brief["audience.locations"] == "IN" and brief["campaign.budget_total"] == 5000
     assert "**brand.name:** DataLaunch" in result["content"][0]["text"]
+
+
+async def test_event_stream_requests_are_refused_quickly(client, db):
+    """GET would otherwise hold a server function open until the host's timeout."""
+    token = await make_key(db)
+    for method in ("GET", "DELETE"):
+        resp = await client.request(method, "/api/mcp", headers={"Authorization": f"Bearer {token}", "Accept": "text/event-stream"})
+        assert resp.status_code == 405 and resp.headers["allow"] == "POST"
+    meta = await client.get("/.well-known/oauth-protected-resource/api/mcp")
+    assert meta.status_code == 200  # the metadata route still answers GET
