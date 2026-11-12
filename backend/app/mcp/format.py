@@ -74,6 +74,10 @@ def table(headers: list[str], rows: Iterable[list[str]]) -> str:
     return "\n".join([head, rule, *body])
 
 
+def app_link(path: str) -> str:
+    return f"{config.app_url()}{path}"
+
+
 def campaign_link(campaign_id: str, page: str = "leads") -> str:
     return f"{config.app_url()}/campaign/{campaign_id}/{page}"
 

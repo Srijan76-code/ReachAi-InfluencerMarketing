@@ -35,7 +35,7 @@ async def client(tmp_path, monkeypatch):
     from tests.discovery.conftest import create_tables, make_engine
 
     engine, is_pg = make_engine(tmp_path)
-    await create_tables(engine, is_pg, ["users", "campaigns", "saved_leads", "run_candidates", "share_links", "share_feedback", "creator_deals", "deal_events", "share_events", "agent_proposals", "connected_accounts", "deal_posts", "tracking_links", "link_clicks", "outreach_jobs", "outreach_pitches", "post_stats", "conversions"])
+    await create_tables(engine, is_pg, ["users", "campaigns", "saved_leads", "run_candidates", "share_links", "share_feedback", "creator_deals", "deal_events", "share_events", "agent_proposals", "connected_accounts", "deal_posts", "tracking_links", "link_clicks", "outreach_jobs", "outreach_pitches", "post_stats", "conversions", "credit_ledger", "credit_reservations", "subscriptions"])
     sf = sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
     async with sf() as s:
         s.add_all([User(user_id="u1", clerk_id="clerk-1"), User(user_id="u2", clerk_id="clerk-2")])
@@ -206,6 +206,39 @@ async def test_running_a_campaign_names_it_from_the_brief_unless_the_user_named_
     await client.patch("/api/campaigns/c2", json={"name": "My name"})
     await client.post("/api/campaigns/c2/generate", json={**brief, "brand": {"name": "Other"}})
     assert (await client.get("/api/campaigns/c2/details")).json()["name"] == "My name" and len(sent) == 2
+
+
+@needs_pg
+@pytest.mark.asyncio
+async def test_search_spends_a_credit_and_is_refused_when_out_of_credits(client, monkeypatch):
+    from app.api.routes import campaign as routes
+
+    async def fake_send(event):
+        pass
+    monkeypatch.setattr(routes.inngest_client, "send", fake_send)
+    brief = {"brand": {"name": "Acme"}, "campaign": {"goal": "signups"}}
+    start = (await client.get("/api/billing/balance")).json()
+    assert start["plan"] == "free" and start["balance"] == 8
+    quote = (await client.get("/api/billing/quote/c2")).json()
+    assert quote == {"credits": 1, "platforms": ["youtube"], "find_more": False, "balance": 8, "enough": True}
+    resp = await client.post("/api/campaigns/c2/generate", json=brief)
+    assert resp.status_code == 200 and resp.json()["credits"] == 1
+    after = (await client.get("/api/billing/balance")).json()
+    assert after["balance"] == 7 and after["held"] == 1
+    for _ in range(7):  # each re-run releases the previous hold and holds again: balance stays 7
+        await client.post("/api/campaigns/c2/generate", json=brief)
+    assert (await client.get("/api/billing/balance")).json()["balance"] == 7
+    for cid in ("c1", "c5"):  # spend the rest on other campaigns
+        assert (await client.post(f"/api/campaigns/{cid}/generate", json=brief)).status_code == 200
+    from app.auth import user as auth
+    from app.billing import ledger
+    async with auth.AsyncSessionLocal() as s:
+        await ledger.adjust(s, "u1", -5, "test", "t1")
+        await s.commit()
+    resp = await client.post("/api/campaigns/c4/generate", json=brief)  # (re-running c2 would free its own hold)
+    assert resp.status_code == 402 and resp.json()["detail"]["code"] == "not_enough_credits"
+    history = (await client.get("/api/billing/history")).json()["entries"]
+    assert any(e["reason"] == "grant_welcome" for e in history)
 
 
 def test_name_from_brief():

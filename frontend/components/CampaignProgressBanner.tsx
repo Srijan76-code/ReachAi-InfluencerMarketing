@@ -7,6 +7,7 @@ import { Loader2, CheckCircle2, XCircle, AlertCircle, RotateCcw } from "lucide-r
 import { getCampaignRealtimeToken } from "@/app/actions/realtime";
 import { campaignChannel, type CampaignLeadsUpdate } from "@/inngest/channels";
 import { useCampaignStore } from "@/store/campaignStore";
+import { creditErrorText, creditsStore } from "@/lib/credits";
 
 const backendUrl =
   process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
@@ -44,6 +45,7 @@ export function CampaignProgressBanner({ campaignId }: CampaignProgressBannerPro
   const setField = useCampaignStore((state) => state.setField);
 
   const [isRetrying, setIsRetrying] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
 
   const reconcile = useCallback(async () => {
     const token = await getToken();
@@ -76,7 +78,13 @@ export function CampaignProgressBanner({ campaignId }: CampaignProgressBannerPro
         },
         body: JSON.stringify({}),
       });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        setRetryError(creditErrorText(body?.detail) ?? "Couldn't restart the search. Try again.");
+      }
       if (res.ok) {
+        setRetryError(null);
+        creditsStore.refresh();
         setField("status", "PENDING");
         setField("isGenerating", true);
         await reconcile();
@@ -176,7 +184,7 @@ export function CampaignProgressBanner({ campaignId }: CampaignProgressBannerPro
             )}
             {status === "FAILED" && (
               <span className="text-[12px] text-rose-400">
-                The AI workflow encountered an error.
+                {retryError ?? "The search stopped. Its credits were returned."}
               </span>
             )}
             {status === "CREATED" && (

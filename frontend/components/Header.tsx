@@ -3,7 +3,7 @@
 import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, Github, ArrowRight, PlusCircle, HomeIcon, BookOpen, KeyRound } from "lucide-react";
+import { Menu, X, Github, ArrowRight, PlusCircle, HomeIcon, BookOpen, KeyRound, Coins } from "lucide-react";
 import { cn } from "@/lib/utils"; // standard shadcn helper
 import { Skiper26 } from "./ui/skiper-ui/skiper26";
 import { Show, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
@@ -12,6 +12,7 @@ import { HoverButton } from "./buttons/HoverButton";
 import { usePathname, useRouter } from "next/navigation";
 import { useCreateCampaign } from "@/lib/useCreateCampaign";
 import { InboxBell } from "./InboxBell";
+import { CreditsPill } from "./CreditsPill";
 
 const NAV_LINKS = [
   { name: "Features", href: "#features" },
@@ -135,6 +136,7 @@ export default function Header() {
                   <p>{creating ? "Creating…" : "New campaign"}</p>
                 </div>
               </HoverButton>
+              <CreditsPill />
               <Suspense fallback={null}>
                 <InboxBell />
               </Suspense>
@@ -212,6 +214,14 @@ export default function Header() {
                   >
                     <BookOpen size={16} />
                     Docs
+                  </Link>
+                  <Link
+                    href="/billing"
+                    className="flex items-center gap-2 text-sm font-medium text-zinc-600 dark:text-zinc-400"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <Coins size={16} />
+                    Billing
                   </Link>
                 </Show>
                 <hr className="border-zinc-200 dark:border-zinc-800" />

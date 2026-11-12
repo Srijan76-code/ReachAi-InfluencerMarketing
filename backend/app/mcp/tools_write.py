@@ -17,7 +17,8 @@ from pydantic import Field
 from sqlalchemy import func, select
 
 from app.api.campaign_names import DEFAULT_NAME, name_from_brief
-from app.api.campaign_runs import EnqueueError, start_run
+from app.api.campaign_runs import EnqueueError, quote_for, start_run
+from app.billing import ledger
 from app.discovery.brief import ISO_COUNTRIES
 from app.mcp import config, format as fmt
 from app.mcp.auth import current_user_id
@@ -159,10 +160,11 @@ def register_write_tools(server: MCPServer) -> None:
     @server.tool(
         title="Start creator search",
         description=(
-            "Start the creator search for a campaign. This spends the founder's YouTube quota and AI "
-            "credits and is limited per day, so FIRST call it with confirm=false to see what will happen, "
-            "tell the founder, and only call again with confirm=true after they agree. Searches take a few "
-            "minutes: then poll campaign_status about every 30 seconds."
+            "Start the creator search for a campaign. It costs the founder ReachAI credits (shown before "
+            "starting) and is limited per day, so FIRST call it with confirm=false to see the cost and balance, "
+            "tell the founder, and only call again with confirm=true after they agree. If the search finds "
+            "fewer than 10 creators the credits come back automatically. Searches take a few minutes: then "
+            "poll campaign_status about every 30 seconds."
         ),
         annotations=SPENDS,
     )
@@ -186,11 +188,24 @@ def register_write_tools(server: MCPServer) -> None:
                     f"Today's limit for searches started by agents is reached ({used} of {cap}). "
                     "Start it from the ReachAI app, or try again tomorrow."
                 )
-            data = {"campaign_id": campaign_id, "confirm_required": not confirm, "used_today": used, "daily_limit": cap}
+            q = await quote_for(db, campaign, details)
+            account = await ledger.summary(db, user_id)
+            await db.commit()
+            balance = account["balance"]
+            data = {"campaign_id": campaign_id, "confirm_required": not confirm, "used_today": used, "daily_limit": cap,
+                    "credits": q.credits, "balance": balance, "find_more": q.find_more}
+            cost = f"{q.credits} credit{'s' if q.credits != 1 else ''}"
+            if balance < q.credits:
+                raise ToolError(
+                    f"Not enough credits: this search costs {cost} and the founder has {balance}. "
+                    f"Credits reset on {account['resets_at'][:10]}. More credits: {fmt.app_link('/billing')}"
+                )
             if not confirm:
+                kind = "Find more (re-run)" if q.find_more else "Search"
                 text = (
-                    f"Not started. This search will use the founder's YouTube quota and AI credits "
-                    f"({used} of {cap} agent-started searches used today).\n\n"
+                    f"Not started. {kind} on {', '.join(q.platforms)} costs **{cost}**; the founder has {balance}. "
+                    f"Credits come back if it finds fewer than 10 creators. "
+                    f"({used} of {cap} agent-started searches used today.)\n\n"
                     "Tell the founder, and if they agree call start_search again with confirm=true."
                 )
                 return fmt.result(text, {**data, "started": False})
@@ -199,14 +214,39 @@ def register_write_tools(server: MCPServer) -> None:
             db.add(AgentRun(user_id=user_id, campaign_id=campaign_id))
             try:
                 run = await start_run(db, campaign, details, clerk_id)
+            except (ledger.NotEnoughCredits, ledger.DailyLimitReached) as err:
+                raise ToolError(str(err))
             except EnqueueError:
                 raise ToolError("The search could not be queued right now. Try again in a minute.")
         text = (
-            "Search started. It takes a few minutes: call campaign_status about every 30 seconds, "
+            f"Search started ({run['credits']} credit{'s' if run['credits'] != 1 else ''} used). "
+            "It takes a few minutes: call campaign_status about every 30 seconds, "
             "then list_creators when it is done.\n"
             f"Open in ReachAI: {fmt.campaign_link(campaign_id)}"
         )
         return fmt.result(text, {**data, "started": True, "used_today": used + 1, "run_id": run["run_id"]})
+
+    @server.tool(
+        title="Credits",
+        description=(
+            "The founder's ReachAI credits: balance, plan, when monthly credits reset, and what a search costs "
+            "per platform. Only creator searches use credits; everything else is free."
+        ),
+        annotations=READ_ONLY,
+    )
+    async def credits() -> CallToolResult:
+        user_id = current_user_id()
+        async with session_scope() as db:
+            account = await ledger.summary(db, user_id)
+            await db.commit()
+        costs = ", ".join(f"{p} {c}" for p, c in account["search_credits"].items())
+        text = (
+            f"**{account['balance']} credits** on the {account['plan'].title()} plan "
+            f"({account['monthly_credits']} a month, next reset {account['resets_at'][:10]}).\n"
+            f"A search costs: {costs}. Outreach, drafts, negotiation and tracking are free.\n"
+            f"Billing: {fmt.app_link('/billing')}"
+        )
+        return fmt.result(text, account)
 
     @server.tool(
         title="Pitch context",

@@ -13,8 +13,8 @@ Live task state for coding agents. Design: `docs/TECHNICAL_SPEC.md` §5. Roadmap
 | Not in v1 | Early-user price lock, other local currencies, teams |
 
 ## Build order (one PR each)
-1. **F2.1 credits** (`billing-credits`): tables + migration, `app/billing/constants.py`, ledger (reserve/commit/release/refund, bucket order monthly → rollover → pack/bonus), lazy monthly grants with rollover, welcome credits, guarantee, reservation sweeper (Inngest), `/api/billing/balance`, cost check in `campaign_runs.start_run` (web + MCP), MCP `credits` tool and cost in `start_search`. Existing users get the Free plan + welcome credits. No money yet.
-2. **F2.3 billing UI** (`billing-page`): credits pill, `/billing`, cost line by the Run button, inline "buy credits" (disabled until F2.2), public `/pricing`, `pricing.mdx`, changelog.
+1. **F2.1 credits** (`billing-credits`, done Nov 12, with the F2.3 pill, billing page and cost line): tables + migration, `app/billing/constants.py`, ledger (reserve/commit/release/refund, bucket order monthly → rollover → pack/bonus), lazy monthly grants with rollover, welcome credits, guarantee, reservation sweeper (Inngest), `/api/billing/balance`, cost check in `campaign_runs.start_run` (web + MCP), MCP `credits` tool and cost in `start_search`. Existing users get the Free plan + welcome credits. No money yet.
+2. **F2.3 rest** (with F2.2): buy buttons, public `/pricing` page.
 3. **F2.2 Dodo** (`dodo-payments`): products, checkout, webhooks (signature + `billing_events` idempotency), portal, past-due grace. Test mode only.
 4. **F2.4 referrals** (`referrals`).
 5. **F2.5 go live (user):** domain, Clerk production, Dodo verification, CA, refund policy; then `DODO_ENV=live`.

@@ -154,11 +154,29 @@ async def run_discovery(
         workflow_status={"run_id": run_id, "thread_id": thread_id, "stage": "completed", "status": "completed",
                          "warnings": warnings, "engine": "graph"},
     )
+    await _settle_credits(run_id, len(leads), deps.session_factory)
     await publish(run_id, "status", {"thread_id": thread_id, "stage": "completed", "status": "completed"})
     api = (deps.extra or {}).get("api")
     if api is not None and hasattr(api, "aclose"):
         await api.aclose()
     return {"leads": leads, "warnings": warnings, "resumed": resumed}
+
+
+async def _settle_credits(run_id: str, creators_found: int, session_factory=None, failed: bool = False) -> None:
+    """Keep, refund or release the search's credits (spec §5.3). Never fails the run: a reservation left
+    held is released by the hourly sweep, in the user's favour."""
+    from app.billing import ledger
+    from app.db.database import AsyncSessionLocal
+
+    try:
+        async with (session_factory or AsyncSessionLocal)() as db:
+            if failed:
+                await ledger.release(db, run_id)
+            else:
+                await ledger.settle(db, run_id, creators_found)
+            await db.commit()
+    except Exception:
+        logger.exception("Could not settle credits for run %s", run_id)
 
 
 async def mark_failed(*, campaign_id: str, run_id: str, error: str, session_factory=None, publish=None) -> None:
@@ -169,4 +187,5 @@ async def mark_failed(*, campaign_id: str, run_id: str, error: str, session_fact
     await _set_campaign(campaign_id, session_factory, status=CampaignStatus.CREATED, current_stage="failed",
                         workflow_status={"run_id": run_id, "thread_id": thread_for(run_id), "stage": "failed",
                                          "status": "failed", "error": error[:500]})
+    await _settle_credits(run_id, 0, session_factory, failed=True)
     await publish(run_id, "status", {"thread_id": thread_for(run_id), "stage": "failed", "status": "failed"})

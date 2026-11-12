@@ -32,7 +32,8 @@ def _jsonb_as_json(type_, compiler, **kw):  # the app uses Postgres JSONB; SQLit
 
 
 TABLES = ["users", "campaigns", "saved_leads", "api_keys", "agent_runs", "creator_deals", "deal_events", "agent_proposals",
-          "deal_posts", "post_stats", "conversions", "tracking_links", "link_clicks"]
+          "deal_posts", "post_stats", "conversions", "tracking_links", "link_clicks",
+          "credit_ledger", "credit_reservations", "subscriptions"]
 
 LEADS = [
     {"id": "UC_a", "title": "Krish Naik", "subscribers": 1250000, "final_score": 93, "deal_status": "Strong Buy",
