@@ -91,6 +91,20 @@ def build_http_app(server: MCPServer | None = None):
     )
 
 
+# The server is stateless and never pushes messages, so a client's GET (a standing event stream) or DELETE
+# (end a session) has nothing to do. Answering GET with 405 is allowed by the MCP spec, and clients then
+# skip the stream. Holding it open instead only pinged until the host's 5-minute limit, then the client
+# reconnected: a function busy all day for nothing.
+NO_STREAM_METHODS = {"GET", "DELETE"}
+
+
+async def _method_not_allowed(send: Send) -> None:
+    await send({"type": "http.response.start", "status": 405,
+                "headers": [(b"allow", b"POST"), (b"content-type", b"application/json")]})
+    await send({"type": "http.response.body",
+                "body": b'{"error":"This MCP server does not open event streams; send requests with POST."}'})
+
+
 class McpASGI:
     """ASGI app for the MCP endpoint and its OAuth metadata route."""
 
@@ -98,6 +112,9 @@ class McpASGI:
         self._server = server
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope.get("method") in NO_STREAM_METHODS and scope.get("path") == config.endpoint_path():
+            await _method_not_allowed(send)
+            return
         app = build_http_app(self._server)
         async with app.router.lifespan_context(app):
             await app(scope, receive, send)
