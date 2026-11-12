@@ -19,8 +19,8 @@
 | Numbers | **Code, statistics and ML**: metrics, anomaly detection, scoring, valuation. No LLM involved |
 | Negotiation | **An agent: Jev reads and decides, code guards, the LLM writes (decided Nov 5).** Jev picks the move, deal type, commission step (0–25%) and how far to concede from options code gives it; code turns those into exact amounts within the ceiling (fair top +15%, never over the budget left, never below our last offer) and never lets a model state a price. The writer sees the creator's own words (screened by Jev for injection) and every amount is checked. Default aim: good value while keeping the creator happy. Replaces the code formula and templates (§8.7) |
 | Text generation | LLM through the **LangSmith LLM Gateway**, behind our own thin wrapper |
-| Pricing | **Small plan + rollover credits**. Costly platforms use more credits |
-| Payments | **Cashfree** (Indian entity). Billing logic lives in our backend; Cashfree only collects money |
+| Pricing | **Only creator searches cost credits** (YouTube 1, X 3, Instagram 4, LinkedIn 8); outreach, negotiation, tracking and agent use are unlimited. Free (3/mo) · Solo $12 / ₹499 (25) · Pro $29 / ₹1,299 (80) · packs that never expire. Welcome credits, refund guarantee, INR prices, referrals (decided Nov 12, §5) |
+| Payments | **Dodo Payments as merchant of record** (handles global tax, UPI, INR). Billing logic lives in our backend; Dodo only collects money. Replaces Cashfree (Nov 12, §5.4) |
 | Validation | Skipped. To compensate, every user action is instrumented from day one (§11) |
 | Platform choice | **Preset by founder type + AI check + user toggle.** B2B/AI → X, LinkedIn, YouTube · Consumer → Instagram, YouTube (§4.9) |
 | Discovery strategy | **Cheapest-first ladder**: our creator DB → YouTube → expand through creators' own links → small native search only to fill gaps (§4.9) |
@@ -83,13 +83,13 @@ Code / API  →  Statistics / ML  →  Jev (judgments)  →  Code (scoring)  →
 │ Discovery    │ Platform adapters │ Judgment layer     │ LLM layer         │ Billing            │
 │ graph        │ youtube · x ·     │ app/judge/ (Jev)   │ app/llm/ (gateway │ app/billing/       │
 │ (generic)    │ instagram ·       │ questions.py       │ wrapper, routes)  │ credits ledger,    │
-│              │ linkedin          │ constants.py       │                   │ Cashfree           │
+│              │ linkedin          │ constants.py       │                   │ Dodo Payments      │
 ├──────────────┴───────────────────┴────────────────────┴───────────────────┴────────────────────┤
 │ Postgres: users · campaigns · creators · creator_snapshots · judgments · outreach_* · deals ·  │
 │           credit_ledger · cost_events · subscriptions · connected_accounts                     │
 └────────────────────────────────────────────────────────────────────────────────────────────────┘
 External: YouTube API · X provider · Apify · LangSmith Gateway (Groq/Cerebras/OpenAI/…) · Jev ·
-          Gmail API (founder inboxes) · email verifier · Cashfree
+          Gmail API (founder inboxes) · email verifier · Dodo Payments
 ```
 
 ### New backend packages
@@ -101,7 +101,7 @@ backend/app/
   metrics/        robust.py, momentum.py, anomaly.py, valuation.py, baselines.py
   discovery/      graph.py (generic), nodes/*.py   (replaces my_agent/ after migration)
   creators/       repository.py (cache + DB), refresh.py
-  billing/        ledger.py, plans.py, cashfree.py, costs.py
+  billing/        ledger.py, constants.py, dodo.py, grants.py
   messaging/      unipile.py, sequences.py, inbox.py, classify.py, verify_email.py
   deals/          service.py, negotiation.py, tracking.py
 ```
@@ -153,7 +153,7 @@ X_PROVIDER=twitterapi|official, X_PROVIDER_API_KEY, X_OFFICIAL_BEARER
 APIFY_TOKEN
 UNIPILE_DSN, UNIPILE_API_KEY
 EMAIL_VERIFIER_API_KEY
-CASHFREE_APP_ID, CASHFREE_SECRET, CASHFREE_WEBHOOK_SECRET, CASHFREE_ENV=sandbox|production
+DODO_API_KEY, DODO_WEBHOOK_SECRET, DODO_ENV=test|live
 ```
 
 ---
@@ -409,7 +409,7 @@ Each source becomes an extra **rung-0 input**. Its candidates go through the sam
 - The pipeline publishes results **per rung**: DB and YouTube results appear first (~20–40 s), then expansion and native results.
 - Inngest Realtime topic `campaign:{run_id}` / `leads`, payload = scored creators (delta) + `is_final=false|true`.
 - UI: show a "More creators arriving…" bar. Rows don't reshuffle while the user is reading; new rows are inserted below with a "New" chip. A final **"Re-rank"** happens when `is_final` arrives (one animation, with a toggle to keep the order).
-- Credits are committed at the end, per §5.2.
+- Credits are committed at the end, per §5.3.
 
 ### 4.14 Run execution model (decided, revised Nov 3)
 **Decisions:** LangGraph runs the pipeline and makes it durable inside a run; Inngest starts, retries, limits and cancels runs. Platforms run as parallel LangGraph branches in one run. Re-running a campaign cancels the previous run. Limits: 2 runs per user, 5 at once overall (Inngest free-plan maximum; changed from 10 on Nov 4 because syncs failed). Backend stays on Vercel; caches in Postgres.
@@ -486,65 +486,98 @@ Node settings: `retry_policy` on every node that calls an API. A failed search b
 
 ---
 
-## 5. Phase 2: Billing (credits + Cashfree)
+## 5. Phase 2: Billing (credits + Dodo Payments)
 
-### 5.1 Plans and credit costs (starting hypotheses, calibrated from `cost_events`)
-One credit is worth about **$0.40** retail. Target gross margin ≥ 75–80% per action.
+Decided Nov 12, 2026. Goal: **affordable, not cheap**. Founders pay only to find creators; everything after that is free. Prices sit far below competitors ($150–300/mo) because our cost per search is cents.
 
-| Action | Credits | Estimated cost to us (target) |
-|---|---|---|
-| YouTube discovery run | 3 | ~$0.05 (+ quota) |
-| X discovery run | 10 | ≤ $1.00 (twitterapi-class provider, cache) |
-| Instagram discovery run | 12 | ≤ $1.50 (Apify) |
-| LinkedIn discovery run | 20 | ≤ $3.00 (Apify public post search) |
-| Contact find + verify (per creator) | 1 | ~$0.01–0.05 |
-| Pitch generation | 0 | < $0.01/creator (drives activation) |
-| Email sending | included up to the plan cap | free (founder's own Gmail through the Gmail API) |
+### 5.1 What costs credits
 
-| Plan | Price/mo | Credits/mo | Connected inboxes | Notes |
-|---|---|---|---|---|
-| Free | $0 | 15 one-time | 0 | 1 run, top 5 creators fully shown |
-| Starter | $49 | 120 | 1 | Rollover up to 2× the monthly credits |
-| Growth | $129 | 350 | 3 | |
-| Agency | $349 | 1,000 | 10 | Client workspaces (later) |
-| Top-up | $45 | 100 | — | Never expires |
+**Only creator searches.** Pitches, AI drafts, negotiation, replies, Gmail sending, Track (forecast, comment reads), exports, share links and MCP/agent use are unlimited on every plan, Free included. They cost us under a cent per creator (measured in `cost_events`).
 
-### 5.2 Ledger (replaces the bare `users.credits` and the unused `Transaction`)
+| Search (one platform, up to ~30 ranked creators) | Credits | Our cost (target) | Status |
+|---|---|---|---|
+| YouTube | **1** | ~$0.02 (LLM + Jev; YouTube quota is free) | live |
+| X | **3** | ≤ $1.00 | with F3.1 |
+| Instagram | **4** | ≤ $1.50 | with F4.1 |
+| LinkedIn | **8** | ≤ $3.00 | with F5.1 |
+| "Find more" on an existing campaign | half, rounded up | reuses cached data | |
+
+- Credit prices = measured cost × ~2, rounded. Reviewed quarterly from `cost_events`; a change never applies to a search already started.
+- Constants live in `app/billing/constants.py` (`SEARCH_CREDITS`, `FIND_MORE_FACTOR`, plan table), never inline.
+- The cost is **always shown before a run** (brief form, "Find more", MCP `start_search`): "Instagram search · 4 credits · you have 18".
+- **Quality guarantee:** a search that returns fewer than `GUARANTEE_MIN_CREATORS` (10) creators that pass the filters is refunded automatically (`refund` ledger entry, note in the run).
+- Contact finding and verification (F6.1) are included while their cost stays under ~$0.01 per creator; revisit if a paid verifier is added.
+
+### 5.2 Plans
+
+| | Free | Solo | Pro |
+|---|---|---|---|
+| Price (USD) | $0 | **$12/mo** | **$29/mo** |
+| Price (India) | ₹0 | **₹499/mo** | **₹1,299/mo** |
+| Credits | 3 / month | 25 / month | 80 / month |
+| Unused credits | expire monthly | roll over 1 month | roll over 1 month |
+| Everything else | unlimited | unlimited | unlimited |
+| Later | — | — | 3 teammates + inboxes (F1.18c) |
+
+- **Credit packs (never expire, any plan incl. Free):** 10 credits $8 (₹299), 30 credits $20 (₹799).
+- **Annual:** 2 months free (Solo $120/yr, Pro $290/yr).
+- **No feature gates**: plans differ only by credits (and seats later).
+- **Spending order:** monthly credits first (they expire), then rollover, then pack credits.
+- Worst case stays profitable: a Solo user spending all 25 credits on LinkedIn ≈ $9 cost vs $12.
+
+**Growth extras in v1:**
+- **Welcome credits:** 5 one-time credits at signup (on top of Free's 3/month).
+- **Local prices:** INR prices for India (country from the payment provider's checkout; we never guess from IP alone). Other markets later.
+- **Referrals:** 10 credits each for referrer and new user, granted when the new user completes a first search. Limit 20 referral grants per user per year; same payment card or device does not count.
+- Not in v1: annual price lock for early users.
+
+### 5.3 Ledger (replaces the bare `users.credits` and the unused `Transaction`)
 ```
-credit_ledger(entry_id PK, user_id FK, delta INT, balance_after INT, reason ENUM
-              [grant_plan, grant_topup, grant_free, reserve, commit, release, refund, expire, adjust],
-              ref_type, ref_id, created_at)
-credit_reservations(reservation_id PK, user_id, amount, ref_type, ref_id, status
-              [held, committed, released], expires_at)
-cost_events(event_id PK, user_id, campaign_id, run_id, provider, sku, units, usd, created_at)
-subscriptions(subscription_id PK, user_id, plan, status, cashfree_subscription_id,
-              current_period_end, cancel_at_period_end)
-payments(payment_id PK, user_id, cashfree_order_id, amount, currency, status, raw JSONB)
+credit_ledger(entry_id PK, user_id FK, delta INT, bucket ENUM[monthly, rollover, pack, bonus],
+              reason ENUM[grant_plan, grant_pack, grant_welcome, grant_referral, grant_free,
+                          reserve, commit, release, refund, expire, adjust],
+              ref_type, ref_id, created_at)        -- balance = SUM(delta) per bucket, never stored alone
+credit_reservations(reservation_id PK, user_id, amount, ref_type, ref_id,
+              status [held, committed, released], expires_at, created_at)
+subscriptions(subscription_id PK, user_id UNIQUE, plan [free, solo, pro], interval [month, year],
+              currency, status [active, past_due, cancelled], provider, provider_subscription_id,
+              current_period_start, current_period_end, cancel_at_period_end)
+payments(payment_id PK, user_id, provider, provider_payment_id UNIQUE, kind [subscription, pack],
+              amount_minor, currency, status, created_at)
+billing_events(event_id PK = provider webhook id, type, received_at, processed_at)  -- idempotency
+referrals(code PK, owner_user_id, referred_user_id UNIQUE NULL, granted_at)
 ```
 **Run flow:**
-1. **Reserve** the estimated credits (rejected if the balance is too low).
+1. **Reserve** the shown cost in one transaction (`SELECT … FOR UPDATE` on the user's balance rows; rejected if too low; a user has at most one held reservation per campaign).
 2. Run.
-3. **Commit** the actual credits. The amount is capped at the estimate, so the user is never surprised.
-4. On failure, **release** the reservation.
+3. **Commit** at the end. Never more than reserved; if the guarantee applies, commit then `refund`.
+4. On failure, **release**. A sweeper releases reservations past `expires_at` (Inngest cron).
 
-Daily per-user caps protect against abuse. Provider budget alerts (Apify, gateway spend caps, Jev) fire at 80% of the monthly budget.
+**Monthly grants** are lazy: on the first billing read after a period starts, expire the old `monthly` bucket (moving up to one month's worth into `rollover` for paid plans, dropping older rollover) and grant the new month. Idempotent per (user, period).
 
-### 5.3 Cashfree integration (`app/billing/cashfree.py`)
-- **Subscriptions** (recurring, international cards in 140+ currencies + UPI for India) for plans; **one-time orders** for top-ups.
-- Webhooks → `/webhooks/cashfree`:
-  - Verify the signature.
-  - Handle events idempotently (store the event ID).
-  - Payment success → `grant_plan` / `grant_topup`.
-  - Failure → set `past_due` with a 3-day grace period.
-- Our backend owns plans, credits and entitlements. Cashfree only collects money, so switching providers later stays cheap.
-- **Pricing to plan with:**
-  - International cards ~2.99% + 18% GST on the fee. An offer rate of 2.69% exists but isn't confirmed for international cards.
-  - India UPI and cards at domestic rates.
-- **Compliance:**
-  - GST LUT, so exports are zero-rated (needs a CA).
-  - RBI e-mandate: extra authentication for Indian recurring charges above ~₹15,000 (fine at these price points).
-  - Export realisation rules (FEMA). One source says the windows change from 1 Oct 2026.
-- Frontend: `/billing` page (plan, balance, ledger history, top-up) and a credits pill in `Header.tsx`.
+Daily caps per user (`MAX_SEARCHES_PER_DAY`) and the existing MCP cap still apply.
+
+### 5.4 Payments: Dodo Payments (merchant of record)
+- **Why:** as merchant of record, Dodo sells on our behalf and collects and files VAT/GST/sales tax worldwide, handles refunds and chargebacks, and supports UPI and INR payouts. Fees (verify at signup): 4% + 40¢ global, 4% + 15¢ India cards/UPI, +1.5% international cards, +0.5% subscriptions. Paddle is the fallback.
+- **Our backend owns** plans, credits and entitlements. Dodo only collects money and reports it, so switching providers is a contained change in `app/billing/dodo.py`.
+- **Products in Dodo:** Solo monthly/annual, Pro monthly/annual (USD and INR prices), two packs.
+- **Checkout:** `POST /api/billing/checkout {product}` creates a Dodo checkout session with `user_id` in metadata and returns its URL. Never trust the browser for amounts.
+- **Webhooks** → `POST /api/webhooks/dodo`: verify the signature (Standard Webhooks, `DODO_WEBHOOK_SECRET`), store the event id in `billing_events` first (duplicates are ignored), then:
+  - payment succeeded (pack) → `grant_pack`
+  - subscription active/renewed → update `subscriptions`, grant the period's credits
+  - payment failed → `past_due`, 3-day grace, then back to Free limits (credits already granted stay)
+  - cancelled → `cancel_at_period_end`; Free from the next period
+  - refund/chargeback → `adjust` the unspent part
+- **Customer portal** (Dodo-hosted) for invoices, card changes and cancelling.
+- Env: `DODO_API_KEY`, `DODO_WEBHOOK_SECRET`, `DODO_ENV=test|live`. Test mode until the business checks pass.
+- **Compliance before going live:** CA confirms GST treatment (export of services via the merchant of record, LUT) and income tax; own domain for the business check; refund policy page.
+
+### 5.5 Frontend
+- **Credits pill** in `Header.tsx` (balance; click → `/billing`).
+- **`/billing`:** plan, credits by bucket with next reset date, packs, upgrade, history (ledger in plain words), referral link.
+- **Before every search:** the cost line and balance next to the Run button; if short, "Buy 10 credits · $8" inline instead of an error.
+- **MCP:** `start_search` returns the cost and balance and needs `confirm=true`; a new read tool `credits` shows the balance.
+- Docs page `pricing.mdx` + public `/pricing` page.
 
 ---
 
@@ -607,7 +640,7 @@ Daily per-user caps protect against abuse. Provider budget alerts (Apify, gatewa
 1. **Email candidates, ranked by source.** Platform business-email field (IG business email, YouTube about text) > link-in-bio page > the creator's own website contact page > channel description > **video descriptions (only if Jev confirms)**.
 2. **Sponsor/guest blocklist:** drop domains of brands mentioned with "sponsored by", "use code", "#ad"; drop addresses that appear on many different creators (agency/sponsor addresses, computed from the creator DB).
 3. **Jev pick:** Choice over the remaining candidates + `none_of_these`. "Which address in `candidates` is the business contact of the person who runs `creator`? An address belonging to a sponsor, guest or brand mentioned in a post is not their contact." Accept if confidence ≥ 0.8; otherwise mark "needs review".
-4. **Verify** with an email verifier (ZeroBounce / MillionVerifier / Reoon). Send only to `valid`; `catch_all` only after user confirmation. 1 credit per creator, charged only when a verified contact is found.
+4. **Verify** with an email verifier (ZeroBounce / MillionVerifier / Reoon). Send only to `valid`; `catch_all` only after user confirmation. Included in every plan while the cost stays under ~$0.01 per creator (§5.1).
 5. **First name:** regex candidates from about text, link page, email local part, sign-offs in posts → Jev Choice + `not_stated`. Fallback greeting: "Hi there" (no channel names).
 6. **Social handles:** the same ranking; accept cross-links only from the creator's **own** profile fields (self-links, §4.9).
 7. **Contact ledger:** `contact_history(user_id, person_id, campaign_id, channel, first_contacted_at, last_outcome)`. Warn before contacting someone the same user already contacted in the last 90 days.
@@ -734,7 +767,7 @@ Default sequence (editable per campaign):
 - Founder pays creators directly; we send "pay now" requests and track payments.
 - Our own short links for clicks.
 - Promo codes + a signup snippet / server event for conversions.
-- Tracking is included in every paid plan (no credits).
+- Tracking is included in every plan, Free too (no credits).
 
 **Lifecycle:** `agreed → brief_contract → draft_review (optional) → live → results (day 1–30) → paid → rebook?`
 
@@ -934,7 +967,7 @@ GET  /campaigns/{id}/inbox | GET /threads/{tid}   → threads + classification
 POST /threads/{tid}/reply                         → send approved draft
 GET/PATCH /campaigns/{id}/deals, /deals/{deal_id}
 GET  /billing | POST /billing/checkout | POST /billing/topup | GET /billing/ledger
-POST /webhooks/cashfree | POST /webhooks/unipile
+POST /api/webhooks/dodo | POST /webhooks/unipile
 ```
 
 ---
@@ -967,7 +1000,8 @@ Since validation was skipped, these are **required** from Phase 1:
 - [ ] Email: unsubscribe line, honour opt-outs globally (`suppression_list` table), send only to verified business contacts.
 - [ ] Personal data (GDPR / India DPDP Act): privacy policy, deletion on request, data retention job.
 - [ ] Jev: creator text is untrusted (separate state fields + `injection` Noul); no Jev answer alone triggers a send or payment.
-- [ ] GST LUT filed; invoices zero-rated for exports.
+- [ ] Dodo Payments is merchant of record and files sales tax abroad; a CA confirms our GST treatment (LUT) and income tax before live payments.
+- [ ] YouTube: terms link YouTube's Terms of Service, privacy links Google's Privacy Policy, quota-increase audit submitted (`docs/plans/youtube-quota.md`).
 
 ---
 
@@ -976,7 +1010,7 @@ Since validation was skipped, these are **required** from Phase 1:
 |---|---|---|---|
 | 0 | LLM gateway wrapper + routes, Jev client, config, cost logging | — | S |
 | 1 | `CreatorProfile`, person model, creator DB (pgvector) + caches + YouTube 30-day job, discovery ladder + streaming, adapters base, generic graph, metrics + anomaly, Jev judge + scoring, YouTube migrated, UI badges | 0 | L |
-| 2 | Credits ledger, reservations, plans, Cashfree subscriptions/top-ups/webhooks, billing UI | 0 | M |
+| 2 | Credits ledger, reservations, plans, Dodo Payments subscriptions/packs/webhooks, billing UI | 0 | M |
 | 3 | X adapter | 1, 2 | M |
 | 4 | Instagram adapter | 1, 2 | M |
 | 5 | LinkedIn adapter (public post search + pasted URLs) | 1, 2 | M |
@@ -1015,7 +1049,7 @@ Phases 3 and 6 can run in parallel after 1 and 2.
 | Data costs are higher than estimated | `cost_events` → adjust credits per action monthly; hard caps per run |
 | Building for two segments (B2B + consumer) without validation | Instrumentation (§11); review platform usage after the first 50 paying users |
 | Email deliverability on user inboxes | Caps, verification, bounce stop, unsubscribe |
-| Prices quoted in this spec come from third-party sources | Confirm with each vendor before launch (Cashfree, Apify, X provider, gateway, verifier) |
+| Prices quoted in this spec come from third-party sources | Confirm with each vendor before launch (Dodo Payments, Apify, X provider, gateway, verifier) |
 
 ---
 

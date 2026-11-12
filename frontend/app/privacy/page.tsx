@@ -5,7 +5,7 @@ export const metadata: Metadata = { title: "Privacy policy · ReachAI" };
 
 export default function Privacy() {
   return (
-    <LegalPage title="Privacy policy" updated="November 5, 2026">
+    <LegalPage title="Privacy policy" updated="November 12, 2026">
       <p>ReachAI helps founders find creators, agree fair deals with them and track the results. This page says what we collect, why, and what we never do.</p>
 
       <h2>What we collect</h2>
@@ -35,7 +35,7 @@ export default function Privacy() {
       <p>Only the services that run ReachAI: hosting (Vercel), database (Neon), background jobs (Inngest), sign-in (Clerk), Google and YouTube APIs, and the AI providers above. We never sell your data. Share links you create show only what you choose to share and never include contact details.</p>
 
       <h2>Keeping and deleting data</h2>
-      <p>Public YouTube data is refreshed or deleted within 30 days, as YouTube&apos;s rules require. Deleting a campaign deletes its creators, deals and messages with it. To delete your account and everything in it, contact us.</p>
+      <p>Public YouTube data is refreshed or deleted within 30 days, as YouTube&apos;s rules require. ReachAI uses YouTube API Services; see the <a href="https://policies.google.com/privacy">Google Privacy Policy</a>. Deleting a campaign deletes its creators, deals and messages with it. To delete your account and everything in it, contact us.</p>
 
       <h2>Contact</h2>
       <p>Questions or deletion requests: <Contact />.</p>
