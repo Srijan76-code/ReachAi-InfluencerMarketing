@@ -1,5 +1,6 @@
 "use client";
 
+import { BACKEND_URL } from "@/lib/backend";
 import { useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { useRealtime } from "inngest/react";
@@ -21,8 +22,7 @@ type DurableStatus = {
   status?: string;
 };
 
-const backendUrl =
-  process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
+const backendUrl = BACKEND_URL;
 
 export default function WorkflowStatus({
   campaignId,

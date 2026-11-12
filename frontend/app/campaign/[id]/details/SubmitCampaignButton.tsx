@@ -1,5 +1,6 @@
 "use client";
 
+import { BACKEND_URL } from "@/lib/backend";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -87,7 +88,7 @@ export default function SubmitCampaignButton({ id }: { id: string }) {
     try {
       const token = await getToken();
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000"}/api/campaigns/${id}/generate`,
+        `${BACKEND_URL}/api/campaigns/${id}/generate`,
         {
           method: "POST",
           headers: {

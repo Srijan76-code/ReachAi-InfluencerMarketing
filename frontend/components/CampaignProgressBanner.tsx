@@ -1,5 +1,6 @@
 "use client";
 
+import { BACKEND_URL } from "@/lib/backend";
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { useRealtime } from "inngest/react";
@@ -9,8 +10,7 @@ import { campaignChannel, type CampaignLeadsUpdate } from "@/inngest/channels";
 import { useCampaignStore } from "@/store/campaignStore";
 import { creditErrorText, creditsStore } from "@/lib/credits";
 
-const backendUrl =
-  process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
+const backendUrl = BACKEND_URL;
 
 type DurableStatus = {
   run_id?: string;
