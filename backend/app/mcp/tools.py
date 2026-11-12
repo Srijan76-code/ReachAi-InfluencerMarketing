@@ -58,6 +58,21 @@ def _iso(value) -> str | None:
     return value.isoformat() if value else None
 
 
+def _flatten_brief(details: dict[str, Any]) -> dict[str, Any]:
+    """The brief is saved in sections (brand, audience, campaign, constraints). One flat list, e.g. brand.name."""
+    flat: dict[str, Any] = {}
+    for key, value in details.items():
+        if isinstance(value, dict):
+            for inner, item in value.items():
+                if isinstance(item, (list, tuple)):
+                    item = ", ".join(str(x) for x in item)
+                if isinstance(item, (str, int, float, bool)) and item != "":
+                    flat[f"{key}.{inner}"] = item
+        elif isinstance(value, (str, int, float, bool)) and value != "":
+            flat[key] = value
+    return flat
+
+
 def _campaign_row(c: Campaign) -> dict[str, Any]:
     return {
         "id": c.campaign_id,
@@ -115,7 +130,7 @@ def register_tools(server: MCPServer) -> None:
             campaign = await _owned_campaign(db, campaign_id, user_id)
         row = _campaign_row(campaign)
         details = campaign.campaign_details if isinstance(campaign.campaign_details, dict) else {}
-        brief = {k: v for k, v in details.items() if isinstance(v, (str, int, float, bool)) and v != ""}
+        brief = _flatten_brief(details)
         lines = [
             f"## {fmt.cell(row['name'], 80)}",
             f"Status: {row['status']} · Stage: {fmt.cell(row['stage'], 40)} · Creators found: {row['creators_found']}",

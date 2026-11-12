@@ -31,11 +31,12 @@ def _jsonb_as_json(type_, compiler, **kw):  # the app uses Postgres JSONB; SQLit
     return "JSON"
 
 
-TABLES = ["users", "campaigns", "saved_leads", "api_keys"]
+TABLES = ["users", "campaigns", "saved_leads", "api_keys", "agent_runs", "creator_deals", "deal_events", "agent_proposals",
+          "deal_posts", "post_stats", "conversions", "tracking_links", "link_clicks"]
 
 LEADS = [
     {"id": "UC_a", "title": "Krish Naik", "subscribers": 1250000, "final_score": 93, "deal_status": "Strong Buy",
-     "valuation": 180.76, "country": "IN", "description": "ML tutorials",
+     "valuation": 180.76, "fair_low": 120, "fair_high": 200, "country": "IN", "description": "ML tutorials",
      "metrics": {"avg_views": 42000, "engagement_rate": 5.2, "reliability": "High", "forecast": "~780 clicks/video"},
      "score_breakdown": {"strategy_score": 95, "health_score": 90, "risk_penalty": "Low"},
      "recent_videos": [{"title": "LangChain Crash Course", "views": 63000}],
@@ -48,8 +49,29 @@ LEADS = [
 ]
 
 
+@pytest.fixture
+def aware_sqlite_datetimes(monkeypatch):
+    """Postgres hands back timezone-aware datetimes; SQLite hands back naive ones. Make SQLite match, for
+    this test only, so code written for Postgres (Track's date maths) runs the same way here."""
+    from datetime import datetime, timezone
+    from sqlalchemy.dialects.sqlite import DATETIME
+
+    original = DATETIME.result_processor
+
+    def result_processor(self, dialect, coltype):
+        parse = original(self, dialect, coltype)
+
+        def process(value):
+            parsed = parse(value) if parse else value
+            return parsed.replace(tzinfo=timezone.utc) if isinstance(parsed, datetime) and parsed.tzinfo is None else parsed
+
+        return process
+
+    monkeypatch.setattr(DATETIME, "result_processor", result_processor)
+
+
 @pytest_asyncio.fixture
-async def db():
+async def db(aware_sqlite_datetimes):
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")
     tables = [Base.metadata.tables[t] for t in TABLES]
     async with engine.begin() as conn:
@@ -59,10 +81,15 @@ async def db():
     async with factory() as s:
         s.add_all([User(user_id="u1", clerk_id="clerk_1"), User(user_id="u2", clerk_id="clerk_2")])
         s.add(Campaign(campaign_id="c1", user_id="u1", name="DataLaunch bootcamp", status=CampaignStatus.COMPLETED,
-                       current_stage="Done", campaign_details={"product": "Bootcamp", "budget": 5000},
+                       current_stage="Done", campaign_details=BRIEF,
                        campaign_leads=LEADS))
         s.add(Campaign(campaign_id="c2", user_id="u1", name="Running one", status=CampaignStatus.PENDING,
-                       current_stage="Searching"))
+                       current_stage="Searching", campaign_details=BRIEF,
+                       workflow_status={"status": "running", "stage": "queued"}))
+        s.add(Campaign(campaign_id="c3", user_id="u1", name="Draft one", status=CampaignStatus.CREATED,
+                       current_stage="Draft", campaign_details=BRIEF))
+        s.add(Campaign(campaign_id="c4", user_id="u1", name="Empty draft", status=CampaignStatus.CREATED,
+                       current_stage="Draft"))
         s.add(Campaign(campaign_id="other", user_id="u2", name="Someone else's", status=CampaignStatus.COMPLETED,
                        campaign_leads=LEADS))
         await s.commit()
@@ -113,6 +140,29 @@ async def client(db, clerk):
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="https://reachai.test") as c:
         yield c
+
+
+BRIEF = {
+    "brand": {"name": "DataLaunch", "industry": "edtech", "business_model": "b2c", "product_price_range": "high_ticket",
+              "core_outcome": "A 12-week data science bootcamp."},
+    "audience": {"target_persona": "Fresh CS graduates", "locations": ["IN"], "languages": ["en"]},
+    "campaign": {"goal": "signups", "creator_authority_level": "mentor", "budget_total": 5000, "creator_count": 5},
+    "constraints": {"min_subscribers": 10000, "max_subscribers": 500000, "target_countries": ["IN"]},
+}
+
+
+@pytest.fixture
+def queued(monkeypatch):
+    """Captures the searches that would be queued, so no real Inngest call is made."""
+    sent = []
+
+    async def fake_send(event):
+        sent.append(event)
+
+    from app.api import campaign_runs
+
+    monkeypatch.setattr(campaign_runs.inngest_client, "send", fake_send)
+    return sent
 
 
 ACCEPT = {"Accept": "application/json, text/event-stream", "Content-Type": "application/json"}

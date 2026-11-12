@@ -21,6 +21,14 @@ DEFAULT_PAGE_SIZE = 25
 MAX_TEXT_CHARS = 20_000
 
 
+def agent_runs_per_day() -> int:
+    """How many creator searches one user's agents may start per day (each costs YouTube quota and Jev calls)."""
+    try:
+        return max(0, int(os.getenv("MCP_RUNS_PER_DAY", "3")))
+    except ValueError:
+        return 3
+
+
 def public_url() -> str:
     """Full public URL of the MCP endpoint, e.g. https://reachai.example/api/mcp (no trailing slash)."""
     return os.getenv("MCP_PUBLIC_URL", DEFAULT_PUBLIC_URL).rstrip("/")

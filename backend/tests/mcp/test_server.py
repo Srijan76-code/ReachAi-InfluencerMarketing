@@ -34,6 +34,8 @@ async def test_api_key_lists_all_tools(client, db):
     assert set(tools) == {
         "list_campaigns", "get_campaign", "campaign_status", "list_creators",
         "get_creator", "list_saved", "save_creator", "unsave_creator",
+        "create_campaign", "start_search", "pitch_context", "save_draft",
+        "inbox", "list_deals", "track_summary",
     }
     assert tools["list_creators"]["annotations"]["readOnlyHint"] is True
     assert tools["save_creator"]["annotations"]["readOnlyHint"] is False
@@ -94,7 +96,7 @@ async def test_list_campaigns_only_shows_own(client, db):
     token = await make_key(db)
     result = await call_tool(client, token, "list_campaigns")
     ids = {c["id"] for c in result["structuredContent"]["campaigns"]}
-    assert ids == {"c1", "c2"}
+    assert ids == {"c1", "c2", "c3", "c4"}
     assert "| Campaign |" in result["content"][0]["text"]
 
 
@@ -185,3 +187,11 @@ async def test_oversized_text_is_capped(client, db):
 
     big = fmt.result("x" * (config.MAX_TEXT_CHARS + 5000), {})
     assert len(big.content[0].text) < config.MAX_TEXT_CHARS + 200
+
+
+async def test_get_campaign_shows_the_sectioned_brief(client, db):
+    token = await make_key(db)
+    result = await call_tool(client, token, "get_campaign", campaign_id="c1")
+    brief = result["structuredContent"]["brief"]
+    assert brief["brand.name"] == "DataLaunch" and brief["audience.locations"] == "IN" and brief["campaign.budget_total"] == 5000
+    assert "**brand.name:** DataLaunch" in result["content"][0]["text"]

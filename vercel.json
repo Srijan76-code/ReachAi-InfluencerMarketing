@@ -19,6 +19,18 @@
       }
     },
     {
+      "source": "/llms.txt",
+      "destination": {
+        "service": "backend"
+      }
+    },
+    {
+      "source": "/skill.md",
+      "destination": {
+        "service": "backend"
+      }
+    },
+    {
       "source": "/api/(.*)",
       "destination": {
         "service": "backend"

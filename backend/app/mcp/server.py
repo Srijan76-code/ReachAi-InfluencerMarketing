@@ -17,7 +17,11 @@ from starlette.types import Receive, Scope, Send
 
 from app.mcp import config
 from app.mcp.auth import ReachAITokenVerifier
+from app.mcp.prompts import register_prompts
+from app.mcp.setup import setup_routes
 from app.mcp.tools import register_tools
+from app.mcp.tools_outreach import register_outreach_tools
+from app.mcp.tools_write import register_write_tools
 
 INSTRUCTIONS = """\
 ReachAI finds the creators who will convert for a founder's product, shows a fair price for each, \
@@ -59,6 +63,9 @@ def create_server(verifier: ReachAITokenVerifier | None = None) -> MCPServer:
         token_verifier=verifier or ReachAITokenVerifier(),
     )
     register_tools(server)
+    register_write_tools(server)
+    register_outreach_tools(server)
+    register_prompts(server)
     return server
 
 
@@ -103,4 +110,5 @@ def mcp_routes(server: MCPServer | None = None) -> list[Route]:
     return [
         Route(path, endpoint=asgi),
         Route(f"/.well-known/oauth-protected-resource{path}", endpoint=asgi),
+        *setup_routes(),
     ]

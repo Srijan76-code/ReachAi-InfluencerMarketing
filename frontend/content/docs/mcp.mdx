@@ -33,23 +33,34 @@ Other agents that support MCP over HTTP with a custom header work the same way: 
 
 Keys belong to you. Anyone with a key can see and change your campaigns, so keep it private. You can revoke a key on the [Agents](/agents) page at any time, and it stops working immediately.
 
+## Easiest setup
+
+Tell your agent: "set up ReachAI from https://YOUR-REACHAI-HOST/llms.txt". It reads the instructions, asks you for a key and connects itself. There is also a playbook at `/skill.md` that teaches the agent how to use ReachAI well.
+
 ## What your agent can do
 
 | Ask for | What it does |
 |---|---|
 | Your campaigns | Lists them with status and number of creators found |
 | A campaign's details | Shows the brief and where the search is up to |
+| A new campaign | Creates one from a short brief. It does **not** start the search |
+| A creator search | Starts it, but only after your agent has told you and you agreed. Searches use your YouTube quota and AI credits, so each person's agents can start 3 a day |
 | Search progress | Tells you whether the search has finished |
 | The creators | A ranked table with score, audience, engagement and estimated fair value, with sorting, a minimum score and pages |
 | One creator | Full numbers, score breakdown, recent videos and why they fit |
 | Saved creators | Lists, saves or removes creators on the campaign's shortlist (the same list as the Saved tab) |
+| A first message | Your agent writes it in your voice; ReachAI checks it (no price above the creator's fair range, no placeholders, no internal terms) and saves it as a **draft in that creator's chat**. You review and send it in ReachAI |
+| What needs you | Who replied, which drafts are waiting, where each deal stands, and the Track results: spend, views, signups or sales, late posts and who is due payment |
 
-Scores, audience sizes and estimated values are calculated by ReachAI, not by your agent, so they match what you see in the app. The agent only lays them out.
+Scores, audience sizes, prices and results are calculated by ReachAI, not by your agent, so they match what you see in the app. The agent only lays them out.
 
-## What it can't do yet
+If your agent's client supports slash commands, you also get `/reachai-new-campaign`, `/reachai-draft-pitches` and `/reachai-check-inbox`.
 
-- Start a new search, write pitches or send anything. Those are still done in the app.
-- Nothing your agent does can send a message or move money.
+## What it can't do
+
+- Send anything. Drafts are saved for you to send, and nothing your agent does can send a message or move money.
+- Agree terms, set prices or mark a creator paid. Those stay in the app.
+- Reply to a creator. When a creator writes back, the chat in ReachAI suggests the next reply.
 
 ## A note on safety
 
@@ -58,5 +69,4 @@ Creator names, bios and summaries come from the internet. ReachAI marks them as 
 ## Coming soon
 
 - One-click sign-in for Claude (web and desktop) and ChatGPT, without a key.
-- Starting searches and drafting pitches from your agent.
 - Creator tables shown as interactive cards inside Claude.
