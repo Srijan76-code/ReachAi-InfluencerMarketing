@@ -35,3 +35,16 @@ RELEASE_CRON = "23 * * * *"  # hourly sweep of stale reservations
 
 # Searches one user can start in 24 hours, from any source (web or agents).
 MAX_SEARCHES_PER_DAY = 20
+
+# A paid period that ended keeps its plan this long while we wait for the renewal payment.
+RENEWAL_GRACE = timedelta(days=3)
+# Provider timestamps for "the same period" can differ by seconds (start vs first charge).
+PERIOD_MATCH = timedelta(hours=12)
+
+# What can be bought. Product ids per mode come from dodo.product_ids().
+ITEMS: dict[str, dict] = {
+    "solo_monthly": {"kind": "plan", "plan": "solo"},
+    "pro_monthly": {"kind": "plan", "plan": "pro"},
+    "pack_10": {"kind": "pack", "credits": 10},
+    "pack_30": {"kind": "pack", "credits": 30},
+}

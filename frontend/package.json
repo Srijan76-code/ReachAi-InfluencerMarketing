@@ -27,6 +27,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "cn": "^0.4.0",
+    "dodopayments-checkout": "2.0.1",
     "exceljs": "^4.4.0",
     "feedback": "^0.3.2",
     "framer-motion": "^12.29.0",

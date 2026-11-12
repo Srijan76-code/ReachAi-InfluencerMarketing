@@ -46,6 +46,9 @@ def _aware(dt: datetime | None) -> datetime | None:
     return dt
 
 
+aware = _aware
+
+
 def month_bounds(now: datetime) -> tuple[datetime, datetime]:
     start = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
     end = datetime(now.year + (now.month == 12), now.month % 12 + 1, 1, tzinfo=timezone.utc)
@@ -81,9 +84,40 @@ async def balances(db: AsyncSession, user_id: str) -> dict[str, int]:
     return {b: max(0, found.get(b, 0)) for b in C.BUCKETS}
 
 
+async def _close_period(db: AsyncSession, sub: Subscription, next_start: datetime, carry: bool) -> None:
+    """Expire what's left of the current period; with `carry`, move unused monthly credits (up to one
+    month's worth) into rollover for the next period. Old rollover always expires."""
+    plan = C.PLANS.get(sub.plan, C.PLANS[C.DEFAULT_PLAN])
+    old_ref = _aware(sub.current_period_start).isoformat()
+    left = await balances(db, sub.user_id)
+    if left["rollover"]:
+        db.add(_entry(sub.user_id, -left["rollover"], "rollover", "expire", "period", old_ref))
+    if left["monthly"]:
+        db.add(_entry(sub.user_id, -left["monthly"], "monthly", "expire", "period", old_ref))
+    if carry and plan["rollover"] and left["monthly"]:
+        carried = min(left["monthly"], plan["monthly"])
+        db.add(_entry(sub.user_id, carried, "rollover", "rollover", "period", next_start.isoformat(),
+                      "Unused credits from last month"))
+
+
+def _grant_month(db: AsyncSession, sub: Subscription, ref: str) -> None:
+    plan = C.PLANS.get(sub.plan, C.PLANS[C.DEFAULT_PLAN])
+    db.add(_entry(sub.user_id, plan["monthly"], "monthly", "grant_plan", "period", ref))
+
+
+def _lapsed(sub: Subscription, now: datetime) -> bool:
+    """A paid plan whose period ended without a renewal (cancelled, or unpaid past the grace period)."""
+    end = _aware(sub.current_period_end)
+    if sub.status == "cancelled":
+        return now >= end
+    return now >= end + C.RENEWAL_GRACE
+
+
 async def ensure_account(db: AsyncSession, user_id: str, now: datetime | None = None) -> Subscription:
     """Create the Free plan with welcome credits on first use, and start a new period when one has ended.
 
+    Free periods are calendar months, granted here. Paid periods follow the payment provider and are granted
+    by its renewal webhook (`start_paid_period`); a paid plan that lapses falls back to Free here.
     Safe to call on every read; grants are written once per period (unique ledger refs). Takes the lock.
     """
     now = now or _now()
@@ -94,30 +128,108 @@ async def ensure_account(db: AsyncSession, user_id: str, now: datetime | None = 
         sub = Subscription(user_id=user_id, plan=C.DEFAULT_PLAN, current_period_start=start, current_period_end=end)
         db.add(sub)
         db.add(_entry(user_id, C.WELCOME_CREDITS, "bonus", "grant_welcome", "welcome", user_id, "Welcome credits"))
-        db.add(_entry(user_id, C.PLANS[sub.plan]["monthly"], "monthly", "grant_plan", "period", start.isoformat()))
+        _grant_month(db, sub, start.isoformat())
         await db.flush()
         return sub
 
     if now < _aware(sub.current_period_end):
         return sub
-
-    # The period ended: expire what's left, roll some over on paid plans, then grant the new month.
-    plan = C.PLANS.get(sub.plan, C.PLANS[C.DEFAULT_PLAN])
-    old_ref = _aware(sub.current_period_start).isoformat()
-    left = await balances(db, user_id)
-    if left["rollover"]:
-        db.add(_entry(user_id, -left["rollover"], "rollover", "expire", "period", old_ref))
-    if left["monthly"]:
-        db.add(_entry(user_id, -left["monthly"], "monthly", "expire", "period", old_ref))
-    start, end = month_bounds(now)
-    consecutive = _aware(sub.current_period_end) == start
-    if plan["rollover"] and consecutive and left["monthly"]:
-        carried = min(left["monthly"], plan["monthly"])
-        db.add(_entry(user_id, carried, "rollover", "rollover", "period", start.isoformat(), "Unused credits from last month"))
+    if sub.plan != C.DEFAULT_PLAN:
+        if not _lapsed(sub, now):
+            return sub  # waiting for the renewal webhook
+        start, end = month_bounds(now)
+        await _close_period(db, sub, start, carry=False)
+        sub.plan, sub.status, sub.cancel_at_period_end = C.DEFAULT_PLAN, "cancelled", False
+    else:
+        start, end = month_bounds(now)
+        await _close_period(db, sub, start, carry=False)  # Free never rolls over
     sub.current_period_start, sub.current_period_end = start, end
-    db.add(_entry(user_id, plan["monthly"], "monthly", "grant_plan", "period", start.isoformat()))
+    _grant_month(db, sub, start.isoformat())
     await db.flush()
     return sub
+
+
+async def start_paid_period(db: AsyncSession, user_id: str, plan: str, start: datetime, end: datetime,
+                            *, provider_subscription_id: str, provider_customer_id: str | None) -> bool:
+    """A paid plan started or renewed (webhook). Closes the old period and grants the plan's monthly credits.
+
+    Idempotent and order-safe: a repeat of the same period, or an older one arriving late, changes only the
+    end date. Returns True if credits were granted.
+    """
+    sub = await ensure_account(db, user_id, start)
+    sub.provider = "dodo"
+    sub.provider_subscription_id = provider_subscription_id
+    if provider_customer_id:
+        sub.provider_customer_id = provider_customer_id
+    sub.status = "active"
+    current_start = _aware(sub.current_period_start)
+    if sub.plan == plan and start <= current_start + C.PERIOD_MATCH:
+        if start >= current_start - C.PERIOD_MATCH:  # the same period again: keep the latest end date
+            sub.current_period_end = max(_aware(sub.current_period_end), end)
+        await db.flush()
+        return False
+    # Renewing straight into the next period (same or another paid plan) rolls unused credits over.
+    consecutive = sub.plan != C.DEFAULT_PLAN and abs(start - _aware(sub.current_period_end)) <= C.PERIOD_MATCH
+    await _close_period(db, sub, start, carry=consecutive)
+    sub.plan, sub.current_period_start, sub.current_period_end = plan, start, end
+    sub.cancel_at_period_end = False
+    _grant_month(db, sub, f"{provider_subscription_id}:{start.isoformat()}")
+    await db.flush()
+    return True
+
+
+async def change_plan(db: AsyncSession, user_id: str, plan: str, ref: str) -> int:
+    """The plan changed inside a paid period (webhook). An upgrade adds the difference in monthly credits now;
+    a downgrade takes effect from the next period. Returns the credits added."""
+    sub = await ensure_account(db, user_id)
+    old = C.PLANS.get(sub.plan, C.PLANS[C.DEFAULT_PLAN])["monthly"]
+    new = C.PLANS[plan]["monthly"]
+    sub.plan = plan
+    added = 0
+    if new > old:
+        exists = await db.scalar(select(func.count()).select_from(CreditEntry).where(
+            CreditEntry.user_id == user_id, CreditEntry.reason == "grant_plan", CreditEntry.ref_id == ref))
+        if not exists:
+            added = new - old
+            db.add(_entry(user_id, added, "monthly", "grant_plan", "plan_change", ref, f"Upgraded to {plan.title()}"))
+    await db.flush()
+    return added
+
+
+async def set_status(db: AsyncSession, user_id: str, status: str, cancel_at_period_end: bool | None = None) -> None:
+    sub = await ensure_account(db, user_id)
+    if sub.plan == C.DEFAULT_PLAN and status != "active":
+        return
+    sub.status = status
+    if cancel_at_period_end is not None:
+        sub.cancel_at_period_end = cancel_at_period_end
+    await db.flush()
+
+
+async def grant_pack(db: AsyncSession, user_id: str, credits: int, payment_id: str, note: str) -> bool:
+    """Credits bought as a pack (never expire). Once per payment."""
+    await ensure_account(db, user_id)
+    exists = await db.scalar(select(func.count()).select_from(CreditEntry).where(
+        CreditEntry.user_id == user_id, CreditEntry.reason == "grant_pack", CreditEntry.ref_id == payment_id))
+    if exists:
+        return False
+    db.add(_entry(user_id, credits, "pack", "grant_pack", "payment", payment_id, note))
+    await db.flush()
+    return True
+
+
+async def take_back_pack(db: AsyncSession, user_id: str, credits: int, refund_id: str) -> int:
+    """A pack was refunded: remove its credits, as far as they're unspent. Returns credits removed."""
+    await ensure_account(db, user_id)
+    exists = await db.scalar(select(func.count()).select_from(CreditEntry).where(
+        CreditEntry.user_id == user_id, CreditEntry.reason == "adjust", CreditEntry.ref_id == refund_id))
+    if exists:
+        return 0
+    remove = min(credits, (await balances(db, user_id))["pack"])
+    if remove:
+        db.add(_entry(user_id, -remove, "pack", "adjust", "refund", refund_id, "Pack refunded"))
+        await db.flush()
+    return remove
 
 
 async def summary(db: AsyncSession, user_id: str) -> dict:
@@ -134,6 +246,9 @@ async def summary(db: AsyncSession, user_id: str) -> dict:
         "held": int(held or 0),
         "monthly_credits": C.PLANS.get(sub.plan, C.PLANS[C.DEFAULT_PLAN])["monthly"],
         "resets_at": _aware(sub.current_period_end).isoformat(),
+        "status": sub.status,
+        "cancel_at_period_end": bool(sub.cancel_at_period_end),
+        "can_manage": bool(sub.provider_customer_id),
         "search_credits": {p: C.SEARCH_CREDITS[p] for p in C.LIVE_PLATFORMS},
     }
 
@@ -264,6 +379,6 @@ async def adjust(db: AsyncSession, user_id: str, delta: int, note: str, ref_id: 
     await db.flush()
 
 
-__all__ = ["NotEnoughCredits", "DailyLimitReached", "Quote", "quote", "balances", "ensure_account", "summary",
+__all__ = ["start_paid_period", "change_plan", "set_status", "grant_pack", "take_back_pack", "NotEnoughCredits", "DailyLimitReached", "Quote", "quote", "balances", "ensure_account", "summary",
            "reserve", "settle", "release", "release_expired", "history", "adjust", "has_finished_run",
            "month_bounds"]
