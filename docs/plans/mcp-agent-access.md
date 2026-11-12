@@ -5,7 +5,7 @@ Live task state for coding agents. Roadmap: `docs/ROADMAP.md` Phase 9. Design: `
 ## Status
 - **F9.1 done** (PR #57, branch `mcp-server`): server at `/api/mcp`, personal API keys, Clerk OAuth (built, unverified), 8 read/shortlist tools, Agents page, docs.
 - **F9.2 built** (branch `mcp-write-tools`, based on `mcp-server`): write tools, setup files, prompts, inbox and Track read tools. Needs its PR and then F9.1b.
-- **F9.1b waiting on the user**: Clerk sign-in checklist below.
+- **F9.1b steps 1–3 done (Nov 12)**: Clerk MCP server registered on the instance prod uses (audience claim and client ID metadata documents on), `MCP_PUBLIC_URL` and `APP_URL` set in Vercel production, migrations applied to Neon production (head `f6d4e9b3a2c8`). Left: steps 4–5 after deploy.
 
 ## Decisions (made by the user, Nov 10 2026)
 | Question | Decision |
@@ -27,7 +27,7 @@ Live task state for coding agents. Roadmap: `docs/ROADMAP.md` Phase 9. Design: `
 - [x] Prompts: `/reachai-new-campaign`, `/reachai-draft-pitches`, `/reachai-check-inbox` (reply-all dropped: replies stay in the app, F9.2b)
 - [x] `/llms.txt` and `/skill.md` served by the backend; the address comes from `MCP_PUBLIC_URL` only, never from request headers
 - [x] Tests in `backend/tests/mcp/` (no live APIs); update ROADMAP, spec §15, docs `mcp.mdx` and changelog
-- [ ] Checks: `pytest tests -q`, `npx tsc --noEmit`, `npm run build`; then PR
+- [x] Checks: `pytest tests -q` (376 pass), `npx tsc --noEmit`, `npm run build`; PR #58
 
 ## Clerk sign-in checklist (user action, F9.1b)
 Needed before Claude/ChatGPT connectors can sign in. Taken from Clerk's MCP guide (Express version), so confirm names in the dashboard.
