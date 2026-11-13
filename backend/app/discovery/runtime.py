@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import time
 from typing import Any, Optional
 
@@ -66,6 +67,19 @@ def default_deps(ctx: CostContext) -> Deps:
         return YouTubeAdapter(shared["api"], cache=run_cache)
 
     deps.adapters = {"youtube": youtube}
+
+    from app.core import config
+
+    if config.X_ENABLED and os.getenv("X_PROVIDER_API_KEY"):
+        from app.platforms.x import XAdapter
+        from app.platforms.x_api import HttpXAPI
+
+        def x():
+            if "x_api" not in shared:
+                shared["x_api"] = HttpXAPI(context=ctx)
+            return XAdapter(shared["x_api"], cache=run_cache)
+
+        deps.adapters["x"] = x
     return deps
 
 
@@ -156,9 +170,10 @@ async def run_discovery(
     )
     await _settle_credits(run_id, len(leads), deps.session_factory)
     await publish(run_id, "status", {"thread_id": thread_id, "stage": "completed", "status": "completed"})
-    api = (deps.extra or {}).get("api")
-    if api is not None and hasattr(api, "aclose"):
-        await api.aclose()
+    for key in ("api", "x_api"):
+        client = (deps.extra or {}).get(key)
+        if client is not None and hasattr(client, "aclose"):
+            await client.aclose()
     return {"leads": leads, "warnings": warnings, "resumed": resumed}
 
 

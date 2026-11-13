@@ -102,8 +102,9 @@ Known gaps in what's built:
 ## Phases 3–5: New platforms · §6
 | ID | Feature | Status | Spec |
 |---|---|---|---|
-| F3.1 | X adapter (third-party provider, official API switch) | later | §6.1 |
-| F4.1 | Instagram adapter (Apify) | later | §6.2 |
+| F3.1 | X adapter via twitterapi.io: advanced search (min faves, no replies/reposts, last 21 days) → authors with profiles free from search → `cheap_filter` → one timeline page per survivor; 24 h search cache; cost logged per call; out-of-provider-credits keeps what was found and warns. On behind `X_ENABLED=1` + `X_PROVIDER_API_KEY`. Brief picker shows live platforms and their credits. Official API switch not built (F3.2) | done (`x-discovery`) | §6.1 | `backend/app/platforms/x.py`, `x_api.py`, `links.py`, `app/discovery/runtime.py`, `prompts.py` (`x_queries`), `app/billing/constants.py` (`live_platforms`), `frontend/components/MultiPlatform.tsx` |
+| F3.2 | X: official API switch (`X_PROVIDER=official`) for verification only | later | §6.1 |
+| F4.1 | Instagram adapter (Apify now; HikerAPI later if cost or speed needs it) | next | §6.2 |
 | F5.1 | LinkedIn adapter (public post search + pasted URLs) | later | §6.3 |
 
 ## Phase 6: Outreach loop · §7

@@ -100,7 +100,7 @@ def _strategy_obj(state) -> Strategy:
     return Strategy(
         topics=s.get("topics", []),
         pain_points=s.get("pain_points", []),
-        queries={"youtube": s.get("youtube_queries", [])},
+        queries={"youtube": s.get("youtube_queries", []), "x": s.get("x_queries", [])},
         trend_topics=s.get("trend_topics", []),
         formats=s.get("formats", []),
         primary_metric=s.get("primary_metric", "engagement_depth"),

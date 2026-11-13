@@ -14,7 +14,7 @@
 | Market | Global, tested as we go |
 | Positioning | **Quality + fair price**: "the creators who will actually convert for you, and what you should pay them" |
 | Platforms (build order) | Shared core → **X** → **Instagram** → **LinkedIn**. YouTube stays and moves onto the shared core |
-| Data sources | YouTube Data API · X through a third-party provider, with the official API behind a switch · Instagram through Apify · LinkedIn through **public, logged-out post search only** |
+| Data sources | YouTube Data API · X through a third-party provider, with the official API behind a switch · Instagram through Apify (HikerAPI later if cost or speed needs it) · LinkedIn through **public, logged-out post search only** |
 | Judgment layer | **Jev (TypeSafe AI)** for every yes/no, label and scale judgment |
 | Numbers | **Code, statistics and ML**: metrics, anomaly detection, scoring, valuation. No LLM involved |
 | Negotiation | **An agent: Jev reads and decides, code guards, the LLM writes (decided Nov 5).** Jev picks the move, deal type, commission step (0–25%) and how far to concede from options code gives it; code turns those into exact amounts within the ceiling (fair top +15%, never over the budget left, never below our last offer) and never lets a model state a price. The writer sees the creator's own words (screened by Jev for injection) and every amount is checked. Default aim: good value while keeping the creator happy. Replaces the code formula and templates (§8.7) |
@@ -594,6 +594,7 @@ Daily caps per user (`MAX_SEARCHES_PER_DAY`) and the existing MCP cap still appl
 - **Metrics:** post view counts are public, so views-based valuation works. CPM prior ≈ 20–40% below Instagram. Sponsored post priors: 10K–50K followers ≈ $300–1,500.
 - **Contacts:** emails in the bio or pinned post, the link-in-bio page (crawl it), cross-links.
 - **Cost target per run:** ≤ $1 (e.g. 3k search tweets + 150 × 20 timeline tweets + 150 profiles).
+- **As built (Nov 13):** twitterapi.io (`x_api.py`, 15 provider credits per tweet, 15 minimum per call, 100k = $1; paced to `X_REQUESTS_PER_SECOND`, retries 429). Query text carries `min_faves:30 -filter:replies -filter:retweets since_time:`; 2 pages per query, cached 24 h. Search tweets embed the author, so profiles cost nothing; only `cheap_filter` survivors cost one `last_tweets` page (≈ 20 posts, reposts and replies dropped). Creators from our database are looked up by their timeline. Provider out of credits (402) keeps earlier pages and adds one warning. The strategy prompt writes `x_queries` (strategy-v4). On only when `X_ENABLED=1` and `X_PROVIDER_API_KEY` are set; `live_platforms()` drives billing, quotes and the brief picker. The free provider tier allows 1 request per 5 s, so production needs a topped-up account (20 rps).
 
 ### 6.2 Instagram (`app/platforms/instagram.py`)
 - **Provider:** Apify (official actors preferred).

@@ -6,8 +6,18 @@ from datetime import timedelta
 # cost_events. A change never applies to a search that has already started (its reservation is fixed).
 SEARCH_CREDITS: dict[str, int] = {"youtube": 1, "x": 3, "instagram": 4, "linkedin": 8}
 
-# Platforms that can actually be searched today. A search is charged only for these.
+# Platforms that can actually be searched today. A search is charged only for these. X joins when its
+# provider is switched on (X_ENABLED=1 and X_PROVIDER_API_KEY set), so it's never charged while off.
 LIVE_PLATFORMS: tuple[str, ...] = ("youtube",)
+
+
+def live_platforms() -> tuple[str, ...]:
+    import os
+
+    from app.core import config
+
+    extra = ("x",) if config.X_ENABLED and os.getenv("X_PROVIDER_API_KEY") else ()
+    return LIVE_PLATFORMS + extra
 
 # Running a campaign again ("Find more") reuses cached data, so it costs this share, rounded up.
 FIND_MORE_FACTOR = 0.5

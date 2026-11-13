@@ -4,19 +4,22 @@ import { useId } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RiInstagramFill, RiLinkedinBoxFill, RiTwitterXFill, RiYoutubeFill } from "@remixicon/react";
 import { useCampaignStore } from "@/store/campaignStore";
+import { plural, useCredits } from "@/lib/credits";
 
 export default function MultiPlatform() {
   const id = useId();
   const platforms = useCampaignStore((state) => state.platforms);
   const setField = useCampaignStore((state) => state.setField);
 
-  // Values are the platform names the backend understands. Platforms not built yet are shown but disabled.
+  // Live platforms and their cost come from the backend (the same list billing charges for).
+  const live = useCredits()?.search_credits ?? { youtube: 1 };
   const items = [
-    { Icon: RiYoutubeFill, label: "YouTube", value: "youtube", disabled: false },
-    { Icon: RiInstagramFill, label: "Instagram", value: "instagram", disabled: true },
-    { Icon: RiTwitterXFill, label: "X", value: "x", disabled: true },
-    { Icon: RiLinkedinBoxFill, label: "LinkedIn", value: "linkedin", disabled: true },
-  ];
+    { Icon: RiYoutubeFill, label: "YouTube", value: "youtube" },
+    { Icon: RiTwitterXFill, label: "X", value: "x" },
+    { Icon: RiInstagramFill, label: "Instagram", value: "instagram" },
+    { Icon: RiLinkedinBoxFill, label: "LinkedIn", value: "linkedin" },
+  ].map((i) => ({ ...i, disabled: !(i.value in live), credits: live[i.value] }));
+  const soon = items.filter((i) => i.disabled).map((i) => i.label);
 
   const handleCheckedChange = (value: string, checked: boolean) => {
     if (checked) {
@@ -32,7 +35,8 @@ export default function MultiPlatform() {
         Platforms
       </label>
       <p className="text-[11px] text-zinc-500">
-        Leave all unticked and ReachAI picks the platforms that fit your product. Instagram, X and LinkedIn are coming soon.
+        Leave all unticked and ReachAI picks the platforms that fit your product.
+        {soon.length ? ` ${soon.join(", ")} coming soon.` : ""}
       </p>
       <div className="flex gap-2 flex-wrap">
         {items.map((item) => (
@@ -47,7 +51,11 @@ export default function MultiPlatform() {
                 className="text-[12px] font-medium text-zinc-700 dark:text-zinc-300 cursor-pointer"
               >
                 {item.label}
-                {item.disabled && <span className="ml-1 text-[10px] text-zinc-400">soon</span>}
+                {item.disabled ? (
+                  <span className="ml-1 text-[10px] text-zinc-400">soon</span>
+                ) : (
+                  <span className="ml-1 text-[10px] text-zinc-400">{plural(item.credits ?? 1)}</span>
+                )}
               </label>
             </div>
             <Checkbox
