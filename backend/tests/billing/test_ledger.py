@@ -161,3 +161,18 @@ async def test_concurrent_searches_never_overspend(db):
     results = await asyncio.gather(*(attempt(i) for i in (1, 2, 3)))
     assert results.count(True) == 1
     assert sum((await balance(db)).values()) == 3
+
+
+async def test_quote_follows_the_platforms_that_will_be_searched(monkeypatch):
+    from app.core import config
+
+    b2b = {"brand": {"business_model": "b2b"}}
+    consumer = {"brand": {"business_model": "b2c"}}
+    monkeypatch.setattr(config, "X_ENABLED", False)
+    assert ledger.quote(b2b).credits == 1  # X off: never charged
+    monkeypatch.setattr(config, "X_ENABLED", True)
+    monkeypatch.setenv("X_PROVIDER_API_KEY", "k")
+    assert ledger.quote(b2b).platforms == ["youtube", "x"] and ledger.quote(b2b).credits == 1 + 3  # preset
+    assert ledger.quote(consumer).platforms == ["youtube"]  # consumer preset: Instagram not live yet
+    assert ledger.quote({"campaign": {"platforms": ["x"]}}).credits == 3
+    assert ledger.quote({"campaign": {"platforms": ["linkedin"]}}).platforms == ["youtube"]  # nothing live chosen

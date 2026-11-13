@@ -22,6 +22,7 @@ import isodate
 
 from app.metrics import constants as MC
 from app.platforms.base import CandidateRef, CreatorProfile, Limits, PlatformPriors, Post, Strategy
+from app.platforms.links import extract_links  # noqa: F401  (re-exported for older imports)
 from app.platforms.youtube_api import YouTubeAPI, YouTubeAPIError
 
 logger = logging.getLogger(__name__)
@@ -38,15 +39,6 @@ FETCH_CONCURRENCY = 20
 SHORT_MAX_SECONDS = 180  # Shorts can be up to 3 minutes
 MIN_VIDEOS = 5  # carried over from the old subscriber filter
 SEARCH_CACHE_HOURS = 48
-
-EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
-URL = re.compile(r"https?://[^\s<>\"')\]]+", re.I)
-SOCIAL_PATTERNS = {
-    "instagram": re.compile(r"https?://(?:www\.)?instagram\.com/(?!p/|reel/|reels/|explore/|stories/)([A-Za-z0-9_.]+)", re.I),
-    "x": re.compile(r"https?://(?:www\.)?(?:twitter|x)\.com/(?!intent/|share|hashtag/|search)([A-Za-z0-9_]+)", re.I),
-    "linkedin": re.compile(r"https?://(?:[a-z]{2,3}\.)?linkedin\.com/in/([A-Za-z0-9_\-%]+)", re.I),
-    "tiktok": re.compile(r"https?://(?:www\.)?tiktok\.com/@([A-Za-z0-9_.]+)", re.I),
-}
 
 CacheFn = Callable[[str, Any, Optional[timedelta], Callable[[], Awaitable[Any]]], Awaitable[tuple[Any, bool]]]
 
@@ -85,21 +77,6 @@ def _int(value: Any) -> Optional[int]:
         return int(value)
     except (TypeError, ValueError):
         return None
-
-
-def extract_links(text: str) -> tuple[list[str], dict[str, str], list[str]]:
-    """(emails, social links by platform, other links) found in a channel description."""
-    text = text or ""
-    emails = list(dict.fromkeys(e.rstrip(".") for e in EMAIL.findall(text)))
-    socials: dict[str, str] = {}
-    for name, pattern in SOCIAL_PATTERNS.items():
-        m = pattern.search(text)
-        if m:
-            socials[name] = m.group(0).rstrip("/.")
-    social_urls = set(socials.values())
-    others = [u.rstrip("/.") for u in URL.findall(text)]
-    others = [u for u in dict.fromkeys(others) if not any(u.startswith(s) for s in social_urls)]
-    return emails, socials, others
 
 
 def rank_fused(results: list[tuple[str, list[tuple[str, str]]]], cap: int) -> list[CandidateRef]:

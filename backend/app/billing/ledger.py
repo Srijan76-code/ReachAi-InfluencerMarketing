@@ -62,8 +62,14 @@ async def lock(db: AsyncSession, user_id: str) -> None:
 
 def quote(details: dict | None, *, find_more: bool = False) -> Quote:
     """What a search with this brief costs. Only live platforms are charged."""
+    live = C.live_platforms()
     chosen = [str(p).lower() for p in ((details or {}).get("campaign") or {}).get("platforms") or []]
-    platforms = [p for p in C.LIVE_PLATFORMS if not chosen or p in chosen] or list(C.LIVE_PLATFORMS)
+    if not chosen:  # ReachAI picks: the preset for this kind of business (what platform_select searches in full)
+        from app.discovery.brief import parse_brief
+        from app.judge import constants as K
+
+        chosen = list(K.PRESET_PLATFORMS[parse_brief(details or {}).founder_type])
+    platforms = [p for p in live if p in chosen] or [live[0]]
     full = sum(C.SEARCH_CREDITS[p] for p in platforms)
     credits = math.ceil(full * C.FIND_MORE_FACTOR) if find_more else full
     return Quote(credits=max(1, credits), platforms=platforms, find_more=find_more)
@@ -261,7 +267,7 @@ async def summary(db: AsyncSession, user_id: str) -> dict:
         "status": sub.status,
         "cancel_at_period_end": bool(sub.cancel_at_period_end),
         "can_manage": bool(sub.provider_customer_id),
-        "search_credits": {p: C.SEARCH_CREDITS[p] for p in C.LIVE_PLATFORMS},
+        "search_credits": {p: C.SEARCH_CREDITS[p] for p in C.live_platforms()},
     }
 
 

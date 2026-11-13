@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 
 from app.discovery.brief import Brief
 
-STRATEGY_PROMPT_VERSION = "strategy-v3"
+STRATEGY_PROMPT_VERSION = "strategy-v4"
 REASON_PROMPT_VERSION = "reason-v2"
 
 
@@ -20,6 +20,10 @@ class StrategyOut(BaseModel):
     formats: list[str] = Field(description="2-4 video formats that suit the product, e.g. tutorial, review, case study")
     youtube_queries: list[str] = Field(
         description="8-10 distinct short YouTube searches (2-5 words) for the niches this audience watches, e.g. 'api monitoring tutorial', 'devops tools'; broad enough that whole channels cover them"
+    )
+    x_queries: list[str] = Field(
+        default_factory=list,
+        description="6-8 short X (Twitter) searches (1-3 words) that posts by creators in this niche contain, e.g. 'devops', 'kubernetes tips', 'indie hacker'; plain words, no hashtags or operators",
     )
     trend_topics: list[str] = Field(description="2-4 subjects people in this niche are talking about right now")
     competitors: list[str] = Field(default_factory=list, description="Up to 5 well-known competing products or brands")
@@ -32,7 +36,7 @@ class StrategyOut(BaseModel):
 def strategy_prompt(b: Brief, today: Optional[date] = None) -> str:
     today = today or date.today()
     return f"""Today is {today.isoformat()}. You plan creator-marketing campaigns. Turn this brief into a search strategy for finding YouTube creators
-whose audience will actually buy. Be specific: niches, real problems and phrases people really search for.
+whose audience will actually buy (and the same niche on X). Be specific: niches, real problems and phrases people really search for.
 
 Brand: {b.brand_name} ({b.industry}, {b.business_model.upper()})
 Product: {b.product}
@@ -47,6 +51,7 @@ Guidance:
   Long, very specific sentences find almost no channels.
 - Name the niche, not the product: no brand names, no years, no "in 5 minutes"-style details.
 - Start with the broad niche terms (e.g. "devops", "freelance business"), then add narrower ones.
+- X searches match words inside posts, so use the plain terms creators in the niche write (1-3 words).
 - Trend topics are only a starting hint; real trends come from recent videos.
 - Do not invent statistics."""
 
