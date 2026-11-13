@@ -5,6 +5,7 @@ event field, read only by Jev, never shown to an LLM."""
 from __future__ import annotations
 
 import logging
+import time
 from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
@@ -128,19 +129,25 @@ async def sync_deal(db: AsyncSession, account: ConnectedAccount, d: CreatorDeal,
 
 
 async def sync_deals(db: AsyncSession, account: ConnectedAccount, deals: list[CreatorDeal], *, user_id: str,
-                     force: bool = False) -> int:
-    """Checks the threads that are due (not checked in the last few minutes), commits. Returns new replies."""
+                     force: bool = False, budget_seconds: Optional[float] = None) -> int:
+    """Checks the threads that are due (not checked in the last few minutes), commits. Returns new replies.
+    `budget_seconds`: stop starting new threads after this long (the bell's poll); the rest stay due and are
+    checked next time, oldest-checked first so none starves."""
     if not usable(account):
         return 0
     cutoff = _now() - timedelta(minutes=G.SYNC_EVERY_MINUTES)
-    due = [d for d in deals if d.gmail_thread_id and d.stage not in ("paid", "lost")
-           and (force or not d.gmail_synced_at or d.gmail_synced_at < cutoff)][: G.MAX_THREADS_PER_SYNC]
+    due = sorted((d for d in deals if d.gmail_thread_id and d.stage not in ("paid", "lost")
+                  and (force or not d.gmail_synced_at or d.gmail_synced_at < cutoff)),
+                 key=lambda d: d.gmail_synced_at or datetime.min.replace(tzinfo=timezone.utc))[: G.MAX_THREADS_PER_SYNC]
     if not due:
         return 0
     new = 0
     try:
         token = await token_for(account)
+        started = time.monotonic()
         for d in due:
+            if budget_seconds is not None and time.monotonic() - started > budget_seconds:
+                break
             try:
                 new += await sync_deal(db, account, d, token, user_id=user_id)
             except GC.GmailError as e:

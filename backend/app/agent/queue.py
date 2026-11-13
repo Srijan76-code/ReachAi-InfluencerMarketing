@@ -26,16 +26,21 @@ def _now() -> datetime:
 
 
 async def refresh(db: AsyncSession, deals: list[CreatorDeal], *, names: dict, goal: Optional[str],
-                  today: Optional[date] = None) -> list[AgentProposal]:
+                  today: Optional[date] = None, rows: Optional[list] = None) -> list[AgentProposal]:
     """Brings the stored suggestions in line with the deals (new ones added, outdated ones marked stale; ones
-    the founder approved or skipped never come back) and returns the pending ones, oldest first. Commits."""
+    the founder approved or skipped never come back) and returns the pending ones, oldest first. Commits.
+    `rows`: the deals' events when the caller already loaded them (saves loading every chat twice)."""
     if not deals:
         return []
     today = today or date.today()
     ids = [d.deal_id for d in deals]
     events: dict[str, list[Ev]] = {i: [] for i in ids}
-    for e in (await db.execute(select(DealEvent).where(DealEvent.deal_id.in_(ids)))).scalars():
-        events[e.deal_id].append(Ev(e.event_id, e.type, e.payload or {}, e.created_at or _now()))
+    if rows is None:
+        rows = list((await db.execute(select(DealEvent.event_id, DealEvent.deal_id, DealEvent.type, DealEvent.payload,
+                                             DealEvent.created_at).where(DealEvent.deal_id.in_(ids)))).all())
+    for e in rows:
+        if e.deal_id in events:
+            events[e.deal_id].append(Ev(e.event_id, e.type, e.payload or {}, e.created_at or _now()))
     stored: dict[tuple[str, str], AgentProposal] = {
         (p.deal_id, p.key): p for p in (await db.execute(select(AgentProposal).where(AgentProposal.deal_id.in_(ids)))).scalars()
     }

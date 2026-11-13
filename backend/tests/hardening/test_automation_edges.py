@@ -241,3 +241,31 @@ async def test_one_creators_pitch_failing_does_not_fail_the_batch(monkeypatch):
     assert by_id["UC0"]["status"] == "completed"
     assert by_id["UC1"]["status"] == "failed" and "couldn't write this pitch" in by_id["UC1"]["validation_errors"][0]
     assert out["generation_stats"]["successful_count"] == 1
+
+
+async def test_slim_loaders_keep_every_field_the_pages_use(env):
+    """The Deals page and chat actions read creators cut down in SQL: same values as the stored ones."""
+    from app.api.routes import deals as R
+    from app.models.campaign import Campaign
+    from app.models.user import User
+
+    full = {"id": "UC0", "title": "Creator 0", "socials": {"email": "c0@example.com"}, "signals": {"sponsored_posts": 2},
+            "metrics": {"avg_views": 5000}, "subscribers": 12000, "avatar_url": "https://img/a.jpg",
+            "posts": [{"text": "big"}] * 5, "description": "long " * 200}
+    async with env.sf() as s:
+        c = await s.get(Campaign, "c1")
+        c.campaign_leads = [full] + LEADS[1:]
+        await s.commit()
+    async with env.sf() as s:
+        user = (await s.execute(select(User))).scalar_one()
+        camp = await R._campaign_slim(s, "c1", user)
+        d, row = await R._deal(s, "d0", user)
+        for leads in (camp.campaign_leads, row.campaign_leads):
+            lead = R._leads_by_id(leads)["UC0"]
+            assert "posts" not in lead and "description" not in lead
+            for k in ("title", "socials", "signals", "metrics", "subscribers", "avatar_url"):
+                assert lead[k] == full[k]
+    r = await env.get("/api/inbox")
+    assert r.status_code == 200
+    names = {i["deal_id"]: i["name"] for i in r.json()["items"]}
+    assert names["d0"] == "Creator 0" and names["d1"] == "Creator 1"
