@@ -628,6 +628,7 @@ Daily caps per user (`MAX_SEARCHES_PER_DAY`) and the existing MCP cap still appl
   2. `harvestapi/linkedin-profile-scraper` without email search ($0.004 per profile), up to 80: followers, connections, headline, about, country code, websites, creator mode.
   3. `harvestapi/linkedin-profile-posts`: 10 posts from the last 3 months for the best 40 that pass `cheap_filter` (≥ 1,000 followers and the brief's range), reposts excluded ($0.002 per post).
   - Full search ≈ $1.72; a live run took ≈ 47 s. Strategy writes `linkedin_queries` (strategy-v6). On only with `LINKEDIN_ENABLED=1` and `APIFY_TOKEN`. Pasted profile URLs and pod detection are F5.2.
+  - **Apify free plan (found Nov 13 on production):** HarvestAPI actors return at most 10 results per run for free Apify accounts (an `error` row says so). The client raises `ApifyError(PLAN_LIMIT)` carrying the results it did get; adapters keep them and show one warning. Real LinkedIn searches need a paid Apify plan.
 
 ### 6.4 Adapter acceptance criteria (each platform)
 - Returns `CreatorProfile` exactly, and passes the shared metrics and Jev nodes unchanged.
