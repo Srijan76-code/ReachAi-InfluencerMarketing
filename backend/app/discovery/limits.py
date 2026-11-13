@@ -1,5 +1,7 @@
 """Every limit and budget of a discovery run (spec §4.9, §4.14). Tune here, nowhere else."""
 
+import os
+
 from app.platforms.base import Limits
 
 # Search budget per platform branch mode
@@ -14,6 +16,13 @@ LIMITS_BY_MODE = {
 # returned only 0-11 results for niche queries in the Nov 4 comparison).
 TOPUP_FACTOR = 10
 TOPUP_LIMITS = Limits(max_queries=3, max_candidates=150, max_profiles=100, published_within_days=None, order="relevance")
+
+# Small searches for testing on free provider tiers (SMALL_SEARCHES=1): 2 searches, 30 candidates and
+# 10 measured creators per platform, no top-up round. About $0.30 per Apify platform, ~2 min on X's free tier.
+SMALL_SEARCHES = os.getenv("SMALL_SEARCHES", "0") == "1"
+if SMALL_SEARCHES:
+    LIMITS_BY_MODE = {mode: Limits(max_queries=2, max_candidates=30, max_profiles=10, published_within_days=21)
+                      for mode in LIMITS_BY_MODE}
 
 SHORTLIST_SIZE = 100  # creators per branch that go to Jev
 SHORTLIST_EMBED_WEIGHT = 0.7  # hybrid shortlist: 70% embedding similarity, 30% keyword (BM25)

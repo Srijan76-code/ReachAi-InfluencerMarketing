@@ -326,6 +326,8 @@ async def fetch_measure(state: BranchState, runtime: Runtime[Deps]) -> dict:
 
 def needs_top_up(state: BranchState) -> str:
     """After measuring: one extra search round when a full branch kept too few creators."""
+    if L.SMALL_SEARCHES:
+        return "shortlist"
     wanted = L.TOPUP_FACTOR * max(1, _brief(state).creator_count)
     if state["mode"] == "full" and not state.get("topped_up") and len(state.get("measured") or []) < wanted:
         return "top_up"
