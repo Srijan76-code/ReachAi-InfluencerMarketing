@@ -44,6 +44,8 @@ APIFY_TOKEN = os.getenv("APIFY_TOKEN") or os.getenv("APIFY_API_TOKEN")
 # Instagram search is on only when this is "1" and APIFY_TOKEN is set. Off: Instagram is skipped and not
 # charged for.
 INSTAGRAM_ENABLED = os.getenv("INSTAGRAM_ENABLED", "0") == "1"
+# LinkedIn search (public, logged-out data through Apify): on only when this is "1" and APIFY_TOKEN is set.
+LINKEDIN_ENABLED = os.getenv("LINKEDIN_ENABLED", "0") == "1"
 
 # --- Discovery engine ----------------------------------------------------------------
 # "legacy" = old YouTube pipeline (app/my_agent); "graph" = new discovery graph (app/discovery).

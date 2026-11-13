@@ -623,6 +623,11 @@ Daily caps per user (`MAX_SEARCHES_PER_DAY`) and the existing MCP cap still appl
 - **Valuation:** a transacted-price prior by follower tier (§4.5).
 - **Contacts:** emails or booking links in the about section or posts, and the creator's website. Outreach is email-first or assisted (no automated LinkedIn DMs).
 - **Cost target per run:** ≤ $3.
+- **As built (Nov 13):** HarvestAPI actors on Apify, no cookies or account (`app/platforms/linkedin.py`, same client as Instagram).
+  1. `harvestapi/linkedin-post-search`: all queries in one run, 50 posts each, `postedLimit=month`, relevance ($0.002 per post). Company and showcase pages dropped by author type (no Jev call needed); people ranked per query by their best post (likes + 2 × comments + 3 × reposts), then fused across queries.
+  2. `harvestapi/linkedin-profile-scraper` without email search ($0.004 per profile), up to 80: followers, connections, headline, about, country code, websites, creator mode.
+  3. `harvestapi/linkedin-profile-posts`: 10 posts from the last 3 months for the best 40 that pass `cheap_filter` (≥ 1,000 followers and the brief's range), reposts excluded ($0.002 per post).
+  - Full search ≈ $1.72; a live run took ≈ 47 s. Strategy writes `linkedin_queries` (strategy-v6). On only with `LINKEDIN_ENABLED=1` and `APIFY_TOKEN`. Pasted profile URLs and pod detection are F5.2.
 
 ### 6.4 Adapter acceptance criteria (each platform)
 - Returns `CreatorProfile` exactly, and passes the shared metrics and Jev nodes unchanged.

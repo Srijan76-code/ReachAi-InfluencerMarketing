@@ -101,7 +101,7 @@ def _strategy_obj(state) -> Strategy:
         topics=s.get("topics", []),
         pain_points=s.get("pain_points", []),
         queries={"youtube": s.get("youtube_queries", []), "x": s.get("x_queries", []),
-                 "instagram": s.get("instagram_queries", [])},
+                 "instagram": s.get("instagram_queries", []), "linkedin": s.get("linkedin_queries", [])},
         trend_topics=s.get("trend_topics", []),
         formats=s.get("formats", []),
         primary_metric=s.get("primary_metric", "engagement_depth"),
@@ -326,6 +326,8 @@ async def fetch_measure(state: BranchState, runtime: Runtime[Deps]) -> dict:
 
 def needs_top_up(state: BranchState) -> str:
     """After measuring: one extra search round when a full branch kept too few creators."""
+    if L.SMALL_SEARCHES:
+        return "shortlist"
     wanted = L.TOPUP_FACTOR * max(1, _brief(state).creator_count)
     if state["mode"] == "full" and not state.get("topped_up") and len(state.get("measured") or []) < wanted:
         return "top_up"

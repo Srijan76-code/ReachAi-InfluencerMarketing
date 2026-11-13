@@ -1,0 +1,89 @@
+[
+ {
+  "id": "ACoAAABuMNQBbzVNdEX898Vbp2LL1AC-nJ5P1x8",
+  "publicIdentifier": "rhacopian",
+  "firstName": "Rudi",
+  "lastName": "Hacopian",
+  "headline": "Accelerating Releases with Automation | DevOps & Test Engineering Consultant | Automation Expert",
+  "followerCount": 705,
+  "connectionsCount": 684,
+  "location": {
+   "linkedinText": "Glendale, California, United States",
+   "countryCode": "US",
+   "parsed": {
+    "text": "Glendale, CA, United States",
+    "countryCode": "US",
+    "regionCode": null,
+    "country": "United States",
+    "countryFull": "United States of America",
+    "state": "California",
+    "city": "Glendale"
+   }
+  },
+  "websites": null,
+  "about": "🔧 QA & DevOps Engineer | Automation Architect | 18+ Years in Software Quality & Release Engineering\n\nI’m a hands-on technology professional with over 18 years of experience driving quality across enterprise-scale systems through innovation, automation, and collaboration. I specialize in Quality Assurance, Test Automation, and Release Management, with a strong focus on performance, scalability, and continuous integration across the SDLC.\n\nMy passion lies in building reliable systems that scale, mentoring engineers, and enabling faster, safer releases through custom automation frameworks, CI/CD pipelines, and quality-first culture.\n\n🛠️ Key Expertise:\n\n_ Automation Framework Development: Built custom test frameworks with exposed APIs for CI integration, enabling full-suite automation across functional, load, and performance testing.\n\n_ Full-Stack Testing: Deep experience with front-end, back-end, service-oriented architecture (SOA), and event-driven systems.\n\n_ Performance Engineering: Skilled in JMeter, Apache Grinder, and Selenium to simulate real-world scenarios under load.\n\n_ Cross-Functional Leadership: Mentored and trained QA teams in automation strategy, tooling, and best practices.\n\nTech Stack:\n_ Cloud Providers: AWS and Azure \n_ Languages: Python, Java, Bash, Perl\n_ Tools: Selenium, WebDriver, Appium, JMeter, Jenkins, GitLab, Sonar\n_ Infra: Coherence, RabbitMQ, Oracle, PostgreSQL, Tomcat, JBoss\n_ DevOps: Git, Subversion, Jira, Confluence, Crucible, TestRail\n\n🤝 What I’m Looking For:\n\nI thrive in teams that value engineering excellence, automation-first approaches, and collaborative problem-solving. Let’s connect if you’re building resilient systems or want to level up your testing strategy.",
+  "premium": true,
+  "verified": true,
+  "creator": false,
+  "influencer": false,
+  "openToWork": true,
+  "hiring": false,
+  "photo": "https://media.licdn.com/dms/image/v2/C5603AQHCOvj9fPeDRg/profile-displayphoto-shrink_400_400/profile-displayphoto-shrink_400_400/0/1516269106918?e=1796256000&v=beta&t=9KuYKdeBbIX1Qm8w74VvJaqtdnedEEGNLYHmzNEYYfg",
+  "profilePicture": {
+   "url": "https://media.licdn.com/dms/image/v2/C5603AQHCOvj9fPeDRg/profile-displayphoto-shrink_400_400/profile-displayphoto-shrink_400_400/0/1516269106918?e=1796256000&v=beta&t=9KuYKdeBbIX1Qm8w74VvJaqtdnedEEGNLYHmzNEYYfg"
+  },
+  "linkedinUrl": "https://www.linkedin.com/in/rhacopian",
+  "emails": [],
+  "topSkills": [
+   "SQL",
+   "Test Automation",
+   "Selenium",
+   "Python",
+   "TypeScript"
+  ],
+  "industry": {
+   "id": 4,
+   "name": "Software Development"
+  }
+ },
+ {
+  "id": "ACoAACjbvRwB3IZG8VEc6HEUiDLqfb7oCjy90X8",
+  "publicIdentifier": "helenchukwukelu",
+  "firstName": "Helen",
+  "lastName": "Chukwukelu",
+  "headline": "Senior Site Reliability Engineer | DevOps Engineer | LinkedIn Learning Instructor | YouTuber | Tech Educator | Speaker | CKA | CKAD | 3x AWS",
+  "followerCount": 29768,
+  "connectionsCount": 10703,
+  "location": {
+   "linkedinText": "Manchester Area, United Kingdom",
+   "countryCode": "GB",
+   "parsed": {
+    "text": "Manchester, United Kingdom",
+    "countryCode": "GB",
+    "regionCode": null,
+    "country": "UK",
+    "countryFull": "United Kingdom",
+    "state": "England",
+    "city": "Manchester"
+   }
+  },
+  "websites": [
+   "https://www.youtube.com/@techwithhelen"
+  ],
+  "about": "Helen is a dynamic IT professional with rich expertise spanning Site Reliability Engineering, DevOps Engineering, and Cloud (AWS & Azure). A Certified Kubernetes Administrator (CKA) and Certified Kubernetes Application Developer (CKAD), demonstrating expertise in Kubernetes administration and application development, alongside being an AWS Community Builder.\n\n\nShe has consistently enhanced system reliability through strategic implementations, minimizing downtime and ensuring uninterrupted service and application availability. Spearheading automation initiatives, Helen has significantly reduced incident resolution times, fortifying system stability and reliability.\nHer expertise extends to pioneering advanced monitoring solutions, enabling proactive issue resolution, and optimizing system performance. \n\n\nFurthermore, Helen's accomplishments also include successfully implementing transformative Continuous Integration/Continuous Deployment (CI/CD) pipelines, streamlining deployment processes and enhancing reliability. She also excels in managing cloud infrastructures, automating deployment for cost savings and reliability, and ensuring zero downtime of applications and cloud infrastructures.\n\n\nHelen's passion for innovation shines through in her dedication to constructing enduring solutions within the realms of Cloud, SRE, and DevOps implementation. Her career is marked by hands-on involvement in diverse real-life projects and the adept management of high-profile client engagements.\n\n\nBeyond her technical prowess, Helen's roles as a Linkedin Learning Instructor, Youtuber, Trainer and prolific Writer underscore her commitment to knowledge-sharing. She thrives on delivering impactful Training, crafting insightful Technical articles, comprehensive Tutorials, and meticulous documentation in the ever-evolving landscape of DevOps and Cloud technologies\n\n\n🌟 Linkedin Learning Course: Hashicorp Certified Terraform Associate (003) Cert Prep\n\n🌟Youtube Channel: https://www.youtube.com/@techwithhelen\n\n\n📌 Technical Skills:\n Linux, Git, CICD, Kubernetes, Docker, Ansible, Helm Charts, Terraform (IaC), Jenkins, Azure DevOps, GitLab CI, CI/CD Pipelines, Python, PowerShell/Bash, JSON/YAML, Prometheus, Grafana, CheckMk, Sumo Logic, MySQL, PostgreSQL, AWS, Microsoft Azure.\n\n\nHelen demonstrates a persistent drive to continually enhance her knowledge and acquire new insights by exploring innovative technologies. This commitment allows her to remain a valuable asset, consistently delivering value to her organization.\n\n\nAlways Open to make new connection. let's connect 😎",
+  "premium": true,
+  "verified": true,
+  "creator": true,
+  "influencer": false,
+  "openToWork": false,
+  "hiring": false,
+  "photo": "https://media.licdn.com/dms/image/v2/D4E03AQENwXDvrkBpOw/profile-displayphoto-crop_800_800/B4EaHK_GZzHAAI-/0/1794406902203?e=1796256000&v=beta&t=TlvQFDP2srXNgtye1hgXIsn2_HefIo7e9VhfqaR-Vt0",
+  "profilePicture": {
+   "url": "https://media.licdn.com/dms/image/v2/D4E03AQENwXDvrkBpOw/profile-displayphoto-crop_800_800/B4EaHK_GZzHAAI-/0/1794406902203?e=1796256000&v=beta&t=TlvQFDP2srXNgtye1hgXIsn2_HefIo7e9VhfqaR-Vt0"
+  },
+  "linkedinUrl": "https://www.linkedin.com/in/helenchukwukelu",
+  "emails": [],
+  "topSkills": [],
+  "industry": null
+ }
+]
