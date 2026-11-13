@@ -1,4 +1,6 @@
 import json
+import logging
+from typing import Optional
 
 from app.llm.client import achat
 from langgraph.types import Command, Send
@@ -6,6 +8,8 @@ from langgraph.types import Command, Send
 from app.outreach.state import OutreachState
 from app.outreach.utils import current_creator_input, cost_context
 from app.schemas.outreach import PitchBundle
+
+logger = logging.getLogger(__name__)
 
 
 def _generation_prompt(creator_input: dict) -> str:
@@ -60,9 +64,31 @@ CREATOR CONTEXT & EVIDENCE:
 """.strip()
 
 
+AI_FAILED = "The AI couldn't write this pitch just now. Write it yourself, or try again."
+
+
+def failed_pitch(state: OutreachState, creator_input: dict, bundle: Optional[dict] = None, repair_count: int = 0) -> Command:
+    """One creator's pitch couldn't be written (every model failed): record it and let the batch carry on,
+    so the other creators still get their pitches. Keeps the last good draft when a repair failed."""
+    cid = creator_input.get("creator_id", "")
+    validation = {cid: {"errors": [AI_FAILED], "passed": False}}
+    return Command(
+        update={"creator_inputs": {cid: creator_input}, "creator_validations": validation},
+        goto=Send("collect_creator_pitch", {
+            "outreach_job_id": state.get("outreach_job_id"), "campaign_id": state.get("campaign_id"),
+            "creator_input": creator_input, "creator_pitch_bundles": {cid: bundle or {}},
+            "creator_validations": validation, "creator_repair_counts": {cid: repair_count},
+        }),
+    )
+
+
 async def generate_creator_pitch(state: OutreachState) -> OutreachState:
     creator_input = current_creator_input(state)
-    bundle = await achat("pitch", _generation_prompt(creator_input), PitchBundle, context=cost_context(state))
+    try:
+        bundle = await achat("pitch", _generation_prompt(creator_input), PitchBundle, context=cost_context(state))
+    except Exception:  # noqa: BLE001 - achat already tried every model: don't fail the whole batch
+        logger.exception("pitch generation failed for %s", creator_input.get("creator_id"))
+        return failed_pitch(state, creator_input)
     bundle_data = bundle.model_dump()
     return Command(
         update={

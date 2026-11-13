@@ -6,6 +6,7 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 from typing import Optional
 
+import logging
 import os
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -24,6 +25,7 @@ from app.models.deal import CreatorDeal, DealEvent, DealPost, LinkClick, Trackin
 from app.models.user import User
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
@@ -522,8 +524,16 @@ async def approve_proposal(proposal_id: str, body: ApproveIn, user: User = Depen
         if usable(account):
             async def send(text: str) -> dict:
                 return await send_for_deal(db, account, d, text, subject=subject or _default_subject(row))
-    result = await Q.approve(db, p, d, body.message, send=send, subject=subject)
-    await db.commit()
+    pid = p.proposal_id
+    if not await Q.claim(db, p):  # another click or "Send all" got there first: never send twice
+        raise HTTPException(409, "This suggestion was already handled.")
+    try:
+        result = await Q.approve(db, p, d, body.message, send=send, subject=subject)
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        await Q.release(db, pid)  # nothing was sent or saved: it can be tried again
+        raise
     await db.refresh(d)
     deal = _out(d, lead, date.today())
     return {"deal": deal, "sent": bool(result.get("sent")), "proposals": await _campaign_proposals(db, d.campaign_id, row, user)}
@@ -559,31 +569,51 @@ async def send_reviewed_pitches(campaign_id: str, body: SendAll, user: User = De
     account = await account_for(db, user.user_id)
     if not usable(account):
         raise HTTPException(409, "Connect Gmail first.")
-    q = select(AgentProposal, CreatorDeal).join(CreatorDeal, CreatorDeal.deal_id == AgentProposal.deal_id).where(
+    q = select(AgentProposal.proposal_id).where(
         AgentProposal.campaign_id == campaign_id, AgentProposal.kind == "pitch", AgentProposal.status == "pending")
     if body.proposal_ids:
         q = q.where(AgentProposal.proposal_id.in_(body.proposal_ids))
     leads = _leads_by_id(camp.campaign_leads)
+    default_subject = _default_subject(camp)
     sent, skipped = 0, []
-    for p, d in (await db.execute(q.order_by(AgentProposal.created_at))).all():
+    # one at a time, each loaded fresh: a failed send rolls back only itself and the rest still go out
+    for pid in list((await db.execute(q.order_by(AgentProposal.created_at))).scalars()):
+        row = (await db.execute(select(AgentProposal, CreatorDeal).join(CreatorDeal, CreatorDeal.deal_id == AgentProposal.deal_id)
+                                .where(AgentProposal.proposal_id == pid, AgentProposal.status == "pending"))).one_or_none()
+        if row is None:
+            continue  # handled meanwhile (sent from the chat, or skipped)
+        p, d = row
+        pl = p.payload or {}
         name = (leads.get(d.creator_id) or {}).get("title") or d.creator_name or "?"
-        if not body.proposal_ids and not (p.payload or {}).get("seen"):
+        if not body.proposal_ids and not pl.get("seen"):
+            continue
+        if pl.get("needs_review"):
+            skipped.append({"name": name, "why": "The draft has problems: open it, fix it and send it yourself"})
             continue
         if auto_channel(d, leads.get(d.creator_id)) != "email" or not d.contact_email:
             skipped.append({"name": name, "why": "Not by email: send it yourself"})
             continue
-        subject = (p.payload or {}).get("subject") or _default_subject(camp)
+        subject = pl.get("subject") or default_subject
+        if not await Q.claim(db, p):
+            continue
         try:
             async def send(text: str, d=d, subject=subject) -> dict:
                 return await send_for_deal(db, account, d, text, subject=subject)
             await Q.approve(db, p, d, None, send=send, subject=subject)
             await db.commit()
             sent += 1
-        except HTTPException as e:
+        except Exception as e:  # noqa: BLE001 - one creator's failure must not stop the others
             await db.rollback()
-            skipped.append({"name": name, "why": str(e.detail)})
-            if e.status_code == 429:
-                break
+            await Q.release(db, pid)
+            account = await account_for(db, user.user_id)  # the rollback expired it: load it again
+            if isinstance(e, HTTPException):
+                skipped.append({"name": name, "why": str(e.detail)})
+                if e.status_code == 429 or not usable(account):
+                    break
+            else:
+                logger.exception("send-all: one pitch failed")
+                skipped.append({"name": name, "why": "Couldn't send it just now: try again"})
+            camp = await _campaign(db, campaign_id, user)  # expired by the rollback too
     return {"sent": sent, "skipped": skipped, "proposals": await _campaign_proposals(db, campaign_id, camp, user)}
 
 

@@ -64,11 +64,14 @@ async def drafts_from_job(db: AsyncSession, job, results: dict, leads_by_id: dic
             continue
         channel = auto_channel(d, leads_by_id.get(cid))
         first = pick_text(texts, channel)
+        problems = [] if (res or {}).get("status") == "completed" else list((res or {}).get("validation_errors") or ["not checked"])
         await db.execute(pg_insert(AgentProposal).values(
             campaign_id=d.campaign_id, deal_id=d.deal_id, key=f"pitch:{job.outreach_job_id}", kind="pitch", status="pending",
             title="First message", reason=((res.get("pitch_bundle") or {}).get("pitch_angle") or None),
             payload={"message": first.get("body"), "subject": first.get("subject") or (texts.get("email") or {}).get("subject"),
-                     "texts": texts, "source": "ai", "seen": False},
+                     "texts": texts, "source": "ai", "seen": False,
+                     # failed the checks even after one repair: the founder must read and fix it ("Send all" skips it)
+                     "needs_review": bool(problems), "problems": problems[:5]},
         ).on_conflict_do_nothing(constraint="uq_agent_proposals_deal_key"))
         n += 1
     return n

@@ -13,14 +13,23 @@ from app.negotiation.context import Offer
 
 logger = logging.getLogger(__name__)
 
-_MONEY = re.compile(r"\$\s?(\d[\d,]*(?:\.\d+)?)")
-_PCT = re.compile(r"(\d+(?:\.\d+)?)\s?%")
+_MONEY = re.compile(r"\$\s?(\d[\d,]*(?:\.\d+)?)(\s?k\b)?", re.I)
+# any amount written another way (another currency, a word, "1.5k"): never allowed, we negotiate in dollars
+_OTHER_MONEY = re.compile(
+    r"[€£₹¥]\s?\d|\b\d[\d,]*(?:\.\d+)?\s?(?:usd|eur|gbp|inr|dollars?|bucks|rupees?|euros?|pounds?)\b"
+    r"|\b(?:rs\.?|inr|usd|eur|gbp)\s?\d|(?<![$\d.,])\b\d+(?:\.\d+)?\s?k\b",
+    re.I,
+)
+_PCT = re.compile(r"(\d+(?:\.\d+)?)\s?(?:%|percent\b|per cent\b)", re.I)
 MAX_CHARS = 1200
 
 
 def numbers_ok(text: str, offer: Optional[Offer]) -> bool:
-    """Only the decided fee and commission appear as money or percentages (and the fee must appear)."""
-    money = {int(round(float(m.replace(",", "")))) for m in _MONEY.findall(text)}
+    """Only the decided fee and commission appear as money or percentages (and the fee must appear). Amounts
+    in any other form ("200 USD", "€200", "1.5k", "₹9,000") always fail, so a slip can't hide in a spelling."""
+    if _OTHER_MONEY.search(text):
+        return False
+    money = {int(round(float(m.replace(",", "")) * (1000 if k else 1))) for m, k in _MONEY.findall(text)}
     pcts = {float(p) for p in _PCT.findall(text)}
     if offer is None:
         return not money and not pcts and len(text) <= MAX_CHARS

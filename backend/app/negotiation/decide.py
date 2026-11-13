@@ -27,6 +27,16 @@ class Decision:
     reasons: list = field(default_factory=list)  # plain words for the founder
 
 
+def _round_within(fee: float, ceiling: int) -> int:
+    """A tidy number (rounded up to $5) that never goes over the ceiling: rounding up past it is rounded down
+    instead (found by fuzzing: $2,841 used to become $2,845, over the budget)."""
+    tidy = N._round(fee)
+    if tidy <= ceiling:
+        return tidy
+    step = 1 if ceiling < N.C.ROUND_SMALL_BELOW else N.C.ROUND_TO
+    return max(NC.MIN_FEE, int(step * (ceiling // step)) or ceiling)
+
+
 def their_ask(answers: dict, fee_options: dict, pct_options: dict, current_fee: Optional[float] = None) -> Optional[Offer]:
     """What they asked for, from Jev's picks among the amounts code found in their message. "$10 more" on top
     of a current price of $12 is an ask of $22 (Jev says whether the amount is extra; code adds it)."""
@@ -67,6 +77,12 @@ def decide(answers: dict, f: Facts, ask: Optional[Offer]) -> Decision:
         ceiling = min(ceiling, f.budget_left)
     ceiling = max(NC.MIN_FEE, int(ceiling))
     last = f.last_offer
+    if last and last.fee and f.budget_left is not None and last.fee > f.budget_left and not yes("agrees"):
+        # other deals were agreed since: even repeating our last offer would go over the budget left
+        return Decision("none", reasons=[f"Your last offer of {last.words()} is now more than the budget left "
+                                         f"(${max(0.0, f.budget_left):,.0f}). Decide the next step yourself."])
+    if last and last.fee and last.fee > ceiling:
+        ceiling = int(last.fee)  # you already offered more than the usual limit: keep to it, never go back on it
     if yes("agrees") and last:
         return Decision("agree", last, "fee_plus_commission" if last.commission_pct else "flat",
                         reasons=[f"They accepted your offer of {last.words()}."])
@@ -92,6 +108,7 @@ def decide(answers: dict, f: Facts, ask: Optional[Offer]) -> Decision:
 
     # counter / restructure: Jev's choices → numbers
     pct = float(answers.get("commission", "0")) if structure in ("fee_plus_commission", "commission_only") else 0.0
+    at_limit = False
     if structure == "commission_only":
         offer = Offer(None, max(pct, 10.0))
     else:
@@ -107,11 +124,12 @@ def decide(answers: dict, f: Facts, ask: Optional[Offer]) -> Decision:
             fee *= max(0.3, 1 - pct / 100 * NC.COMMISSION_FEE_TRADE)
         if last and last.fee and (last.commission_pct or 0) >= pct:
             fee = max(fee, float(last.fee))  # never go back on what we offered
+        at_limit = fee >= ceiling  # capped: this is as far as we go (rounding may land a few dollars under)
         fee = max(NC.MIN_FEE, min(fee, ceiling))
-        offer = Offer(N._round(fee), pct)
+        offer = Offer(_round_within(fee, ceiling), pct)
     if ask and ask.fee is not None and offer.fee is not None and offer.fee >= ask.fee and offer.commission_pct <= ask.commission_pct:
         return Decision("agree", Offer(ask.fee, ask.commission_pct), structure, reasons=reasons + ["Your offer would reach their price, so accept it."])
-    final = f.round >= NC.MAX_ROUNDS or (offer.fee or 0) >= ceiling
+    final = f.round >= NC.MAX_ROUNDS or (offer.fee or 0) >= ceiling or (structure != "commission_only" and at_limit)
     label = {"flat": "a fixed fee", "fee_plus_commission": "a fee plus commission", "commission_only": "commission only",
              "smaller_scope": "their price with a smaller scope"}.get(structure, structure)
     reasons.append(f"Offer {label}: {offer.words()}" + (" (your final offer)." if final else "."))

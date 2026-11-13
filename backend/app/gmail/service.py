@@ -147,6 +147,8 @@ async def sync_deals(db: AsyncSession, account: ConnectedAccount, deals: list[Cr
                 if e.revoked:
                     raise
                 logger.warning("gmail sync failed for one thread: %s", type(e).__name__)
+            except Exception:  # noqa: BLE001 - one odd thread must not stop the others or lose their replies
+                logger.exception("gmail sync failed for deal %s", d.deal_id)
     except GC.GmailError:
         pass  # account marked "reconnect"; the UI asks the founder to connect again
     await db.commit()

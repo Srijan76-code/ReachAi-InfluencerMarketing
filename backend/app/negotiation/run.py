@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import statistics
 from typing import Optional
 
@@ -17,6 +18,8 @@ from app.negotiation import write as W
 from app.models.deal import AgentProposal, CreatorDeal, DealEvent
 
 MARKET_MIN_DEALS = 5
+AGENT_DOWN = "ReachAI couldn't read this reply right now. Read it yourself, or press Suggest again in a minute."
+logger = logging.getLogger(__name__)
 
 
 async def _market(db: AsyncSession, d: CreatorDeal) -> Optional[str]:
@@ -48,6 +51,12 @@ async def _inputs(db: AsyncSession, d: CreatorDeal, lead: dict, details: dict, r
     return events, facts, st, fees, pcts
 
 
+async def _stale_suggestions(db: AsyncSession, d: CreatorDeal) -> None:
+    for p in (await db.execute(select(AgentProposal).where(AgentProposal.deal_id == d.deal_id, AgentProposal.status == "pending",
+                                                           AgentProposal.key.like("nego:%")))).scalars():
+        p.status = "stale"
+
+
 def _name(d: CreatorDeal, lead: dict) -> str:
     return N.greeting_name((lead or {}).get("title") or d.creator_name)
 
@@ -59,9 +68,17 @@ async def negotiate(db: AsyncSession, d: CreatorDeal, reply: DealEvent, *, lead:
     events, facts, st, fees, pcts = await _inputs(db, d, lead, details, text)
     current = X.current_offer(d, facts)
     agreed = current if d.stage in C.COMMITTED_STAGES and d.agreed_rate is not None else None
-    out = await G.run({"jev_state": st, "fee_options": fees, "pct_options": pcts, "facts": facts, "name": _name(d, lead),
-                       "context": CostContext(user_id=user_id, campaign_id=d.campaign_id),
-                       "current_fee": current.fee if current else None, "agreed": agreed})
+    try:
+        out = await G.run({"jev_state": st, "fee_options": fees, "pct_options": pcts, "facts": facts, "name": _name(d, lead),
+                           "context": CostContext(user_id=user_id, campaign_id=d.campaign_id),
+                           "current_fee": current.fee if current else None, "agreed": agreed})
+    except Exception:
+        # Jev or the model is down: the reply is still saved and shown; the founder is told to read it themselves
+        logger.exception("negotiation agent failed for deal %s", d.deal_id)
+        reason = AGENT_DOWN
+        reply.payload = {**(reply.payload or {}), "agent": {"action": "none", "reasons": [reason], "error": True}}
+        await _stale_suggestions(db, d)  # a new reply makes the older suggestion out of date either way
+        return {"action": "none", "reasons": [reason]}
     decision, ask = out["decision"], out.get("ask")
 
     if agreed is not None and ask:
@@ -82,9 +99,7 @@ async def negotiate(db: AsyncSession, d: CreatorDeal, reply: DealEvent, *, lead:
             d.stage = "negotiating"
     reply.payload = {**(reply.payload or {}), "agent": {"action": decision.action, "reasons": decision.reasons}}
 
-    for p in (await db.execute(select(AgentProposal).where(AgentProposal.deal_id == d.deal_id, AgentProposal.status == "pending",
-                                                           AgentProposal.key.like("nego:%")))).scalars():
-        p.status = "stale"
+    await _stale_suggestions(db, d)
     if decision.action not in ("counter", "agree", "lost", "hold"):
         return {"action": decision.action, "reasons": decision.reasons}
 
