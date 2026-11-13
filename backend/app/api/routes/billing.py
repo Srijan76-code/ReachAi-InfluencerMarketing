@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.campaign_runs import quote_for
 from app.auth.user import get_db_user
 from app.billing import constants as C
-from app.billing import dodo, ledger, webhooks
+from app.billing import dodo, ledger, referrals, webhooks
 from app.db.database import get_db
 from app.models.billing import BillingEvent
 from app.models.campaign import Campaign
@@ -157,3 +157,29 @@ async def dodo_webhook(request: Request, db: AsyncSession = Depends(get_db)):
         logger.exception("Dodo webhook %s (%s) failed; Dodo will retry", event_id, event_type)
         raise HTTPException(500, "Processing failed")
     return {"received": True}
+
+
+# --- referrals (spec §5.2) ---------------------------------------------------------------------------------
+
+class ReferralIn(BaseModel):
+    code: str
+
+
+@router.get("/referral")
+async def my_referral(request: Request, user: User = Depends(get_db_user), db: AsyncSession = Depends(get_db)):
+    data = await referrals.summary(db, user.user_id)
+    await db.commit()
+    data["link"] = f"{_app_url(request)}/join/{data['code']}"
+    return data
+
+
+@router.post("/referral")
+async def use_referral(body: ReferralIn, user: User = Depends(get_db_user), db: AsyncSession = Depends(get_db)):
+    """Called once after sign-up when the person arrived through an invite link."""
+    try:
+        await referrals.claim(db, user, body.code)
+    except referrals.ReferralError as err:
+        await db.rollback()
+        raise HTTPException(400, str(err)) from err
+    await db.commit()
+    return {"ok": True, "credits_after_first_search": C.REFERRAL_CREDITS}

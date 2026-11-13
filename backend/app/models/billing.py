@@ -97,3 +97,25 @@ class BillingEvent(Base):
     type = Column(String, nullable=False)
     user_id = Column(String, nullable=True)
     received_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class ReferralCode(Base):
+    """Each user's invite code (made on first use)."""
+
+    __tablename__ = "referral_codes"
+
+    user_id = Column(String, ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
+    code = Column(String, nullable=False, unique=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class Referral(Base):
+    """A new user who signed up through someone's invite. Both get credits after the new user's first
+    completed search (spec §5.2)."""
+
+    __tablename__ = "referrals"
+
+    referred_user_id = Column(String, ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
+    referrer_user_id = Column(String, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False, index=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    granted_at = Column(DateTime(timezone=True), nullable=True)

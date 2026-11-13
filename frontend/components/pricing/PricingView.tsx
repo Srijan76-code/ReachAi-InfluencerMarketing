@@ -24,7 +24,7 @@ const FAQ = [
   ["What if a search finds too few creators?", "If it finds fewer than 10, the credits come back automatically. They also come back if a search fails."],
   ["What's free?", "Everything after the search: outreach, AI drafts, negotiation, Gmail sending, tracking posts and results, and using ReachAI from your agent."],
   ["Can I cancel?", "Yes, anytime. You keep your plan's credits until the month ends. Pack credits never expire."],
-  ["Tax and local prices", "Prices are in USD, with fixed prices in rupees in India. Tax is added at checkout where it applies, and the invoice comes from Dodo Payments, our payment provider."],
+  ["Tax and local prices", "Prices include tax: what you see is what you pay. They are in USD, with fixed prices in rupees in India. The invoice comes from Dodo Payments, our payment provider."],
 ];
 
 const PLAN_OVER_PACKS_USD = 5;

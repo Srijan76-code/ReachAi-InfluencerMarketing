@@ -8,7 +8,8 @@ import { ArrowRight, Coins, KeyRound, Loader2, Menu, PlusCircle, X } from "lucid
 import { Show, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
 import { cn } from "@/lib/utils";
 import { useCreateCampaign } from "@/lib/useCreateCampaign";
-import { plural, useCredits } from "@/lib/credits";
+import { creditsStore, plural, useCredits } from "@/lib/credits";
+import { useApi } from "@/lib/api";
 import { usagePanel } from "@/lib/usage";
 import { InboxBell } from "./InboxBell";
 import { OnboardAgent } from "./OnboardAgent";
@@ -75,7 +76,32 @@ function NavLink({ href, name, onClick }: { href: string; name: string; onClick?
 }
 
 /** Credits, alerts and account in one capsule: everything about "you" reads as one object. */
+/** If this person arrived through an invite link, claim it once their account exists. */
+function useClaimInvite() {
+  const api = useApi();
+  useEffect(() => {
+    let code: string | null = null;
+    try {
+      code = localStorage.getItem("reachai_ref");
+    } catch {
+      return;
+    }
+    if (!code) return;
+    api("/api/billing/referral", { method: "POST", data: { code } })
+      .then(() => creditsStore.refresh())
+      .catch(() => undefined) // invalid, own or old invite: nothing to do
+      .finally(() => {
+        try {
+          localStorage.removeItem("reachai_ref");
+        } catch {
+          // ignore
+        }
+      });
+  }, [api]);
+}
+
 function AccountCapsule() {
+  useClaimInvite();
   const credits = useCredits();
   const low = credits ? credits.balance <= 1 : false;
   return (

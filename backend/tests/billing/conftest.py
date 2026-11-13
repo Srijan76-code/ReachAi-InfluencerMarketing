@@ -21,7 +21,7 @@ def _jsonb_as_json(type_, compiler, **kw):
     return "JSON"
 
 
-TABLES = ["users", "campaigns", "credit_ledger", "credit_reservations", "subscriptions", "payments", "billing_events"]
+TABLES = ["users", "campaigns", "credit_ledger", "credit_reservations", "subscriptions", "payments", "billing_events", "referral_codes", "referrals"]
 BACKENDS = ["sqlite"] + (["postgres"] if os.getenv("PG_TEST_URL") else [])
 BRIEF = {"brand": {"name": "DataLaunch"}, "campaign": {"goal": "signups"}}
 
