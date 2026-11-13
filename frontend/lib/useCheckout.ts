@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { useApi } from "@/lib/api";
-import { closeCheckout, openCheckout } from "@/lib/checkout";
+import { openCheckout } from "@/lib/checkout";
 import { type Credits, creditsStore } from "@/lib/credits";
 
 export type Notice = { tone: "info" | "good" | "bad"; text: string } | null;
@@ -70,10 +70,10 @@ export function useCheckout(credits: Credits | null, onDone?: () => void) {
             // The SDK sends { message: { status } } (docs show { status }); accept both.
             const data = (e.data ?? {}) as { status?: unknown; message?: { status?: unknown } };
             const status = String(data.message?.status ?? data.status ?? "");
-            if (["succeeded", "processing", "active"].includes(status)) {
-              void closeCheckout();
+            if (["succeeded", "active"].includes(status)) {
+              // Paid without a bank step: the SDK now redirects to /pricing?checkout=done, which waits for credits.
               void waitForCredits(before);
-            } else if (status) {
+            } else if (status && status !== "processing" && status !== "requires_customer_action") {
               setNotice({ tone: "bad", text: "The payment didn't go through. Nothing was charged; you can try again." });
             }
           }
