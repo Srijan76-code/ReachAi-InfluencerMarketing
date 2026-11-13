@@ -1,0 +1,584 @@
+[
+ {
+  "id": "7524149820287025152",
+  "type": "post",
+  "linkedinUrl": "https://www.linkedin.com/posts/tech-degrees_devops-cloudengineering-kubernetes-activity-7524149820287025152-i8rQ",
+  "content": "DevOps isn't just a job title. It's how modern software gets shipped. ⚙️\n\nFaster. Safer. At scale.\n\nDevOps engineers build the pipelines, cloud infrastructure, and automation that let development teams deploy code multiple times a day, working across CI/CD, infrastructure as code, containers, Kubernetes, and monitoring.\n\nIt's one of the most in-demand and best-paid roles in tech, and one you can r",
+  "author": {
+   "id": "116693984",
+   "publicIdentifier": null,
+   "type": "company",
+   "name": "Tech Degrees",
+   "linkedinUrl": "https://www.linkedin.com/showcase/tech-degrees/posts",
+   "info": "48 followers",
+   "avatar": {
+    "url": "https://media.licdn.com/dms/image/v2/D4E0BAQFWV2j2keRQ6w/company-logo_400_400/B4EZ34lWYnJQAU-/0/1777992034152/tech_degrees_logo?e=1796256000&v=beta&t=Hs3afA4VlxSqPiANEJZWU7EShfyIMYULxZUSwpPhBIk",
+    "width": 400,
+    "height": 400
+   }
+  },
+  "postedAt": {
+   "date": "2026-11-05T16:45:09.100Z"
+  },
+  "engagement": {
+   "likes": 3,
+   "comments": 0,
+   "shares": 0
+  },
+  "postImages": [],
+  "query": {
+   "sortBy": "relevance",
+   "page": 1,
+   "search": "devops",
+   "postedLimit": "month"
+  },
+  "header": {
+   "text": null
+  },
+  "article": true
+ },
+ {
+  "id": "7525101918260547584",
+  "type": "post",
+  "linkedinUrl": "https://www.linkedin.com/posts/activity-7525101918260547584-nVdP",
+  "content": "Best #DevOps journey decision I’ve made is following 3 instructor-led DEVOPS Projects at once.. it’s a lot to keep up with but that’s the real world .. creates pressure and requires attention to detail AND DOCUMENTATION! \n\nI’m mastering #docker, #kubernetes, and other tools/software by running into “it worked for the instructor, but I’m getting error” and that’s the most frustrating/beautiful part",
+  "author": {
+   "id": "ACoAADNUNhUBtTneS1l-jE8xuTJc2L9yf-VfqaY",
+   "publicIdentifier": "dreamless",
+   "type": "profile",
+   "name": "Chris V.",
+   "linkedinUrl": "https://www.linkedin.com/in/dreamless?miniProfileUrn=urn%3Ali%3Afsd_profile%3AACoAADNUNhUBtTneS1l-jE8xuTJc2L9yf-VfqaY",
+   "info": "Current DevOps project: CI/CD complete pipeline: jenkins, k8s, AWS, Docker, Nexus, Git, Sonarqube",
+   "avatar": {
+    "url": "https://media.licdn.com/dms/image/v2/D4E35AQHqwEuF5Ip84g/profile-framedphoto-shrink_800_800/B4EZpK40ELJ0Ag-/0/1762192999090?e=1795172400&v=beta&t=aEDb6i5roZIsxLSkAFNvZp40CKzSjVeX5KcH2MyCdwc",
+    "width": 800,
+    "height": 800
+   }
+  },
+  "postedAt": {
+   "date": "2026-11-08T07:48:26.946Z"
+  },
+  "engagement": {
+   "likes": 5,
+   "comments": 0,
+   "shares": 0
+  },
+  "postImages": [],
+  "query": {
+   "sortBy": "relevance",
+   "page": 1,
+   "search": "devops",
+   "postedLimit": "month"
+  },
+  "header": {
+   "text": null
+  },
+  "article": false
+ },
+ {
+  "id": "7526745834944675840",
+  "type": "post",
+  "linkedinUrl": "https://www.linkedin.com/posts/mostafa-read_devops-aws-cloudsecurity-activity-7526745834944675840-CN1j",
+  "content": "🔐 DevOps Is More Than Automation. Security Must Come First!\nA single security misconfiguration can expose an entire business to serious financial and operational risks.\nAs a Senior DevOps / Site Reliability Engineer, I believe our responsibility goes beyond building CI/CD pipelines, automating deployments, and managing cloud infrastructure.\nIt's also about protecting applications, controlling acce",
+  "author": {
+   "id": "ACoAAE9W5SUBTaIsWdWFIuJrDVV0flwk52QCE9E",
+   "publicIdentifier": "mostafa-read",
+   "type": "profile",
+   "name": "Md Mostafa",
+   "linkedinUrl": "https://www.linkedin.com/in/mostafa-read?miniProfileUrn=urn%3Ali%3Afsd_profile%3AACoAAE9W5SUBTaIsWdWFIuJrDVV0flwk52QCE9E",
+   "info": "Senior DevOps / SRE Engineer | AWS & Azure Cloud | Terraform | Kubernetes | CI/CD | Python | Infrastructure Automation | Platform Engineering",
+   "avatar": {
+    "url": "https://media.licdn.com/dms/image/v2/D4E03AQEvYnjhEpepzg/profile-displayphoto-crop_800_800/B4EZ.6a96EHsAI-/0/1785539063858?e=1796256000&v=beta&t=U9BIfmJ0khHIh1MqzK6mppOHPX0vX6jJL0fejT_s_LQ",
+    "width": 800,
+    "height": 800
+   }
+  },
+  "postedAt": {
+   "date": "2026-11-12T20:40:47.226Z"
+  },
+  "engagement": {
+   "likes": 2,
+   "comments": 0,
+   "shares": 0
+  },
+  "postImages": [],
+  "query": {
+   "sortBy": "relevance",
+   "page": 1,
+   "search": "devops",
+   "postedLimit": "month"
+  },
+  "header": {
+   "text": null
+  },
+  "article": true
+ },
+ {
+  "id": "7526223676262793217",
+  "type": "post",
+  "linkedinUrl": "https://www.linkedin.com/posts/hibsen_the-autonomous-devops-that-you-can-actually-activity-7526223676262793217-XWTP",
+  "content": "The Autonomous DevOps - that you can actually trust not to screw up.",
+  "author": {
+   "id": "ACoAAAAS4sgBWL99g58sA1BpxTjB3zlShbAzZMg",
+   "publicIdentifier": "hibsen",
+   "type": "profile",
+   "name": "Henrik Ibsen",
+   "linkedinUrl": "https://www.linkedin.com/in/hibsen?miniProfileUrn=urn%3Ali%3Afsd_profile%3AACoAAAAS4sgBWL99g58sA1BpxTjB3zlShbAzZMg",
+   "info": "Raising the bar on agentic AI, Disrupting Cloud Computing with an Open Source IT, Removing hurdles for scalable Healthcare IT",
+   "avatar": {
+    "url": "https://media.licdn.com/dms/image/v2/D4E03AQEtTlxSDr7XuA/profile-displayphoto-crop_800_800/B4EZvDGX4WKAAM-/0/1768504787944?e=1796256000&v=beta&t=mTawB13sKRqBiOgElZ0ABh-XOGHkeHEu3VVxpAB6sbM",
+    "width": 800,
+    "height": 800
+   }
+  },
+  "postedAt": {
+   "date": "2026-11-11T10:05:54.895Z"
+  },
+  "engagement": {
+   "likes": 1,
+   "comments": 2,
+   "shares": 0
+  },
+  "postImages": [],
+  "query": {
+   "sortBy": "relevance",
+   "page": 1,
+   "search": "devops",
+   "postedLimit": "month"
+  },
+  "header": {
+   "text": null
+  },
+  "article": true
+ },
+ {
+  "id": "7526494013542043648",
+  "type": "post",
+  "linkedinUrl": "https://www.linkedin.com/posts/sai-ram-gubbala-909b66215_ai-devops-aiops-activity-7526494013542043648-wapN",
+  "content": "Is Traditional DevOps Becoming Outdated in the Age of AI?\nWith the rapid growth of Generative AI and autonomous agents, the way we manage cloud infrastructure is changing.\nThink about the traditional DevOps workflow:\nMonitoring infrastructure.\nChecking application logs.\nTroubleshooting deployment failures.\nManaging CI/CD pipelines.\nInvestigating production incidents.\nNow imagine AI helping enginee",
+  "author": {
+   "id": "ACoAADZ0Z5kBnM7z8DLQy6KTWR2qtHi89l10S3g",
+   "publicIdentifier": "sai-ram-gubbala-909b66215",
+   "type": "profile",
+   "name": "Sai Ram Gubbala",
+   "linkedinUrl": "https://www.linkedin.com/in/sai-ram-gubbala-909b66215?miniProfileUrn=urn%3Ali%3Afsd_profile%3AACoAADZ0Z5kBnM7z8DLQy6KTWR2qtHi89l10S3g",
+   "info": "Cloud & DevOps Engineer | 5 Years Experience | AWS | Terraform | Azure DevOps | Jenkins | Kubernetes| Python | CI/CD | FinOps | Observability | SRE",
+   "avatar": {
+    "url": "https://media.licdn.com/dms/image/v2/C4E03AQFxpQRO7r7wDw/profile-displayphoto-shrink_800_800/profile-displayphoto-shrink_800_800/0/1625410738236?e=1796256000&v=beta&t=p4lzGeEyDOS1Y_4_s6Hw6BEtWObpbEN7VhY2TnbFlRU",
+    "width": 800,
+    "height": 800
+   }
+  },
+  "postedAt": {
+   "date": "2026-11-12T04:00:08.325Z"
+  },
+  "engagement": {
+   "likes": 2,
+   "comments": 3,
+   "shares": 0
+  },
+  "postImages": [],
+  "query": {
+   "sortBy": "relevance",
+   "page": 1,
+   "search": "devops",
+   "postedLimit": "month"
+  },
+  "header": {
+   "text": null
+  },
+  "article": false
+ },
+ {
+  "id": "7526878624986251264",
+  "type": "post",
+  "linkedinUrl": "https://www.linkedin.com/posts/rhacopian_leaddevops-cloudarchitecture-terraform-activity-7526878624986251264-LjwI",
+  "content": "🚀 We’re Hiring: Lead DevOps Engineer (Armenia / United States)\n\nWe’re looking for a Lead DevOps Engineer who wants total ownership - someone who loves rolling up their sleeves to architect and build rock-solid cloud infrastructure from scratch and drives complex initiatives all the way to the finish line and can be proud of it. Work remote, work your timezone, and own it and be proud of it.\n\nIf yo",
+  "author": {
+   "id": "ACoAAABuMNQBbzVNdEX898Vbp2LL1AC-nJ5P1x8",
+   "publicIdentifier": "rhacopian",
+   "type": "profile",
+   "name": "Rudi Hacopian",
+   "linkedinUrl": "https://www.linkedin.com/in/rhacopian?miniProfileUrn=urn%3Ali%3Afsd_profile%3AACoAAABuMNQBbzVNdEX898Vbp2LL1AC-nJ5P1x8",
+   "info": "Accelerating Releases with Automation | DevOps & Test Engineering Consultant | Automation Expert",
+   "avatar": {
+    "url": "https://media.licdn.com/dms/image/v2/D5635AQE1s9P5yMo-WQ/profile-framedphoto-shrink_400_400/profile-framedphoto-shrink_400_400/0/1719440022052?e=1795172400&v=beta&t=iBbyLae0Ld9VBC8Hz4wOvJgvMdsxCSWNymt6WzrhezY",
+    "width": 313,
+    "height": 313
+   }
+  },
+  "postedAt": {
+   "date": "2026-11-13T05:28:26.839Z"
+  },
+  "engagement": {
+   "likes": 7,
+   "comments": 3,
+   "shares": 1
+  },
+  "postImages": [],
+  "query": {
+   "sortBy": "relevance",
+   "page": 1,
+   "search": "devops",
+   "postedLimit": "month"
+  },
+  "header": {
+   "text": null
+  },
+  "article": false
+ },
+ {
+  "id": "7526258073024479232",
+  "type": "post",
+  "linkedinUrl": "https://www.linkedin.com/posts/quratehq_quratehq-devops-activity-7526258073024479232-deiU",
+  "content": "What does learning DevOps actually look like beyond the course outline and technical concepts?\n\nIt's one thing to learn about tools, processes and workflows. It's another to work through practical tasks, troubleshoot challenges and gradually develop the confidence to apply what you've learned.\n\nWe took the conversation to one of our students to hear about their experience. \n\nCurious about what it ",
+  "author": {
+   "id": "102636472",
+   "publicIdentifier": null,
+   "type": "company",
+   "name": "Quratehq",
+   "linkedinUrl": "https://www.linkedin.com/showcase/quratehq/posts",
+   "info": "296 followers",
+   "avatar": {
+    "url": "https://media.licdn.com/dms/image/v2/D4E0BAQHJ9sGO-YC34A/company-logo_400_400/company-logo_400_400/0/1709134269657?e=1796256000&v=beta&t=NKDjodfN0zWePRCoESOQsz3wcZXtZl2UzzwO8OIkwc0",
+    "width": 400,
+    "height": 400
+   }
+  },
+  "postedAt": {
+   "date": "2026-11-11T12:22:35.722Z"
+  },
+  "engagement": {
+   "likes": 13,
+   "comments": 9,
+   "shares": 1
+  },
+  "postImages": [],
+  "query": {
+   "sortBy": "relevance",
+   "page": 1,
+   "search": "devops",
+   "postedLimit": "month"
+  },
+  "header": {
+   "text": null
+  },
+  "article": false
+ },
+ {
+  "id": "7526312869915697152",
+  "type": "post",
+  "linkedinUrl": "https://www.linkedin.com/posts/virtal-x_devops-vs-sre-vs-platform-engineer-who-activity-7526312869915697152-jpbP",
+  "content": "DevOps. SRE. Platform Engineering.\n \nThree terms that often appear together in job descriptions—yet they are not interchangeable:\n \n✔️ DevOps is a set of practices and collaboration principles that helps teams deliver software reliably.\n \n✔️ Site Reliability Engineering applies engineering approaches to reliability, operations, measurement and incident response.\n \n✔️ Platform Engineering builds in",
+  "author": {
+   "id": "142244007",
+   "publicIdentifier": null,
+   "type": "company",
+   "name": "VirTal X",
+   "linkedinUrl": "https://www.linkedin.com/company/virtal-x/posts",
+   "info": "139 followers",
+   "avatar": {
+    "url": "https://media.licdn.com/dms/image/v2/D4E0BAQGf54b3qyrzVg/company-logo_400_400/B4EaAhB2aaGoAY-/0/1787260528567?e=1796256000&v=beta&t=Cxa2yucKFM9kstLJxcoXw6KmJIiuP4UVRwm4xyOut4o",
+    "width": 400,
+    "height": 400
+   }
+  },
+  "postedAt": {
+   "date": "2026-11-11T16:00:20.319Z"
+  },
+  "engagement": {
+   "likes": 1,
+   "comments": 0,
+   "shares": 1
+  },
+  "postImages": [],
+  "query": {
+   "sortBy": "relevance",
+   "page": 1,
+   "search": "devops",
+   "postedLimit": "month"
+  },
+  "header": {
+   "text": null
+  },
+  "article": false
+ },
+ {
+  "id": "7524868777956581377",
+  "type": "post",
+  "linkedinUrl": "https://www.linkedin.com/posts/markusbause_thedevopsstandard-devopsinstitute-ainativedevops-activity-7524868777956581377-If46",
+  "content": "AI is changing how we build software, and our ability to govern and operate it has to keep pace. The DevOps Standard from DevOps Institute is a vendor-neutral, AI-native reference for exactly that. It was built by hundreds of contributors. \n\nFree download: https://lnkd.in/eN4GQnkc\n\n#TheDevOpsStandard #DevOpsInstitute #DevOps",
+  "author": {
+   "id": "ACoAABAhcIQB_8Ko3KSo3qOgSfCO_AkfiumdqsA",
+   "publicIdentifier": "markusbause",
+   "type": "profile",
+   "name": "Markus Bause",
+   "linkedinUrl": "https://www.linkedin.com/in/markusbause?miniProfileUrn=urn%3Ali%3Afsd_profile%3AACoAABAhcIQB_8Ko3KSo3qOgSfCO_AkfiumdqsA",
+   "info": "VP Product | PeopleCert",
+   "avatar": {
+    "url": "https://media.licdn.com/dms/image/v2/D4E03AQErDXBamjqxow/profile-displayphoto-shrink_800_800/profile-displayphoto-shrink_800_800/0/1713366895651?e=1796256000&v=beta&t=RNifgOIvoglNm1nlx-VE6ogdpgn4C7gBVmGw09g6yMk",
+    "width": 800,
+    "height": 800
+   }
+  },
+  "postedAt": {
+   "date": "2026-11-07T16:22:01.966Z"
+  },
+  "engagement": {
+   "likes": 3,
+   "comments": 0,
+   "shares": 0
+  },
+  "postImages": [],
+  "query": {
+   "sortBy": "relevance",
+   "page": 1,
+   "search": "devops",
+   "postedLimit": "month"
+  },
+  "header": {
+   "text": null
+  },
+  "article": false
+ },
+ {
+  "id": "7526285159772635136",
+  "type": "post",
+  "linkedinUrl": "https://www.linkedin.com/posts/helenchukwukelu_devops-devopsroadmap-cloudengineering-activity-7526285159772635136-JcqT",
+  "content": "🚀 A list of DevOps tools is NOT a learning roadmap!\n\n\n\nKnowing what to learn is important. Understanding why it matters, where to start, and how to approach it makes the difference.\n\n\n📕 That's why I created a detailed and structured FREE DEVOPS ROADMAP. \n\nThis isn't just another checklist of tools.\n\n✅ Understand the purpose of essential DevOps concepts\n✅ Discover what to learn and in what order\n✅ ",
+  "author": {
+   "id": "ACoAACjbvRwB3IZG8VEc6HEUiDLqfb7oCjy90X8",
+   "publicIdentifier": "helenchukwukelu",
+   "type": "profile",
+   "name": "Helen Chukwukelu",
+   "linkedinUrl": "https://www.linkedin.com/in/helenchukwukelu?miniProfileUrn=urn%3Ali%3Afsd_profile%3AACoAACjbvRwB3IZG8VEc6HEUiDLqfb7oCjy90X8",
+   "info": "Senior Site Reliability Engineer | DevOps Engineer | LinkedIn Learning Instructor | YouTuber | Tech Educator | Speaker | CKA | CKAD | 3x AWS",
+   "avatar": {
+    "url": "https://media.licdn.com/dms/image/v2/D4E03AQENwXDvrkBpOw/profile-displayphoto-crop_800_800/B4EaHK_GZzHAAI-/0/1794406902203?e=1796256000&v=beta&t=TlvQFDP2srXNgtye1hgXIsn2_HefIo7e9VhfqaR-Vt0",
+    "width": 800,
+    "height": 800
+   }
+  },
+  "postedAt": {
+   "date": "2026-11-11T14:10:13.706Z"
+  },
+  "engagement": {
+   "likes": 12,
+   "comments": 3,
+   "shares": 0
+  },
+  "postImages": [
+   {
+    "url": "https://media.licdn.com/dms/image/v2/D4E22AQFLJFYWlLKv8Q/feedshare-shrink_1280/B4EaHK8dylJQAM-/0/1794406211000?e=1796256000&v=beta&t=q2cClCyKB2MipKhMQHyobhPji-j9k831emxLzMJxqZM"
+   }
+  ],
+  "query": {
+   "sortBy": "relevance",
+   "page": 1,
+   "search": "devops",
+   "postedLimit": "month"
+  },
+  "header": {
+   "text": null
+  },
+  "article": false
+ },
+ {
+  "id": "7525250555640934400",
+  "type": "post",
+  "linkedinUrl": "https://www.linkedin.com/posts/cimpleo_what-is-devops-activity-7525250555640934400-HUKD",
+  "content": "DEVelopment OPeration is a methodology for interaction between developers and IT service specialists. Their mutual integration ensures a…",
+  "author": {
+   "id": "3232268",
+   "publicIdentifier": null,
+   "type": "company",
+   "name": "CimpleO Group",
+   "linkedinUrl": "https://www.linkedin.com/company/cimpleo/posts",
+   "info": "230 followers",
+   "avatar": {
+    "url": "https://media.licdn.com/dms/image/v2/D560BAQEIDZ8ajlJQpA/company-logo_400_400/company-logo_400_400/0/1708931302668/cimpleo_logo?e=1796256000&v=beta&t=XGZWEhif6SxkXIGO1J9_-bC8dG_48sz4sMtkQY7YX4A",
+    "width": 400,
+    "height": 400
+   }
+  },
+  "postedAt": {
+   "date": "2026-11-08T17:39:04.859Z"
+  },
+  "engagement": {
+   "likes": 0,
+   "comments": 0,
+   "shares": 0
+  },
+  "postImages": [],
+  "query": {
+   "sortBy": "relevance",
+   "page": 1,
+   "search": "devops",
+   "postedLimit": "month"
+  },
+  "header": {
+   "text": null
+  },
+  "article": true
+ },
+ {
+  "id": "7525911328893435904",
+  "type": "post",
+  "linkedinUrl": "https://www.linkedin.com/posts/mir-adem-318a45347_devops-cloudcomputing-ciabrcd-activity-7525911328893435904-nj2-",
+  "content": "🚀 DevOps: Bridging Development and Operations\n\nDevOps is more than a methodology — it's a culture of collaboration, automation, and continuous improvement. By combining development and operations, DevOps helps teams deliver software faster, more reliably, and efficiently.\n\n🔹 Automation & CI/CD\n🔹 Collaboration & Continuous Delivery\n🔹 Faster and More Reliable Deployments\n\n#DevOps #CloudComputing #CI",
+  "author": {
+   "id": "ACoAAFbUT4QBjS09lFwT7FcrdXeNFom9xCaGR24",
+   "publicIdentifier": "mir-adem-318a45347",
+   "type": "profile",
+   "name": "mir adem",
+   "linkedinUrl": "https://www.linkedin.com/in/mir-adem-318a45347?miniProfileUrn=urn%3Ali%3Afsd_profile%3AACoAAFbUT4QBjS09lFwT7FcrdXeNFom9xCaGR24",
+   "info": "Étudiant(e) à iset bizerte",
+   "avatar": {
+    "url": "https://media.licdn.com/dms/image/v2/D4E03AQH4Zcf3K1G1Pw/profile-displayphoto-crop_800_800/B4EaHF0qWKKQAI-/0/1794320280187?e=1796256000&v=beta&t=_QMHQt9lTbVibmFNC-MvlYcuXfrMkyLWWEYSiECi_fc",
+    "width": 800,
+    "height": 800
+   }
+  },
+  "postedAt": {
+   "date": "2026-11-10T13:24:45.479Z"
+  },
+  "engagement": {
+   "likes": 0,
+   "comments": 0,
+   "shares": 0
+  },
+  "postImages": [
+   {
+    "url": "https://media.licdn.com/dms/image/v2/D4E22AQHKyab26i-CVw/feedshare-shrink_800/B4EaHFod_TIAAg-/0/1794317082893?e=1796256000&v=beta&t=Nf0tHxdo38bdrp7xru3A5CI09VpObnS0lNbgblLFFNw"
+   }
+  ],
+  "query": {
+   "sortBy": "relevance",
+   "page": 1,
+   "search": "devops",
+   "postedLimit": "month"
+  },
+  "header": {
+   "text": null
+  },
+  "article": false
+ },
+ {
+  "id": "7526705391355908098",
+  "type": "post",
+  "linkedinUrl": "https://www.linkedin.com/posts/nesasoftware_how-devops-consulting-helps-us-software-companies-activity-7526705391355908098-VdPQ",
+  "content": "How DevOps Consulting Helps US Software Companies Accelerate Releases and Improve Reliability",
+  "author": {
+   "id": "89571336",
+   "publicIdentifier": null,
+   "type": "company",
+   "name": "Nesa Software Pvt Ltd",
+   "linkedinUrl": "https://www.linkedin.com/company/nesasoftware/posts",
+   "info": "1,596 followers",
+   "avatar": {
+    "url": "https://media.licdn.com/dms/image/v2/D560BAQGzV67ofbZbaw/company-logo_400_400/B56ZlqnDJMIsAY-/0/1758430248309?e=1796256000&v=beta&t=R8bNPbXPRDaNtiNVHACccg0RBuWpa7D0gmXK_AyeS8U",
+    "width": 400,
+    "height": 400
+   }
+  },
+  "postedAt": {
+   "date": "2026-11-12T18:00:04.723Z"
+  },
+  "engagement": {
+   "likes": 0,
+   "comments": 0,
+   "shares": 0
+  },
+  "postImages": [],
+  "query": {
+   "sortBy": "relevance",
+   "page": 1,
+   "search": "devops",
+   "postedLimit": "month"
+  },
+  "header": {
+   "text": null
+  },
+  "article": true
+ },
+ {
+  "id": "7526668871928279041",
+  "type": "post",
+  "linkedinUrl": "https://www.linkedin.com/posts/sam-kambham-89a4a8247_hiring-leaddevopsengineer-devops-activity-7526668871928279041-FYVP",
+  "content": "📢 We're Hiring: Lead DevOps Engineer\nExperience: 12–15 Years\nJob Type: W2\nLocation: Raleigh, NC(Onsite)\nJob Description:\nWe are seeking a highly experienced Lead DevOps Engineer with 12–15 years of IT experience to lead DevOps initiatives, build scalable infrastructure, and drive automation across cloud and enterprise environments.\nKey Responsibilities:\nLead the design, implementation, and mainten",
+  "author": {
+   "id": "ACoAAD0ehPYBW4DGC1GV1upnaU9aew5dcUlCMUM",
+   "publicIdentifier": "sam-kambham-89a4a8247",
+   "type": "profile",
+   "name": "Sam Kambham",
+   "linkedinUrl": "https://www.linkedin.com/in/sam-kambham-89a4a8247?miniProfileUrn=urn%3Ali%3Afsd_profile%3AACoAAD0ehPYBW4DGC1GV1upnaU9aew5dcUlCMUM",
+   "info": "Sourcing Lead at Smartinfo Solutions",
+   "avatar": {
+    "url": "https://media.licdn.com/dms/image/v2/D5603AQGBnk8klQ7dWw/profile-displayphoto-shrink_800_800/B56ZTxdqgkGsAg-/0/1739217874451?e=1796256000&v=beta&t=7lj6pRJrutOipwCfFWcyQzm0_NUQOyPL8Qyr9gUdNVI",
+    "width": 592,
+    "height": 592
+   }
+  },
+  "postedAt": {
+   "date": "2026-11-12T15:34:57.813Z"
+  },
+  "engagement": {
+   "likes": 3,
+   "comments": 0,
+   "shares": 0
+  },
+  "postImages": [],
+  "query": {
+   "sortBy": "relevance",
+   "page": 1,
+   "search": "devops",
+   "postedLimit": "month"
+  },
+  "header": {
+   "text": null
+  },
+  "article": false
+ },
+ {
+  "id": "7526226516834168832",
+  "type": "post",
+  "linkedinUrl": "https://www.linkedin.com/posts/devops-institute_devopsstandard-devops-ai-activity-7526226516834168832-MBD2",
+  "content": "Ask different teams what DevOps means and you’ll get different answers. \nDifferent definitions make it harder to agree on what to improve. And as AI accelerates delivery, those gaps matter even more. \n\nIn his article, Marc Hornbeek explores why 𝐃𝐞𝐯𝐎𝐩𝐬 𝐧𝐞𝐞𝐝𝐬 𝐚 𝐬𝐡𝐚𝐫𝐞𝐝 𝐟𝐨𝐮𝐧𝐝𝐚𝐭𝐢𝐨𝐧 – 𝐚𝐧𝐝 𝐰𝐡𝐲 𝐢𝐭 𝐦𝐚𝐭𝐭𝐞𝐫𝐬 𝐧𝐨𝐰. \n\n📖 Read the article: https://lnkd.in/eB-KdAhW \n\n📥 𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝 𝐭𝐡𝐞 𝐃𝐄𝐕𝐎𝐏𝐒 𝐈𝐍𝐒𝐓𝐈𝐓𝐔𝐓𝐄 𝐎𝐟𝐟𝐢𝐜𝐢𝐚𝐥 𝐁𝐨𝐨𝐤 𝐟",
+  "author": {
+   "id": "6402730",
+   "publicIdentifier": null,
+   "type": "company",
+   "name": "DEVOPS INSTITUTE",
+   "linkedinUrl": "https://www.linkedin.com/company/devops-institute/posts",
+   "info": "105,342 followers",
+   "avatar": {
+    "url": "https://media.licdn.com/dms/image/v2/D4D0BAQGz9kmlsVgVWg/company-logo_400_400/company-logo_400_400/0/1726662933712/devops_institute_logo?e=1796256000&v=beta&t=p9wwu4eD85PIy7mxQt_-pieiB0g73_nZGiX-x_iWIi0",
+    "width": 400,
+    "height": 400
+   }
+  },
+  "postedAt": {
+   "date": "2026-11-11T10:17:12.140Z"
+  },
+  "engagement": {
+   "likes": 16,
+   "comments": 2,
+   "shares": 7
+  },
+  "postImages": [
+   {
+    "url": "https://media.licdn.com/dms/image/v2/D4E22AQEhAxaVriylKg/feedshare-image-high-res/B4EaHKHIxFHQAQ-/0/1794392231275?e=1796256000&v=beta&t=kKOxn1zEmY5t-8zxZS-0Ohdv1RkNk1vrymMP-op04YM"
+   }
+  ],
+  "query": {
+   "sortBy": "relevance",
+   "page": 1,
+   "search": "devops",
+   "postedLimit": "month"
+  },
+  "header": {
+   "text": null
+  },
+  "article": false
+ }
+]

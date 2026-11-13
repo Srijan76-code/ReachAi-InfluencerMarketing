@@ -20,10 +20,10 @@ import logging
 import math
 import re
 from datetime import datetime, timedelta, timezone
-from typing import Any, Awaitable, Callable, Optional, Protocol
+from typing import Any, Awaitable, Callable, Optional
 
 from app.metrics import constants as MC
-from app.platforms.apify import PRICES, ApifyAPI, ApifyError
+from app.platforms.apify import PRICES, ApifyAPI, ApifyError, DbStore, MemoryStore, Store  # noqa: F401
 from app.platforms.base import CandidateRef, CreatorProfile, Limits, PlatformPriors, Post, Strategy
 from app.platforms.links import extract_links
 from app.platforms.youtube import rank_fused
@@ -51,40 +51,6 @@ CHARGE_MARGIN = 1.2  # a run's spending cap is its planned cost plus 20%
 
 OUT_OF_CREDITS = "The Instagram data provider is out of credits, so Instagram results were cut short"
 NO_VIEWS = "View counts for Instagram reels couldn't be loaded, so creators were measured on likes and comments"
-
-
-class Store(Protocol):
-    async def get(self, namespace: str, key: Any) -> Any: ...
-
-    async def set(self, namespace: str, key: Any, value: Any, ttl: timedelta) -> None: ...
-
-
-class DbStore:
-    """The shared Postgres cache (spec §4.14)."""
-
-    def __init__(self, session_factory_getter: Callable[[], Any] = lambda: None):
-        self._sf = session_factory_getter
-
-    async def get(self, namespace, key):
-        from app.discovery.cache import cache_key, get_cached
-
-        return await get_cached(namespace, cache_key(key), session_factory=self._sf())
-
-    async def set(self, namespace, key, value, ttl):
-        from app.discovery.cache import cache_key, set_cached
-
-        await set_cached(namespace, cache_key(key), value, ttl, session_factory=self._sf())
-
-
-class MemoryStore:
-    def __init__(self):
-        self.data: dict[tuple[str, str], Any] = {}
-
-    async def get(self, namespace, key):
-        return self.data.get((namespace, repr(key)))
-
-    async def set(self, namespace, key, value, ttl):
-        self.data[(namespace, repr(key))] = value
 
 
 # --- Parsing ------------------------------------------------------------------------------------

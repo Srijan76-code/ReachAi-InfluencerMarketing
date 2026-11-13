@@ -17,8 +17,11 @@ def live_platforms() -> tuple[str, ...]:
     from app.core import config
 
     extra = ("x",) if config.X_ENABLED and os.getenv("X_PROVIDER_API_KEY") else ()
-    if config.INSTAGRAM_ENABLED and (os.getenv("APIFY_TOKEN") or os.getenv("APIFY_API_TOKEN")):
+    apify = bool(os.getenv("APIFY_TOKEN") or os.getenv("APIFY_API_TOKEN"))
+    if config.INSTAGRAM_ENABLED and apify:
         extra += ("instagram",)
+    if config.LINKEDIN_ENABLED and apify:
+        extra += ("linkedin",)
     return LIVE_PLATFORMS + extra
 
 # Running a campaign again ("Find more") reuses cached data, so it costs this share, rounded up.

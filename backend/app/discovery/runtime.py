@@ -81,16 +81,22 @@ def default_deps(ctx: CostContext) -> Deps:
 
         deps.adapters["x"] = x
 
-    if config.INSTAGRAM_ENABLED and (os.getenv("APIFY_TOKEN") or os.getenv("APIFY_API_TOKEN")):
-        from app.platforms.apify import HttpApify, db_memo
-        from app.platforms.instagram import DbStore, InstagramAdapter
+    if os.getenv("APIFY_TOKEN") or os.getenv("APIFY_API_TOKEN"):
+        from app.platforms.apify import DbStore, HttpApify, db_memo
 
-        def instagram():
+        def apify():
             if "apify" not in shared:
                 shared["apify"] = HttpApify(context=ctx, memo=db_memo(lambda: deps.session_factory))
-            return InstagramAdapter(shared["apify"], store=DbStore(lambda: deps.session_factory))
+            return shared["apify"]
 
-        deps.adapters["instagram"] = instagram
+        if config.INSTAGRAM_ENABLED:
+            from app.platforms.instagram import InstagramAdapter
+
+            deps.adapters["instagram"] = lambda: InstagramAdapter(apify(), store=DbStore(lambda: deps.session_factory))
+        if config.LINKEDIN_ENABLED:
+            from app.platforms.linkedin import LinkedInAdapter
+
+            deps.adapters["linkedin"] = lambda: LinkedInAdapter(apify(), store=DbStore(lambda: deps.session_factory))
     return deps
 
 

@@ -1,4 +1,4 @@
-"""Thin async client for Apify actors (spec §6.2, §6.3).
+"""Thin async client for Apify actors (spec §6.2, §6.3): Instagram and LinkedIn.
 
 - Runs are started, then polled (`waitForFinish`), then their dataset is read. Long synchronous calls
   get cut off by proxies, and polling lets a retried search pick up the same run instead of paying again:
@@ -33,6 +33,9 @@ PRICES: dict[str, dict[str, float]] = {
     "apify/instagram-hashtag-scraper": {"result": 0.0026},
     "apify/instagram-profile-scraper": {"profile": 0.0026},
     "apify/instagram-reel-scraper": {"reel": 0.0026, "actor-start": 0.001},
+    "harvestapi/linkedin-post-search": {"post": 0.002, "no-result": 0.001, "apify-actor-start": 0.00005},
+    "harvestapi/linkedin-profile-scraper": {"profile": 0.004},
+    "harvestapi/linkedin-profile-posts": {"post": 0.002, "no-result": 0.001, "apify-actor-start": 0.00005},
 }
 
 TERMINAL = {"SUCCEEDED", "FAILED", "ABORTED", "TIMED-OUT"}
@@ -90,6 +93,40 @@ def db_memo(session_factory_getter: Callable[[], Any] = lambda: None) -> RunMemo
 def charged_usd(actor: str, events: dict[str, int]) -> Decimal:
     prices = PRICES.get(actor, {})
     return sum((Decimal(str(prices.get(name, 0))) * int(count or 0) for name, count in (events or {}).items()), Decimal(0))
+
+
+class Store(Protocol):
+    async def get(self, namespace: str, key: Any) -> Any: ...
+
+    async def set(self, namespace: str, key: Any, value: Any, ttl: timedelta) -> None: ...
+
+
+class DbStore:
+    """The shared Postgres cache (spec §4.14)."""
+
+    def __init__(self, session_factory_getter: Callable[[], Any] = lambda: None):
+        self._sf = session_factory_getter
+
+    async def get(self, namespace, key):
+        from app.discovery.cache import cache_key, get_cached
+
+        return await get_cached(namespace, cache_key(key), session_factory=self._sf())
+
+    async def set(self, namespace, key, value, ttl):
+        from app.discovery.cache import cache_key, set_cached
+
+        await set_cached(namespace, cache_key(key), value, ttl, session_factory=self._sf())
+
+
+class MemoryStore:
+    def __init__(self):
+        self.data: dict[tuple[str, str], Any] = {}
+
+    async def get(self, namespace, key):
+        return self.data.get((namespace, repr(key)))
+
+    async def set(self, namespace, key, value, ttl):
+        self.data[(namespace, repr(key))] = value
 
 
 class HttpApify:

@@ -169,6 +169,7 @@ async def test_quote_follows_the_platforms_that_will_be_searched(monkeypatch):
     b2b = {"brand": {"business_model": "b2b"}}
     consumer = {"brand": {"business_model": "b2c"}}
     monkeypatch.setattr(config, "INSTAGRAM_ENABLED", False)
+    monkeypatch.setattr(config, "LINKEDIN_ENABLED", False)
     monkeypatch.setattr(config, "X_ENABLED", False)
     assert ledger.quote(b2b).credits == 1  # X off: never charged
     monkeypatch.setattr(config, "X_ENABLED", True)
@@ -184,3 +185,6 @@ async def test_quote_follows_the_platforms_that_will_be_searched(monkeypatch):
     monkeypatch.setenv("APIFY_TOKEN", "t")
     assert ledger.quote(consumer).platforms == ["youtube", "instagram"] and ledger.quote(consumer).credits == 1 + 4
     assert ledger.quote({"campaign": {"platforms": ["instagram"]}}).credits == 4
+    assert ledger.quote({"campaign": {"platforms": ["linkedin"]}}).platforms == ["youtube"]  # LinkedIn off
+    monkeypatch.setattr(config, "LINKEDIN_ENABLED", True)
+    assert ledger.quote({"campaign": {"platforms": ["linkedin"]}}).credits == 8
