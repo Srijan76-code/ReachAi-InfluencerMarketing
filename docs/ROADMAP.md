@@ -104,8 +104,9 @@ Known gaps in what's built:
 |---|---|---|---|
 | F3.1 | X adapter via twitterapi.io: advanced search (min faves, no replies/reposts, last 21 days) → authors with profiles free from search → `cheap_filter` → one timeline page per survivor; 24 h search cache; cost logged per call; out-of-provider-credits keeps what was found and warns. On behind `X_ENABLED=1` + `X_PROVIDER_API_KEY`. Brief picker shows live platforms and their credits. Official API switch not built (F3.2) | done (`x-discovery`) | §6.1 | `backend/app/platforms/x.py`, `x_api.py`, `links.py`, `app/discovery/runtime.py`, `prompts.py` (`x_queries`), `app/billing/constants.py` (`live_platforms`), `frontend/components/MultiPlatform.tsx` |
 | F3.2 | X: official API switch (`X_PROVIDER=official`) for verification only | later | §6.1 |
-| F4.1 | Instagram adapter (Apify now; HikerAPI later if cost or speed needs it) | next | §6.2 |
-| F5.1 | LinkedIn adapter (public post search + pasted URLs) | later | §6.3 |
+| F4.1 | Instagram adapter via Apify: popular-reels search per query in one run (hashtag reels for words popular search can't serve) → profiles in one batch run (cached 7 days) → `cheap_filter` → recent reels with views for the best 40 (one run, cached 3 days). Runs are started then polled, capped with `maxTotalChargeUsd`, and a retried search picks up the same run (`apify_run` memo). Cost logged from Apify's charged events. Photo-heavy creators are measured on reels when ≥ 3 have views, else per follower. On behind `INSTAGRAM_ENABLED=1` + `APIFY_TOKEN` | done (`instagram-discovery`) | §6.2 | `backend/app/platforms/apify.py`, `instagram.py`, `app/discovery/runtime.py`, `prompts.py` (`instagram_queries`, strategy-v5), `app/metrics/compute.py`, `app/billing/constants.py` |
+| F4.2 | Instagram: HikerAPI as a cheaper/faster provider behind the same adapter, if cost or speed needs it | later | §6.2 |
+| F5.1 | LinkedIn adapter (public post search + pasted URLs) | next | §6.3 |
 
 ## Phase 6: Outreach loop · §7
 **Agent plan (decided Nov 4):** the agent proposes, the founder approves everything. Build order: F6.8 "Needs you" queue → F6.5 Connect Gmail → F7.3 live posts → F7.4 + F7.5 Results v1 (links, codes, views) → F7.4 signups and sales.

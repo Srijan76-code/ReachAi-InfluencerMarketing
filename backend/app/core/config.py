@@ -41,6 +41,9 @@ X_ENABLED = os.getenv("X_ENABLED", "0") == "1"
 # twitterapi.io allows 20 requests/second once topped up; an account that never topped up gets 1 every 5 s.
 X_REQUESTS_PER_SECOND = float(os.getenv("X_REQUESTS_PER_SECOND", "15"))
 APIFY_TOKEN = os.getenv("APIFY_TOKEN") or os.getenv("APIFY_API_TOKEN")
+# Instagram search is on only when this is "1" and APIFY_TOKEN is set. Off: Instagram is skipped and not
+# charged for.
+INSTAGRAM_ENABLED = os.getenv("INSTAGRAM_ENABLED", "0") == "1"
 
 # --- Discovery engine ----------------------------------------------------------------
 # "legacy" = old YouTube pipeline (app/my_agent); "graph" = new discovery graph (app/discovery).

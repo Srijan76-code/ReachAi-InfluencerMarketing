@@ -83,6 +83,14 @@ def compute_metrics(
     has_views = platform in PLATFORMS_WITH_VIEWS and any(p.get("views") is not None for p in posts)
 
     same_format = stats.primary_format_posts(posts) if has_views else posts
+    if has_views and not stats.views_of(same_format):
+        # Mostly photos (Instagram), whose views aren't public: measure on the reels if there are enough
+        # (reels are what brands buy), else everything per follower.
+        reels = [p for p in posts if p.get("is_short_form") and p.get("views") is not None]
+        if len(reels) >= C.MIN_POSTS_WITH_VIEWS:
+            same_format = reels
+        else:
+            has_views, same_format = False, posts
     views = stats.views_of(same_format)
     med = stats.median_views(same_format) if has_views else None
     rel_mad = stats.mad_ratio(views) if has_views else None

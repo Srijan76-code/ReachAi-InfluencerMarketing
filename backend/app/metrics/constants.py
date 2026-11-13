@@ -96,3 +96,6 @@ YOUNG_POST_DAYS = 7  # newer posts are still collecting views: shown as "new" an
 # Phrases that mark a paid promotion in a title, caption or description (lower-case)
 SPONSOR_PHRASES = ("sponsored by", "for sponsoring", "use code", "use my code", "promo code", "paid partnership",
                    "#ad", "#sponsored", "in partnership with", "brought to you by", "affiliate link")
+
+# A creator who mostly posts photos is measured on their reels' views when at least this many have views.
+MIN_POSTS_WITH_VIEWS = 3
