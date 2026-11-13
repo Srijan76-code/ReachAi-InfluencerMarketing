@@ -575,8 +575,9 @@ Daily caps per user (`MAX_SEARCHES_PER_DAY`) and the existing MCP cap still appl
 - **Compliance before going live:** CA confirms GST treatment (export of services via the merchant of record, LUT) and income tax; own domain for the business check; refund policy page.
 
 ### 5.5 Frontend
-- **Credits pill** in `Header.tsx` (balance; click → `/billing`).
-- **`/billing`:** plan, credits by bucket with next reset date, packs, upgrade, history (ledger in plain words), referral link.
+- **Navbar:** left: logo + Campaigns (main tab). Right, in groups: Pricing · Docs (muted, sliding hover pill) | Connect agent (icons only, copies the setup prompt) and New campaign (HoverButton) | one account capsule with credits (opens **Billing and usage**: balance, buckets, history, Manage plan), alerts and the avatar (menu: credits, Billing and usage, API keys).
+- **`/pricing`** (public): plans in searches, a calculator that picks the cheapest plan or plan + packs, packs, FAQ. `/billing` redirects here.
+- **Checkout:** Dodo's one-page checkout (`feature_flags.single_page`) in the overlay popup. In test mode only `DODO_TEST_USERS` can buy.
 - **Before every search:** the cost line and balance next to the Run button; if short, "Buy 10 credits · $8" inline instead of an error.
 - **MCP:** `start_search` returns the cost and balance and needs `confirm=true`; a new read tool `credits` shows the balance.
 - Docs page `pricing.mdx` + public `/pricing` page.

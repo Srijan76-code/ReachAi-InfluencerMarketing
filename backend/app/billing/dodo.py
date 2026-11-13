@@ -58,6 +58,15 @@ def webhook_key() -> str | None:
     return os.getenv("DODO_PAYMENTS_WEBHOOK_KEY") or None
 
 
+def can_buy(clerk_id: str | None) -> bool:
+    """Live mode: everyone. Test mode: only accounts in DODO_TEST_USERS (Clerk ids, comma-separated), because
+    anyone could otherwise "pay" with a public test card and get free credits."""
+    if environment() == "live_mode":
+        return True
+    allowed = {c.strip() for c in os.getenv("DODO_TEST_USERS", "").split(",") if c.strip()}
+    return bool(clerk_id and clerk_id in allowed)
+
+
 def product_ids() -> dict[str, str]:
     raw = os.getenv("DODO_PRODUCT_IDS")
     if raw:
@@ -96,6 +105,8 @@ async def create_checkout(product_id: str, *, user_id: str, item: str, return_ur
         "metadata": {"user_id": user_id, "item": item},
         "return_url": return_url,
         "minimal_address": True,
+        # One page: wallets (Apple/Google Pay) first, then email and card, then Pay. Fewer steps than two pages.
+        "feature_flags": {"single_page": True},
     }
     if customer_id:
         body["customer"] = {"customer_id": customer_id}

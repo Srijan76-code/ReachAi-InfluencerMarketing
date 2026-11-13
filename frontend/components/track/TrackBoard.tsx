@@ -1,5 +1,6 @@
 "use client";
 
+import { BACKEND_URL } from "@/lib/backend";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -184,7 +185,7 @@ export default function TrackBoard({ campaignId, apiOverride }: { campaignId: st
               </TooltipTrigger>
               <TooltipContent className="text-xs">{checking ? "Checking…" : track.refreshed_at ? `Updated ${updatedLabel(track.refreshed_at)}` : "Check for new posts"}</TooltipContent>
             </Tooltip>
-            <a href={`${process.env.NEXT_PUBLIC_BACKEND_URL ?? ""}/api/campaigns/${campaignId}/track.csv`} onClick={async (e) => {
+            <a href={`${BACKEND_URL}/api/campaigns/${campaignId}/track.csv`} onClick={async (e) => {
               e.preventDefault(); // the download needs the sign-in token, so fetch it and save the file
               const r = await api(`/api/campaigns/${campaignId}/track.csv`, { responseType: "blob" });
               const url = URL.createObjectURL(r.data as Blob);

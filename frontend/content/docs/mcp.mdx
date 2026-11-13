@@ -1,41 +1,33 @@
 ---
 title: Use ReachAI from your agent
-description: Connect Claude Code, Cursor or any MCP agent to ReachAI and work with your campaigns and creators from there.
+description: Connect Claude, ChatGPT, Codex, Cursor or any MCP agent to ReachAI and work with your campaigns and creators from there.
 ---
 
 ReachAI runs an [MCP](https://modelcontextprotocol.io) server. Once your agent is connected, you can ask it things like "which of my campaigns have finished?" or "show me the top 10 creators for the DataLaunch campaign" without opening the app. Anything your agent saves shows up in ReachAI straight away, because it is the same account and the same data.
 
 ## Connect
 
-1. Open [Agents](/agents) in the app and create a key. Copy it right away: it is shown only once.
-2. Add ReachAI to your agent with the command the page gives you.
+Open [Agents](/agents) and click **Onboard your agent**. It copies one line:
+
+```text
+Set up ReachAI for me. Fetch https://reach-ai-influencer-marketing.vercel.app/llms.txt and follow it.
+```
+
+Paste it into Claude Code, Codex, Cursor, VS Code or any other agent. It reads the setup steps for itself, adds ReachAI, and asks you to sign in with your ReachAI account. It also installs a short playbook (`/skill.md`) so it uses ReachAI well.
+
+**Claude and ChatGPT apps** can't add connectors on their own; the agent tells you the clicks. In Claude: Settings → Connectors → Add custom connector, paste `https://reach-ai-influencer-marketing.vercel.app/api/mcp`, then **Connect** and sign in. No key needed.
+
+### By hand
 
 **Claude Code**
 
 ```bash
-claude mcp add --transport http reachai https://YOUR-REACHAI-HOST/api/mcp --header "Authorization: Bearer YOUR_KEY"
+claude mcp add --transport http reachai https://reach-ai-influencer-marketing.vercel.app/api/mcp
 ```
 
-**Cursor** (`mcp.json`)
+Then run `/mcp` in Claude Code, choose **reachai** and sign in.
 
-```json
-{
-  "mcpServers": {
-    "reachai": {
-      "url": "https://YOUR-REACHAI-HOST/api/mcp",
-      "headers": { "Authorization": "Bearer YOUR_KEY" }
-    }
-  }
-}
-```
-
-Other agents that support MCP over HTTP with a custom header work the same way: use the address and the `Authorization: Bearer` header.
-
-Keys belong to you. Anyone with a key can see and change your campaigns, so keep it private. You can revoke a key on the [Agents](/agents) page at any time, and it stops working immediately.
-
-## Easiest setup
-
-Tell your agent: "set up ReachAI from https://YOUR-REACHAI-HOST/llms.txt". It reads the instructions, asks you for a key and connects itself. There is also a playbook at `/skill.md` that teaches the agent how to use ReachAI well.
+**Agents that can't sign in** use a personal key: create one on [Agents](/agents) (shown once) and send it as the header `Authorization: Bearer YOUR_KEY`. Anyone with a key can see and change your campaigns, so keep it private. You can revoke a key at any time and it stops working immediately.
 
 ## What your agent can do
 

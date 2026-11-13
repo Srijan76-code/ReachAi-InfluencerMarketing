@@ -6,10 +6,11 @@ import { getClientSubscriptionToken } from "inngest/react";
 import { inngest } from "@/inngest/client";
 import { campaignChannel, outreachChannel } from "@/inngest/channels";
 
+// Server side needs an absolute address. On a preview, the deployment's own URL (same backend).
 const backendUrl =
   process.env.BACKEND_URL ??
   process.env.NEXT_PUBLIC_BACKEND_URL ??
-  "http://localhost:8000";
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:8000");
 
 export async function getCampaignRealtimeToken(
   campaignId: string,

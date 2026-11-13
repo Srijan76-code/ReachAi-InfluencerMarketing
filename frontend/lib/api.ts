@@ -1,3 +1,4 @@
+import { BACKEND_URL } from "@/lib/backend";
 import axios from "axios";
 import { useAuth } from "@clerk/nextjs";
 
@@ -45,7 +46,7 @@ export const useApi = () => {
     const send = (bearer: string | null) =>
       axios({
         baseURL:
-          process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000",
+          BACKEND_URL,
         url,
         data: requestData,
         headers: {

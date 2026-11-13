@@ -14,8 +14,10 @@ export async function openCheckout(checkoutUrl: string, mode: "test" | "live", o
     DodoPayments.Initialize({ mode, displayType: "overlay", onEvent: (e) => handler?.(e) });
     initialisedMode = mode;
   }
-  // manualRedirect: stay on the billing page after paying instead of reloading it.
-  DodoPayments.Checkout.open({ checkoutUrl, options: { manualRedirect: true, showTimer: false } });
+  // Let the SDK redirect: Indian cards and 3-D Secure send the buyer to their bank to approve, then back to
+  // our return URL (/pricing?checkout=done), which waits for the credits. With manualRedirect the bank step
+  // never opened and the payment sat at "Processing" (Nov 13).
+  DodoPayments.Checkout.open({ checkoutUrl, options: { showTimer: false } });
 }
 
 export async function closeCheckout() {

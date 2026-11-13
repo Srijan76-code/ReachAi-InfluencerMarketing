@@ -1,5 +1,6 @@
 "use client";
 
+import { BACKEND_URL } from "@/lib/backend";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Eye, Lock, MessageSquare } from "lucide-react";
@@ -23,7 +24,7 @@ type Shared = {
   my_feedback: Record<string, MyFeedback>;
 };
 
-const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
+const BACKEND = BACKEND_URL;
 async function call(path: string, init?: RequestInit) {
   const r = await fetch(`${BACKEND}${path}`, { cache: "no-store", referrerPolicy: "no-referrer", ...init });
   const body = await r.json().catch(() => ({}));
