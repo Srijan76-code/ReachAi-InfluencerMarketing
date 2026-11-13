@@ -67,6 +67,7 @@ export function UsageSheet() {
             </Link>
           </div>
           {notice && <p className="text-xs text-rose-600 dark:text-rose-400">{notice.text}</p>}
+          <Invite open={open} />
           <section className="space-y-2">
             <h3 className="text-xs font-medium text-zinc-900 dark:text-zinc-100">History</h3>
             {history === null ? (
@@ -124,6 +125,46 @@ function Summary({ credits }: { credits: Credits | null }) {
           </div>
         ))}
       </dl>
+    </section>
+  );
+}
+
+type ReferralInfo = { link: string; invited: number; rewarded: number; credits_each: number };
+
+function Invite({ open }: { open: boolean }) {
+  const api = useApi();
+  const [info, setInfo] = useState<ReferralInfo | null>(null);
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (open && !info) api("/api/billing/referral").then((r) => setInfo(r.data as ReferralInfo)).catch(() => undefined);
+  }, [open, info, api]);
+  if (!info) return null;
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(info.link);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // clipboard blocked: the link is shown for copying by hand
+    }
+  };
+  return (
+    <section className="rounded-lg border border-zinc-200 dark:border-zinc-800 p-3 space-y-2">
+      <div>
+        <h3 className="text-xs font-medium text-zinc-900 dark:text-zinc-100">Invite founders</h3>
+        <p className="text-[11px] text-zinc-500">You both get {info.credits_each} credits when they run their first search.</p>
+      </div>
+      <div className="flex gap-2">
+        <input readOnly value={info.link} aria-label="Your invite link" className="flex-1 min-w-0 h-[30px] px-2 text-[11px] font-mono rounded-md border border-zinc-200 dark:border-zinc-800 bg-transparent text-zinc-700 dark:text-zinc-300" />
+        <button type="button" onClick={copy} className={btn}>
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
+      {info.invited > 0 && (
+        <p className="text-[11px] text-zinc-500">
+          {info.invited} joined · {info.rewarded} ran a search
+        </p>
+      )}
     </section>
   );
 }

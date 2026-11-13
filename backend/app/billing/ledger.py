@@ -218,6 +218,18 @@ async def grant_pack(db: AsyncSession, user_id: str, credits: int, payment_id: s
     return True
 
 
+async def grant_referral(db: AsyncSession, user_id: str, credits: int, ref_id: str, note: str) -> bool:
+    """Invite credits (bonus bucket, never expire). Once per referred user per recipient."""
+    await ensure_account(db, user_id)
+    exists = await db.scalar(select(func.count()).select_from(CreditEntry).where(
+        CreditEntry.user_id == user_id, CreditEntry.reason == "grant_referral", CreditEntry.ref_id == ref_id))
+    if exists:
+        return False
+    db.add(_entry(user_id, credits, "bonus", "grant_referral", "referral", ref_id, note))
+    await db.flush()
+    return True
+
+
 async def take_back_pack(db: AsyncSession, user_id: str, credits: int, refund_id: str) -> int:
     """A pack was refunded: remove its credits, as far as they're unspent. Returns credits removed."""
     await ensure_account(db, user_id)
@@ -335,6 +347,9 @@ async def settle(db: AsyncSession, run_id: str, creators_found: int, now: dateti
         res.status = "refunded"
     else:
         res.status = "committed"
+        from app.billing import referrals  # late import: referrals uses this module
+
+        await referrals.grant_after_first_search(db, res.user_id, now)
     res.settled_at = now or _now()
     await db.flush()
     return res.status
@@ -379,6 +394,6 @@ async def adjust(db: AsyncSession, user_id: str, delta: int, note: str, ref_id: 
     await db.flush()
 
 
-__all__ = ["start_paid_period", "change_plan", "set_status", "grant_pack", "take_back_pack", "NotEnoughCredits", "DailyLimitReached", "Quote", "quote", "balances", "ensure_account", "summary",
+__all__ = ["grant_referral", "start_paid_period", "change_plan", "set_status", "grant_pack", "take_back_pack", "NotEnoughCredits", "DailyLimitReached", "Quote", "quote", "balances", "ensure_account", "summary",
            "reserve", "settle", "release", "release_expired", "history", "adjust", "has_finished_run",
            "month_bounds"]

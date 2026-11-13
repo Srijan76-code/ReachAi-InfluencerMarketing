@@ -528,7 +528,8 @@ Decided Nov 12, 2026. Goal: **affordable, not cheap**. Founders pay only to find
 **Growth extras in v1:**
 - **Welcome credits:** 5 one-time credits at signup (on top of Free's 3/month).
 - **Local prices:** INR prices for India (country from the payment provider's checkout; we never guess from IP alone). Other markets later.
-- **Referrals:** 10 credits each for referrer and new user, granted when the new user completes a first search. Limit 20 referral grants per user per year; same payment card or device does not count.
+- **Referrals:** 10 credits each for referrer and new user, granted when the new user's first search is committed. Limits: only accounts created in the last 7 days can claim, one claim per account, never your own code, 20 referrer grants a year. (Same card or device checks: not built.)
+- **Prices include tax** (Dodo `tax_inclusive` on every product, Nov 13): ₹499 and $12 are final; tax is taken out of them.
 - Not in v1: annual price lock for early users.
 
 ### 5.3 Ledger (replaces the bare `users.credits` and the unused `Transaction`)

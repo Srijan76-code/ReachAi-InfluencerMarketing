@@ -48,3 +48,9 @@ ITEMS: dict[str, dict] = {
     "pack_10": {"kind": "pack", "credits": 10},
     "pack_30": {"kind": "pack", "credits": 30},
 }
+
+# Referrals: both people get this many credits once the new user's first search completes.
+REFERRAL_CREDITS = 10
+REFERRALS_PER_YEAR = 20  # most grants one referrer can earn in 365 days
+REFERRAL_CLAIM_WINDOW = timedelta(days=7)  # an invite only counts for accounts this new
+REFERRAL_CODE_LENGTH = 8
