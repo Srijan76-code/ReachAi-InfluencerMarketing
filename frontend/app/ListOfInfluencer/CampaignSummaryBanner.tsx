@@ -24,16 +24,16 @@ export const CampaignSummaryBanner = ({
     let sumConfidence = 0;
 
     influencers.forEach((inf) => {
-      sumReach += inf.metrics.avg_views;
+      sumReach += inf.metrics.avg_views ?? 0;
       // Effective reach proxy using actual engagement
       sumEffectiveReach += Math.floor(
-        inf.metrics.avg_views * (inf.metrics.engagement_rate / 100) * 4,
+        (inf.metrics.avg_views ?? 0) * (inf.metrics.engagement_rate / 100) * 4,
       );
 
       const parsedClicks =
         parseInt(inf.metrics.forecast.replace(/[^0-9]/g, "")) || 0;
       sumClicks += parsedClicks;
-      sumCost += inf.valuation;
+      sumCost += inf.valuation ?? 0;
 
       // Tracking the AI scoring breakdowns precisely
       sumBrandFit += inf.score_breakdown?.strategy_score || inf.semantic_score;

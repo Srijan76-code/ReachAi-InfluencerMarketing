@@ -12,11 +12,11 @@ export interface Influencer {
   // ---------- MONETIZATION ----------
   estimated_cpm: number;
   lifetime_health: number;
-  valuation: number;
+  valuation: number | null; // null: no public views to price from yet
 
   // ---------- METRICS ----------
   metrics: {
-    avg_views: number;
+    avg_views: number | null; // null: views aren't public (photos, LinkedIn)
     volatility: number;
     reliability: "Low" | "Medium" | "High";
     engagement_rate: number;
