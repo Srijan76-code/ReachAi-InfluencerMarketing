@@ -80,6 +80,17 @@ def default_deps(ctx: CostContext) -> Deps:
             return XAdapter(shared["x_api"], cache=run_cache)
 
         deps.adapters["x"] = x
+
+    if config.INSTAGRAM_ENABLED and (os.getenv("APIFY_TOKEN") or os.getenv("APIFY_API_TOKEN")):
+        from app.platforms.apify import HttpApify, db_memo
+        from app.platforms.instagram import DbStore, InstagramAdapter
+
+        def instagram():
+            if "apify" not in shared:
+                shared["apify"] = HttpApify(context=ctx, memo=db_memo(lambda: deps.session_factory))
+            return InstagramAdapter(shared["apify"], store=DbStore(lambda: deps.session_factory))
+
+        deps.adapters["instagram"] = instagram
     return deps
 
 
@@ -170,7 +181,7 @@ async def run_discovery(
     )
     await _settle_credits(run_id, len(leads), deps.session_factory)
     await publish(run_id, "status", {"thread_id": thread_id, "stage": "completed", "status": "completed"})
-    for key in ("api", "x_api"):
+    for key in ("api", "x_api", "apify"):
         client = (deps.extra or {}).get(key)
         if client is not None and hasattr(client, "aclose"):
             await client.aclose()

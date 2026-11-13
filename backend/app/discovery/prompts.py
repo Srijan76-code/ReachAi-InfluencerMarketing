@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 
 from app.discovery.brief import Brief
 
-STRATEGY_PROMPT_VERSION = "strategy-v4"
+STRATEGY_PROMPT_VERSION = "strategy-v5"
 REASON_PROMPT_VERSION = "reason-v2"
 
 
@@ -25,6 +25,10 @@ class StrategyOut(BaseModel):
         default_factory=list,
         description="6-8 short X (Twitter) searches (1-3 words) that posts by creators in this niche contain, e.g. 'devops', 'kubernetes tips', 'indie hacker'; plain words, no hashtags or operators",
     )
+    instagram_queries: list[str] = Field(
+        default_factory=list,
+        description="6 short Instagram searches (1-3 words) for reels in this niche, e.g. 'ai tools', 'productivity hacks', 'home workout'; plain words, no hashtags",
+    )
     trend_topics: list[str] = Field(description="2-4 subjects people in this niche are talking about right now")
     competitors: list[str] = Field(default_factory=list, description="Up to 5 well-known competing products or brands")
     safety_level: Literal["low", "medium", "high", "critical"] = Field(
@@ -36,7 +40,7 @@ class StrategyOut(BaseModel):
 def strategy_prompt(b: Brief, today: Optional[date] = None) -> str:
     today = today or date.today()
     return f"""Today is {today.isoformat()}. You plan creator-marketing campaigns. Turn this brief into a search strategy for finding YouTube creators
-whose audience will actually buy (and the same niche on X). Be specific: niches, real problems and phrases people really search for.
+whose audience will actually buy (and the same niche on X and Instagram). Be specific: niches, real problems and phrases people really search for.
 
 Brand: {b.brand_name} ({b.industry}, {b.business_model.upper()})
 Product: {b.product}

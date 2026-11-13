@@ -20,7 +20,7 @@ const PACKS = [
 ];
 
 const FAQ = [
-  ["What's a credit?", "One credit is one YouTube search: up to about 30 creators, ranked for your brief, each with a fair price. An X search is 3 credits. Instagram and LinkedIn are coming soon at 4 and 8."],
+  ["What's a credit?", "One credit is one YouTube search: up to about 30 creators, ranked for your brief, each with a fair price. X is 3 credits and Instagram 4. LinkedIn is coming soon at 8."],
   ["What if a search finds too few creators?", "If it finds fewer than 10, the credits come back automatically. They also come back if a search fails."],
   ["What's free?", "Everything after the search: outreach, AI drafts, negotiation, Gmail sending, tracking posts and results, and using ReachAI from your agent."],
   ["Can I cancel?", "Yes, anytime. You keep your plan's credits until the month ends. Pack credits never expire."],

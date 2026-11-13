@@ -609,6 +609,11 @@ Daily caps per user (`MAX_SEARCHES_PER_DAY`) and the existing MCP cap still appl
   - Reels views vs. followers.
   - The anomaly model catches follow-for-follow and engagement pods.
 - **Cost target per run:** ≤ $1.50. The 7-day profile cache is essential.
+- **As built (Nov 13):** three batch runs per search through `app/platforms/apify.py` (start → poll `waitForFinish` → dataset; `maxTotalChargeUsd` on every run = planned items × price × 1.2; run ids remembered per actor + input + run so a retried search resumes the same run; cost from `chargedEventCounts`).
+  1. `instagram-search-scraper` `searchType=popular`, all queries in one run (20 reels each, $0.0027 per result). Some broad words return `no_items` (still charged one result); those get one `instagram-hashtag-scraper` `resultsType=reels` run (recent reels with views, $0.0026). Hashtag "posts" were rejected: newest posts, mostly 0 likes.
+  2. `instagram-profile-scraper` for up to 120 owners ($0.0026 each): followers, bio, links, business category, last 12 posts with likes and comments but **no views**.
+  3. `instagram-reel-scraper` for the best 40 that pass `cheap_filter` (private, size, ≥ 30 posts) and post reels: 6 reels each with `videoPlayCount` (≈ 20–25 s per run).
+  - Full search ≈ $1.25 on Apify's free-tier prices; a live run took ≈ 45 s. Metrics: a creator whose main format has no views is measured on reels if ≥ 3 have views, else per follower. Strategy writes `instagram_queries` (strategy-v5). On only with `INSTAGRAM_ENABLED=1` and `APIFY_TOKEN`.
 
 ### 6.3 LinkedIn (`app/platforms/linkedin.py`): public post search only
 - **Provider:** Apify **logged-out** post search actors (≈ $1.20–2.00 per 1k posts). **No logged-in scraping and no fake accounts** (Proxycurl was sued for exactly this and shut down in 2025).
