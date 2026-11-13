@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import time
 from dataclasses import dataclass
@@ -21,6 +22,8 @@ from typing import Any, Awaitable, Callable, Optional, Protocol
 import httpx
 
 from app.billing.costs import CostContext, CostRecord, record_cost
+
+logger = logging.getLogger(__name__)
 
 BASE_URL = "https://api.apify.com/v2"
 POLL_SECONDS = 30  # Apify holds each status request open up to this long
@@ -79,13 +82,22 @@ def memory_memo() -> RunMemo:
 
 
 def db_memo(session_factory_getter: Callable[[], Any] = lambda: None) -> RunMemo:
-    from app.discovery.cache import cache_key, get_cached, set_cached
+    """Run ids in the shared Postgres cache. A cache failure never fails a search: it just starts a run."""
+    from app.discovery.cache import _MISS, cache_key, get_cached, set_cached
 
     async def get(key: str) -> Optional[str]:
-        return await get_cached("apify_run", cache_key(key), session_factory=session_factory_getter())
+        try:
+            value = await get_cached("apify_run", cache_key(key), session_factory=session_factory_getter())
+        except Exception:
+            logger.exception("Apify run memo read failed")
+            return None
+        return None if value is _MISS else value
 
     async def set_(key: str, value: str) -> None:
-        await set_cached("apify_run", cache_key(key), value, RUN_MEMO_TTL, session_factory=session_factory_getter())
+        try:
+            await set_cached("apify_run", cache_key(key), value, RUN_MEMO_TTL, session_factory=session_factory_getter())
+        except Exception:
+            logger.exception("Apify run memo write failed")
 
     return RunMemo(get, set_)
 
@@ -102,20 +114,28 @@ class Store(Protocol):
 
 
 class DbStore:
-    """The shared Postgres cache (spec §4.14)."""
+    """The shared Postgres cache (spec §4.14). Returns None on a miss; a cache failure counts as a miss."""
 
     def __init__(self, session_factory_getter: Callable[[], Any] = lambda: None):
         self._sf = session_factory_getter
 
     async def get(self, namespace, key):
-        from app.discovery.cache import cache_key, get_cached
+        from app.discovery.cache import _MISS, cache_key, get_cached
 
-        return await get_cached(namespace, cache_key(key), session_factory=self._sf())
+        try:
+            value = await get_cached(namespace, cache_key(key), session_factory=self._sf())
+        except Exception:
+            logger.exception("Cache read failed for %s", namespace)
+            return None
+        return None if value is _MISS else value
 
     async def set(self, namespace, key, value, ttl):
         from app.discovery.cache import cache_key, set_cached
 
-        await set_cached(namespace, cache_key(key), value, ttl, session_factory=self._sf())
+        try:
+            await set_cached(namespace, cache_key(key), value, ttl, session_factory=self._sf())
+        except Exception:
+            logger.exception("Cache write failed for %s", namespace)
 
 
 class MemoryStore:
