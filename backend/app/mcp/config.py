@@ -22,11 +22,13 @@ MAX_TEXT_CHARS = 20_000
 
 
 def agent_runs_per_day() -> int:
-    """How many creator searches one user's agents may start per day (each costs YouTube quota and Jev calls)."""
+    """How many creator searches one user's agents may start per day (each costs YouTube quota and Jev calls).
+    Raised from 3 to 10 on Nov 13: every search now costs credits shown before it starts, so credits limit spend;
+    10 keeps one user well inside the YouTube quota (spec §1)."""
     try:
-        return max(0, int(os.getenv("MCP_RUNS_PER_DAY", "3")))
+        return max(0, int(os.getenv("MCP_RUNS_PER_DAY", "10")))
     except ValueError:
-        return 3
+        return 10
 
 
 def public_url() -> str:
