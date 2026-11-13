@@ -44,11 +44,21 @@ PRICES: dict[str, dict[str, float]] = {
 TERMINAL = {"SUCCEEDED", "FAILED", "ABORTED", "TIMED-OUT"}
 
 
+PLAN_LIMIT = "plan_limit"  # ApifyError.status for "your Apify plan stopped this run early"
+
+
 class ApifyError(RuntimeError):
-    def __init__(self, status: int, reason: str):
+    """`items` holds whatever the run returned before it stopped (kept: Apify charged for them)."""
+
+    def __init__(self, status: int | str, reason: str, items: Optional[list[dict]] = None):
         super().__init__(f"Apify error {status}: {reason}")
         self.status = status
         self.reason = reason
+        self.items = items or []
+
+    @property
+    def plan_limit(self) -> bool:
+        return self.status == PLAN_LIMIT
 
     @property
     def out_of_credits(self) -> bool:
@@ -204,9 +214,15 @@ class HttpApify:
             got = await self._client.get(f"/datasets/{data['defaultDatasetId']}/items", headers=self._headers(),
                                          params={"clean": "true", "format": "json"})
             if got.status_code < 400:
-                items = [i for i in got.json() if isinstance(i, dict) and not i.get("error")]
+                rows = [i for i in got.json() if isinstance(i, dict)]
+                items = [i for i in rows if not i.get("error")]
+                errors = [str(i.get("error")) for i in rows if i.get("error")]
         await record_cost(CostRecord(provider="apify", sku=actor, route="apify", context=self._context,
                                      units=len(items), usd=usd, meta={"run_id": run_id, "status": status}))
+        message = " ".join([data.get("statusMessage") or "", *errors]).lower()
+        if "paid plan" in message or "free user" in message or "free users" in message:
+            # Some actors cap free Apify accounts (e.g. 10 results a run): keep what came back, say why
+            raise ApifyError(PLAN_LIMIT, f"{actor} returned only {len(items)} results on Apify's free plan", items)
         if status != "SUCCEEDED" and not items:
             raise ApifyError(500, f"{actor} run {status.lower()}: {(data.get('statusMessage') or '')[:120]}")
         return items

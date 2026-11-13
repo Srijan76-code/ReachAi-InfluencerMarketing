@@ -49,6 +49,7 @@ PROFILE_CACHE = timedelta(days=7)
 REEL_CACHE = timedelta(days=3)
 CHARGE_MARGIN = 1.2  # a run's spending cap is its planned cost plus 20%
 
+PLAN_LIMIT_WARNING = "The free Apify plan returns only a few Instagram results per run, so Instagram results were cut short"
 OUT_OF_CREDITS = "The Instagram data provider is out of credits, so Instagram results were cut short"
 NO_VIEWS = "View counts for Instagram reels couldn't be loaded, so creators were measured on likes and comments"
 
@@ -175,13 +176,6 @@ class InstagramAdapter:
         if text not in self.warnings:
             self.warnings.append(text)
 
-    def _failed(self, exc: ApifyError, what: str) -> None:
-        if exc.out_of_credits:
-            self._stopped = True
-            self._warn(OUT_OF_CREDITS)
-        else:
-            self._warn(f"{what} failed: {exc.reason[:80]}")
-
     async def _run(self, actor: str, run_input: dict, planned_items: int, what: str) -> Optional[list[dict]]:
         if self._stopped or planned_items <= 0:
             return None
@@ -190,7 +184,14 @@ class InstagramAdapter:
         try:
             return await self.api.run(actor, run_input, max_usd=cap)
         except ApifyError as exc:
-            self._failed(exc, what)
+            if exc.plan_limit:
+                self._warn(PLAN_LIMIT_WARNING)
+                return exc.items  # partial results: Apify already charged for them
+            if exc.out_of_credits:
+                self._stopped = True
+                self._warn(OUT_OF_CREDITS)
+            else:
+                self._warn(f"{what} failed: {exc.reason[:80]}")
             return None
 
     # --- Sourcing -------------------------------------------------------------------------------

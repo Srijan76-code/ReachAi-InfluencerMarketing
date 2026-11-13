@@ -50,6 +50,7 @@ PROFILE_CACHE = timedelta(days=7)
 POSTS_CACHE = timedelta(days=3)
 CHARGE_MARGIN = 1.2
 
+PLAN_LIMIT_WARNING = "The free Apify plan returns only a few LinkedIn results per run, so LinkedIn results were cut short"
 OUT_OF_CREDITS = "The LinkedIn data provider is out of credits, so LinkedIn results were cut short"
 
 
@@ -152,6 +153,9 @@ class LinkedInAdapter:
         try:
             return await self.api.run(actor, run_input, max_usd=cap)
         except ApifyError as exc:
+            if exc.plan_limit:
+                self._warn(PLAN_LIMIT_WARNING)
+                return exc.items  # partial results: Apify already charged for them
             if exc.out_of_credits:
                 self._stopped = True
                 self._warn(OUT_OF_CREDITS)

@@ -302,3 +302,30 @@ async def test_photo_heavy_creator_with_enough_reels_is_measured_on_reel_views()
                                 "latestPosts": photos + reels})
     m = compute_metrics(p, BriefContext(), now=NOW)
     assert m.has_public_views and m.posts_used == 4 and m.median_views == 11500
+
+
+async def test_client_keeps_partial_results_when_the_free_plan_stops_a_run(costs):
+    from app.platforms.apify import PLAN_LIMIT
+
+    handler, _ = apify_server(["SUCCEEDED"], [{"username": "a"}, {"error": "Free users are limited to 10 items per run. Please upgrade to a paid plan."}],
+                              {"profile": 1})
+    with pytest.raises(ApifyError) as err:
+        await client(handler).run(PROFILE_ACTOR, {"usernames": ["a", "b"]}, max_usd=0.01)
+    assert err.value.status == PLAN_LIMIT and err.value.plan_limit and err.value.items == [{"username": "a"}]
+    assert not err.value.out_of_credits
+
+
+async def test_adapter_uses_partial_results_and_says_why():
+    from app.platforms.apify import PLAN_LIMIT
+
+    class Limited(ReplayApify):
+        async def run(self, actor, run_input, *, max_usd):
+            items = await super().run(actor, run_input, max_usd=max_usd)
+            if actor == PROFILE_ACTOR:
+                raise ApifyError(PLAN_LIMIT, "only 1", items[:1])
+            return items
+
+    a = adapter(Limited())
+    profiles = await a.fetch_profiles(refs_for(["opusjake", "heyypriyank"]), {"min_subscribers": 0}, max_deep=5)
+    assert len(profiles) == 1 and a.dropped
+    assert any("free Apify plan" in w for w in a.warnings)

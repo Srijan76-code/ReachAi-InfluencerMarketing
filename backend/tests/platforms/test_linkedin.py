@@ -145,3 +145,19 @@ async def test_estimated_cost_of_a_full_search_is_under_the_target():
     from app.discovery.limits import LIMITS_BY_MODE
 
     assert adapter().estimate_cost_usd(LIMITS_BY_MODE["full"]) <= 3.0
+
+
+async def test_free_plan_cap_keeps_partial_profiles_with_a_clear_warning():
+    from app.platforms.apify import PLAN_LIMIT
+
+    class Limited(ReplayApify):
+        async def run(self, actor, run_input, *, max_usd):
+            items = await super().run(actor, run_input, max_usd=max_usd)
+            if actor == PROFILE_ACTOR:
+                raise ApifyError(PLAN_LIMIT, "only some", items)
+            return items
+
+    a = adapter(Limited())
+    [p] = await a.fetch_profiles(refs_for(["helenchukwukelu"]), {"min_subscribers": 0})
+    assert p["recent_posts"]  # posts still fetched for the profile that came back
+    assert a.warnings == ["The free Apify plan returns only a few LinkedIn results per run, so LinkedIn results were cut short"]
