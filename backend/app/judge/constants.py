@@ -22,6 +22,9 @@ FINAL_WEIGHTS = {"fit": 0.55, "health": 0.30}
 RISK_WEIGHT = 0.40
 RISING_BONUS = 0.10
 COUNTRY_UNKNOWN_FACTOR = 0.8  # brief sets target countries, no country listed and Jev can't tell: score x 0.8, flagged
+# ...but only where the platform normally lists a country, so a missing one is a warning sign. Instagram and
+# X never show it: there the creator keeps the "country unknown" badge and isn't marked down (decided Nov 13).
+COUNTRY_LISTED_PLATFORMS = {"youtube", "linkedin"}
 # Country by Jev (decided Nov 4: Jev only, no estimating in code). Asked only when the platform lists no country.
 COUNTRY_JEV_ACCEPT_FROM = 0.6  # Jev names a target country with at least this confidence: treated as that country
 COUNTRY_JEV_DROP_FROM = 0.75  # Jev says "another country" with at least this confidence: dropped like a wrong country

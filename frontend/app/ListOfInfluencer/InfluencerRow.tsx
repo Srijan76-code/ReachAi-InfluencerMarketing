@@ -126,7 +126,7 @@ export const InfluencerRow = ({
       <div className="flex items-center gap-8 flex-shrink-0">
         <div className="hidden md:flex flex-col items-end justify-center min-w-[90px] gap-1">
           <span className="font-mono text-[12px] font-bold text-zinc-600 dark:text-zinc-400 flex items-center gap-1.5 justify-end whitespace-nowrap">
-            {expired ? dash : `${(metrics.avg_views / 1000).toFixed(1)}k`}
+            {expired || metrics.avg_views == null ? dash : `${(metrics.avg_views / 1000).toFixed(1)}k`}
             <span className="text-[9px] font-bold tracking-wide flex items-center gap-1">
               Views <Help text="Typical views on their recent videos: how many people will see your product." />
             </span>
@@ -144,7 +144,9 @@ export const InfluencerRow = ({
             Price <Help text="Fair price for one sponsored video." />
           </span>
           <span className="font-mono text-[12px] font-bold text-rose-400 leading-none">
-            {expired || influencer.valuation == null ? dash : `$${Math.round(influencer.valuation)}`}
+            {expired ? dash : influencer.valuation == null ? (
+              <span className="text-zinc-400 font-normal" title="No public views to price from yet">No price yet</span>
+            ) : `$${Math.round(influencer.valuation)}`}
           </span>
         </div>
 

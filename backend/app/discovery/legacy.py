@@ -56,7 +56,8 @@ def to_legacy_lead(profile: dict, metrics: dict, record: dict, reason: Optional[
         "estimated_cpm": cpm(profile.get("platform", "youtube"), industry, country),
         "lifetime_health": (stats.get("lifetime_views") or 0) / max(1, stats.get("video_count") or 1),
         "metrics": {
-            "avg_views": int(m.get("median_views") or 0),  # median: robust to one viral video
+            # median: robust to one viral video. None where views aren't public (photos, LinkedIn): shown as "—"
+            "avg_views": int(m["median_views"]) if m.get("median_views") else None,
             "volatility": m.get("reliability_mad") or 0,
             "reliability": m.get("reliability") or "Medium",
             "engagement_rate": round((engagement or 0) * 100, 2),  # shown as %
@@ -65,7 +66,7 @@ def to_legacy_lead(profile: dict, metrics: dict, record: dict, reason: Optional[
             "forecast": f"~{clicks} clicks/video" if clicks is not None else "n/a",
         },
         "socials": _socials(profile),
-        "valuation": m.get("valuation") or 0,
+        "valuation": m.get("valuation") or None,  # None = no price yet (no public views to price from)
         "recent_videos": [{"title": p.get("text", ""), "views": p.get("views") or 0, "url": p.get("url"),
                            "published_at": _iso(p.get("published_at"))} for p in posts[:8]],
         "rich_context": "",

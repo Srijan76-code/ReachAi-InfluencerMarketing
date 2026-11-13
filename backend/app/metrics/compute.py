@@ -94,7 +94,7 @@ def compute_metrics(
     views = stats.views_of(same_format)
     med = stats.median_views(same_format) if has_views else None
     rel_mad = stats.mad_ratio(views) if has_views else None
-    rel = stats.reliability(views) if has_views else None
+    rel = stats.reliability(views, platform) if has_views else None
     er = stats.engagement_rate(same_format, followers)
     er_pct = engagement_percentile(er, platform, tier, peer_engagement)
     days = stats.days_since_last_post(posts, now)

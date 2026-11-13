@@ -81,13 +81,15 @@ def score_creator(j: Judgment, metrics: Metrics, *, exclude_kids_content: bool =
                   country_unknown: bool = False) -> CreatorScore:
     """`country_unknown`: the brief sets target countries and the platform lists no country for this
     creator. Jev's country answer then decides: a target country (kept, no penalty), another country
-    (dropped), or no clue (kept, ranked lower and flagged)."""
+    (dropped), or no clue (kept and flagged; ranked lower only on platforms that normally list a country)."""
     country = None
     outside = False
     if country_unknown:
         verdict, country = judged_country(j)
         outside = verdict == "outside"
         country_unknown = verdict == "unknown"
+    # a missing country only counts against creators on platforms that normally list one
+    penalise_unknown = metrics.platform in K.COUNTRY_LISTED_PLATFORMS
     w = K.FIT_WEIGHTS
     topic = _score(j, "topic_fit")
     stage = _score(j, "audience_stage")
@@ -108,9 +110,9 @@ def score_creator(j: Judgment, metrics: Metrics, *, exclude_kids_content: bool =
         "health": round(100 * K.FINAL_WEIGHTS["health"] * metrics.health, 1),
         "bonus": round(100 * bonus, 1),
         "risk": round(-100 * K.RISK_WEIGHT * risk, 1),
-        "country_unknown_factor": K.COUNTRY_UNKNOWN_FACTOR if country_unknown else None,
+        "country_unknown_factor": K.COUNTRY_UNKNOWN_FACTOR if country_unknown and penalise_unknown else None,
     }
-    if country_unknown:
+    if country_unknown and penalise_unknown:
         raw *= K.COUNTRY_UNKNOWN_FACTOR
     final = round(100 * max(0.0, min(1.0, raw)), 1)
 

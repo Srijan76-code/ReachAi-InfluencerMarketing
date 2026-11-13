@@ -50,13 +50,14 @@ def mad_ratio(values: Sequence[float]) -> Optional[float]:
     return _median(abs(v - med) for v in values) / med
 
 
-def reliability(values: Sequence[float]) -> Optional[str]:
+def reliability(values: Sequence[float], platform: str = "youtube") -> Optional[str]:
     ratio = mad_ratio(values)
     if ratio is None:
         return None
-    if ratio < C.RELIABILITY_HIGH_BELOW:
+    scale = C.RELIABILITY_SCALE_BY_PLATFORM.get(platform, 1.0)
+    if ratio < C.RELIABILITY_HIGH_BELOW * scale:
         return "High"
-    if ratio < C.RELIABILITY_MEDIUM_BELOW:
+    if ratio < C.RELIABILITY_MEDIUM_BELOW * scale:
         return "Medium"
     return "Low"
 

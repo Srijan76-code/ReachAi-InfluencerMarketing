@@ -23,6 +23,9 @@ MIN_POSTS_FOR_MOMENTUM = 8  # need at least 5 new + 3 older posts with views
 # --- Reliability (MAD / median of views) -----------------------------------------
 RELIABILITY_HIGH_BELOW = 0.35
 RELIABILITY_MEDIUM_BELOW = 0.8
+# Reel views swing more than YouTube views (median spread 0.47-0.61 vs 0.44 on Nov 13 data), so
+# Instagram's cut-offs are 1.3x wider; the same share of creators lands in each band on every platform.
+RELIABILITY_SCALE_BY_PLATFORM = {"instagram": 1.3}
 RELIABILITY_SCORE = {"High": 1.0, "Medium": 0.6, "Low": 0.3}
 
 # --- Activity ---------------------------------------------------------------------
@@ -37,12 +40,15 @@ RISING_OUTPERFORMANCE = 1.0
 
 # --- Engagement percentile ------------------------------------------------------------
 MIN_PEERS = 200  # below this, use the priors instead of real peers
-# prior median engagement rate (likes+comments per view) by platform and tier
+# Prior median engagement rate (likes+comments per view) by platform and tier: each creator is ranked
+# against its own platform and size, so a score means the same on every platform (decided Nov 13).
+# Set from the creators measured on production on Nov 13 (median per platform/tier: YouTube micro 1.98%
+# n=28, mid 1.55% n=39; Instagram reels micro 1.99% n=17, mid 1.35% n=12; X micro/mid 1.64% n=8);
+# tiers without enough data are extrapolated. Real peers replace these once a platform/tier has MIN_PEERS.
 ENGAGEMENT_PRIOR: dict[str, dict[str, float]] = {
-    # tuned down after the first real recording (Nov 3): large education channels sit at ~1-2%
-    "youtube": {"nano": 0.05, "micro": 0.035, "mid": 0.025, "macro": 0.016, "mega": 0.011},
-    "x": {"nano": 0.02, "micro": 0.012, "mid": 0.008, "macro": 0.006, "mega": 0.005},
-    "instagram": {"nano": 0.05, "micro": 0.03, "mid": 0.02, "macro": 0.015, "mega": 0.012},
+    "youtube": {"nano": 0.028, "micro": 0.020, "mid": 0.0155, "macro": 0.012, "mega": 0.009},
+    "x": {"nano": 0.022, "micro": 0.0165, "mid": 0.0135, "macro": 0.010, "mega": 0.008},
+    "instagram": {"nano": 0.028, "micro": 0.020, "mid": 0.0135, "macro": 0.010, "mega": 0.008},
     # LinkedIn has no public views; engagement is per follower
     "linkedin": {"nano": 0.03, "micro": 0.015, "mid": 0.008, "macro": 0.005, "mega": 0.004},
 }

@@ -321,7 +321,7 @@ export const InfluencerDetailSheet = ({
               />
                <MetricCell 
                 label="Avg Views" 
-                value={`${(metrics.avg_views / 1000).toFixed(1)}k`} 
+                value={metrics.avg_views == null ? "—" : `${(metrics.avg_views / 1000).toFixed(1)}k`}
                 icon={<Eye size={13}/>} 
                 info="Average views per video."
               />
@@ -341,7 +341,7 @@ export const InfluencerDetailSheet = ({
               />
                <MetricCell 
                 label="Fair Value" 
-                value={influencer.valuation == null ? "—" : `$${influencer.valuation}`} 
+                value={influencer.valuation == null ? "No price yet" : `$${influencer.valuation}`}
                 icon={<DollarSign size={13}/>} 
                 info="The exact budget you need to set aside to sponsor 1 video."
                 valueColorClass="text-rose-500 dark:text-rose-400 font-mono text-[14px]"
