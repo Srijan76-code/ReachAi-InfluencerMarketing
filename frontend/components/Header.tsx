@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowRight, Coins, KeyRound, Loader2, Menu, Plus, X } from "lucide-react";
+import { ArrowRight, Coins, KeyRound, Loader2, Menu, PlusCircle, X } from "lucide-react";
 import { Show, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
 import { cn } from "@/lib/utils";
 import { useCreateCampaign } from "@/lib/useCreateCampaign";
@@ -13,15 +13,49 @@ import { usagePanel } from "@/lib/usage";
 import { InboxBell } from "./InboxBell";
 import { OnboardAgent } from "./OnboardAgent";
 import { UsageSheet } from "./billing/UsageSheet";
-
-/** Left: where you go. Right: what you do. One style per group. */
-const LINKS = [
-  { name: "Campaigns", href: "/campaign", signedIn: true },
-  { name: "Pricing", href: "/pricing", signedIn: false },
-  { name: "Docs", href: "/docs", signedIn: false },
-];
+import { HoverButton } from "./buttons/HoverButton";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 
 const DEFAULT_ORIGIN = "https://reach-ai-influencer-marketing.vercel.app";
+
+type NavItem = { name: string; href: string };
+
+/** Links with a soft pill that slides to whichever one the mouse is on (and rests on the current page). */
+export function NavGroup({ items, id, strong = false }: { items: NavItem[]; id: string; strong?: boolean }) {
+  const path = usePathname();
+  const [hovered, setHovered] = useState<string | null>(null);
+  const active = items.find((i) => path === i.href || path?.startsWith(`${i.href}/`))?.href ?? null;
+  const pill = hovered ?? active;
+  return (
+    <div className="flex items-center" onMouseLeave={() => setHovered(null)}>
+      {items.map((i) => (
+        <Link
+          key={i.href}
+          href={i.href}
+          onMouseEnter={() => setHovered(i.href)}
+          className={cn(
+            "relative px-3 h-8 flex items-center text-[13px] transition-colors",
+            strong ? "font-medium" : "",
+            active === i.href || hovered === i.href
+              ? "text-zinc-900 dark:text-zinc-100"
+              : strong
+                ? "text-zinc-600 dark:text-zinc-300"
+                : "text-zinc-500 dark:text-zinc-500",
+          )}
+        >
+          {pill === i.href && (
+            <motion.span
+              layoutId={`nav-pill-${id}`}
+              className="absolute inset-0 rounded-lg bg-zinc-200/70 dark:bg-zinc-800/70"
+              transition={{ type: "spring", stiffness: 500, damping: 38 }}
+            />
+          )}
+          <span className="relative">{i.name}</span>
+        </Link>
+      ))}
+    </div>
+  );
+}
 
 function NavLink({ href, name, onClick }: { href: string; name: string; onClick?: () => void }) {
   const path = usePathname();
@@ -37,6 +71,37 @@ function NavLink({ href, name, onClick }: { href: string; name: string; onClick?
     >
       {name}
     </Link>
+  );
+}
+
+/** Credits, alerts and account in one capsule: everything about "you" reads as one object. */
+function AccountCapsule() {
+  const credits = useCredits();
+  const low = credits ? credits.balance <= 1 : false;
+  return (
+    <div className="flex items-center h-9 pl-1 pr-1 gap-0.5 rounded-full border border-zinc-200 dark:border-zinc-800 bg-white/60 dark:bg-[#0c0d0e]">
+      <button
+        type="button"
+        onClick={() => usagePanel.open()}
+        title="Billing and usage"
+        className={cn(
+          "h-7 pl-2 pr-2.5 rounded-full flex items-center gap-1.5 text-xs transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-900",
+          low ? "text-amber-600 dark:text-amber-400" : "text-zinc-700 dark:text-zinc-300",
+        )}
+      >
+        <Coins className="w-3.5 h-3.5" />
+        <span className="font-mono tabular-nums">{credits ? credits.balance : "–"}</span>
+        <span className="text-zinc-500">credits</span>
+      </button>
+      <span className="w-px h-4 bg-zinc-200 dark:bg-zinc-800" />
+      <Suspense fallback={null}>
+        <InboxBell />
+      </Suspense>
+      <span className="w-px h-4 bg-zinc-200 dark:bg-zinc-800" />
+      <span className="h-7 w-7 grid place-items-center">
+        <AccountMenu />
+      </span>
+    </div>
   );
 }
 
@@ -71,27 +136,22 @@ export default function Header() {
   return (
     <div className="fixed top-0 inset-x-0 z-50 bg-zinc-50/90 dark:bg-[#08090a]/90 backdrop-blur">
       <nav className="max-w-7xl mx-auto h-14 px-4 sm:px-6 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-7">
+        <div className="flex items-center gap-5">
           <Link href="/" className="flex items-center gap-2 group">
             <div className="w-7 h-7 bg-zinc-900 dark:bg-neutral-300 rounded-lg flex items-center justify-center group-hover:rotate-6 transition-transform">
               <div className="w-3 h-3 bg-white dark:bg-zinc-900 rounded-sm" />
             </div>
             <span className="font-bold text-sm tracking-tighter text-zinc-900 dark:text-zinc-100">ReachAI</span>
           </Link>
-          <div className="hidden md:flex items-center gap-6">
-            {LINKS.map((l) =>
-              l.signedIn ? (
-                <Show key={l.href} when="signed-in">
-                  <NavLink {...l} />
-                </Show>
-              ) : (
-                <NavLink key={l.href} {...l} />
-              ),
-            )}
-          </div>
+          <Show when="signed-in">
+            <div className="hidden md:block">
+              <NavGroup id="main" strong items={[{ name: "Campaigns", href: "/campaign" }]} />
+            </div>
+          </Show>
         </div>
 
-        <div className="hidden md:flex items-center gap-2.5">
+        <div className="hidden md:flex items-center gap-3">
+          <NavGroup id="help" items={[{ name: "Pricing", href: "/pricing" }, { name: "Docs", href: "/docs" }]} />
           <Show when="signed-out">
             <SignInButton>
               <button className="h-8 px-3 text-[13px] text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors">
@@ -106,20 +166,29 @@ export default function Header() {
             </SignUpButton>
           </Show>
           <Show when="signed-in">
-            <OnboardAgent origin={origin} compact />
-            <button
-              type="button"
+            <span className="w-px h-5 bg-zinc-200 dark:bg-zinc-800" />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  <OnboardAgent origin={origin} compact />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Connect your agent: copies a setup line to paste into it</TooltipContent>
+            </Tooltip>
+            <HoverButton
               onClick={createCampaign}
               disabled={creating}
-              className="h-8 px-3 text-[13px] font-medium bg-zinc-900 text-white dark:bg-zinc-300 dark:text-zinc-900 rounded-lg flex items-center gap-1.5 hover:opacity-90 transition-opacity disabled:opacity-60"
+              className="!bg-zinc-50 dark:!bg-[#08090a] !border-neutral-200 dark:!border-neutral-800/80 rounded-lg shadow-sm h-8 flex items-center justify-center px-3 disabled:opacity-60"
+              glowColor="var(--hover-btn-glow)"
+              textColor="var(--hover-btn-text)"
+              hoverTextColor="var(--hover-btn-text-hover)"
             >
-              {creating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
-              New campaign
-            </button>
-            <Suspense fallback={null}>
-              <InboxBell />
-            </Suspense>
-            <AccountMenu />
+              <span className="relative flex gap-2 text-xs py-0.5 items-center">
+                {creating ? <Loader2 className="w-3 h-3 animate-spin" /> : <PlusCircle className="w-3 h-3" />}
+                {creating ? "Creating…" : "New campaign"}
+              </span>
+            </HoverButton>
+            <AccountCapsule />
             <UsageSheet />
           </Show>
         </div>
@@ -169,7 +238,7 @@ export default function Header() {
                     }}
                     className="h-8 px-3 text-[13px] font-medium bg-zinc-900 text-white dark:bg-zinc-300 dark:text-zinc-900 rounded-lg flex items-center gap-1.5"
                   >
-                    <Plus className="w-3.5 h-3.5" />
+                    <PlusCircle className="w-3.5 h-3.5" />
                     New campaign
                   </button>
                   <OnboardAgent origin={origin} compact />

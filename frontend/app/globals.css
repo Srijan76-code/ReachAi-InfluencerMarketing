@@ -328,3 +328,15 @@ opacity: 1;
 @media (prefers-reduced-motion: reduce) {
   .rd-docs > *, .rd-rise, .rd-fade { animation: none; }
 }
+
+/* HoverButton colours per theme (navbar "New campaign"): dark keeps the white glow, light gets a soft dark one. */
+:root {
+  --hover-btn-text: #18181b;
+  --hover-btn-text-hover: #000000;
+  --hover-btn-glow: rgba(0, 0, 0, 0.08);
+}
+.dark {
+  --hover-btn-text: #e5e5e5;
+  --hover-btn-text-hover: #ffffff;
+  --hover-btn-glow: rgba(255, 255, 255, 0.2);
+}

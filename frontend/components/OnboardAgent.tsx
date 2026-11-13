@@ -33,7 +33,7 @@ export function OnboardAgent({ origin, className = "", compact = false }: { orig
       title={copied ? "Copied. Paste it into your agent." : "Copy the setup prompt for your agent"}
       aria-label={`Copy agent setup prompt: ${prompt}`}
       className={`group inline-flex items-center rounded-full border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#121314] text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors ${
-        compact ? "gap-2 h-8 pl-1 pr-2.5" : "gap-3 h-11 pl-1.5 pr-4 shadow-sm"
+        compact ? "gap-1.5 h-8 pl-1 pr-2" : "gap-3 h-11 pl-1.5 pr-4 shadow-sm"
       } ${className}`}
     >
       <span className={`flex ${compact ? "-space-x-1.5" : "-space-x-2"}`}>
@@ -49,9 +49,11 @@ export function OnboardAgent({ origin, className = "", compact = false }: { orig
           </span>
         ))}
       </span>
-      <span className={compact ? "text-xs text-zinc-600 dark:text-zinc-400" : "text-[13px] font-medium"}>
-        {compact ? (copied ? "Copied" : "Connect agent") : "Onboard your agent"}
-      </span>
+      {compact ? (
+        <span className="sr-only">Connect agent</span>
+      ) : (
+        <span className="text-[13px] font-medium">Onboard your agent</span>
+      )}
       <span className="relative size-4 text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-300">
         <AnimatePresence mode="wait" initial={false}>
           <motion.span
