@@ -108,7 +108,7 @@ def _change_for(p: AgentProposal, d: CreatorDeal) -> dict:
 
 
 async def approve(db: AsyncSession, p: AgentProposal, d: CreatorDeal, message: Optional[str], send=None,
-                  subject: Optional[str] = None) -> dict:
+                  subject: Optional[str] = None, auto: bool = False) -> dict:
     """Carries out an approved suggestion from its stored payload (never from model text). `send(text)` sends a
     message through the founder's Gmail (→ {"gmail_id", "thread_id"}); without it a message is only recorded as
     sent (the founder copied it). The change is checked before sending, and nothing changes if sending fails.
@@ -130,11 +130,12 @@ async def approve(db: AsyncSession, p: AgentProposal, d: CreatorDeal, message: O
         via = await send(final) if send else None
         db.add(DealEvent(deal_id=d.deal_id, type="message_sent",
                          payload={"kind": p.kind, "text": final, **({"subject": subject} if subject else {}), "amounts": keep, "terms": terms, "edited": edited, "final": bool(pl.get("final")),
-                                  "proposal_id": p.proposal_id, "via": "gmail" if via else "copied", **(via or {})}))
+                                  "proposal_id": p.proposal_id, "via": "gmail" if via else "copied", **(via or {}),
+                                  **({"auto": True} if auto else {})}))
         result = {"message": final, "edited": edited, "sent": bool(via)}
     apply_change(db, d, change)
     db.add(DealEvent(deal_id=d.deal_id, type="proposal", payload={"kind": p.kind, "title": p.title, "decision": "approved",
-                                                                 "edited": result.get("edited", False)}))
+                                                                 "edited": result.get("edited", False), **({"auto": True} if auto else {})}))
     p.status, p.decided_at, p.result = "approved", _now(), result
     return result
 
@@ -144,7 +145,7 @@ def skip(db: AsyncSession, p: AgentProposal) -> None:
     p.status, p.decided_at = "skipped", _now()
 
 
-def out(p: AgentProposal, name: str, avatar: Optional[str], can_send: bool = False) -> dict:
+def out(p: AgentProposal, name: str, avatar: Optional[str], can_send: bool = False, auto: bool = False) -> dict:
     """`can_send`: the founder's Gmail is connected and we have the creator's email, so approving sends it."""
     pl = p.payload or {}
     return {"id": p.proposal_id, "deal_id": p.deal_id, "kind": p.kind, "title": p.title, "reason": p.reason,
@@ -156,4 +157,6 @@ def out(p: AgentProposal, name: str, avatar: Optional[str], can_send: bool = Fal
             "subject": pl.get("subject"), "texts": pl.get("texts"), "seen": bool(pl.get("seen")),
             # a first message that failed the checks twice: shown with its problems, never sent by "Send all"
             "needs_review": bool(pl.get("needs_review")), "problems": pl.get("problems") or [],
+            # autopilot: "auto" = it will go out by itself; "held" = why it waits for the founder (one line)
+            "auto": auto, "held": A.HELD.get(pl.get("held") or "") if not auto else None,
             "name": name, "avatar_url": avatar, "created_at": p.created_at.isoformat() if p.created_at else None}

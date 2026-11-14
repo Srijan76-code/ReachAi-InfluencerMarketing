@@ -132,13 +132,59 @@ async def sync_gmail_replies(ctx: inngest.Context):
     total = 0
     async with AsyncSessionLocal() as db:
         accounts = (await db.execute(select(ConnectedAccount).where(ConnectedAccount.status == "active"))).scalars().all()
+        users = [a.user_id for a in accounts]
         for a in accounts:
             deals = list((await db.execute(
                 select(CreatorDeal).join(Campaign, Campaign.campaign_id == CreatorDeal.campaign_id)
                 .where(Campaign.user_id == a.user_id, CreatorDeal.gmail_thread_id.is_not(None))
             )).scalars())
             total += await sync_deals(db, a, deals, user_id=a.user_id)
+    # autopilot: answer new replies, send follow-ups that came due, carry on with first emails
+    await start_autopilot(users)
     return {"accounts": len(accounts), "new_replies": total}
+
+
+@inngest_client.create_function(
+    fn_id="run_autopilot",
+    trigger=inngest.TriggerEvent(event="outreach/autopilot"),
+    # one loop per founder: a new start while one runs is skipped (the running loop rescans everything each step)
+    singleton=inngest.Singleton(key="event.data.user_id", mode="skip"),
+    retries=1,
+)
+async def run_autopilot(ctx: inngest.Context):
+    """Autopilot for one founder (app/agent/autopilot.py): send what's due, one message per step, with durable
+    sleeps in between (replies ~10 min after the creator writes, new conversations 2–6 min apart). Ends when
+    nothing is due within 30 minutes; the 30-minute reply check starts it again."""
+    from app.agent import autopilot as AP
+    from app.agent import constants as A
+    from app.db.database import AsyncSessionLocal
+
+    user_id = ctx.event.data["user_id"]
+
+    async def one_step() -> dict:
+        async with AsyncSessionLocal() as db:
+            r = await AP.send_next(db, user_id)
+            await AP.notify(db, user_id)
+            return {k: v for k, v in r.items() if k in ("sent", "wait", "why")}
+
+    sent = 0
+    for i in range(A.MAX_SENDS_PER_RUN * 2):
+        r = await ctx.step.run(f"send-{i}", one_step)
+        sent += 1 if r.get("sent") else 0
+        if r.get("wait") is None or sent >= A.MAX_SENDS_PER_RUN:
+            break
+        await ctx.step.sleep(f"wait-{i}", datetime.timedelta(seconds=max(1, int(r["wait"]))))
+    return {"sent": sent}
+
+
+async def start_autopilot(user_ids) -> None:
+    """Wakes the autopilot loop for these founders (it exits at once when they have no autopilot campaign)."""
+    events = [inngest.Event(name="outreach/autopilot", data={"user_id": u}) for u in dict.fromkeys(user_ids) if u]
+    if events:
+        try:
+            await inngest_client.send(events)
+        except Exception:  # noqa: BLE001 - the next 30-minute check starts it anyway
+            logger.warning("couldn't start autopilot")
 
 
 @inngest_client.create_function(

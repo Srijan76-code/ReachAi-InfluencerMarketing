@@ -24,7 +24,7 @@ type Who = "you" | "them";
 type Op = { kind: "draft"; proposalId: string } | { kind: "own" } | { kind: "paste" };
 type Pending = { key: string; who: Who; text: string; status: "sending" | "failed"; op: Op; error?: Problem };
 type Problem = { text: string; action?: "reconnect" | "retry" };
-type Bubble = { key: string; who: Who; text: string; at: string | null; source?: "gmail" | "pasted" | "copied"; pending?: Pending };
+type Bubble = { key: string; who: Who; text: string; at: string | null; source?: "gmail" | "pasted" | "copied" | "auto"; pending?: Pending };
 
 export const askWords = (fee: number | null | undefined, pct: number | null | undefined) =>
   fee == null && pct ? `${pct}% commission` : `${money(fee ?? 0)}${pct ? ` + ${pct}%` : ""}`;
@@ -59,7 +59,7 @@ function bubblesFrom(events: DealEvent[]): Bubble[] {
   [...events].reverse().forEach((e, i) => {
     const p = (e.payload || {}) as Record<string, unknown>;
     const key = `${e.type}:${e.at}:${i}`;
-    if (e.type === "message_sent" && p.text) out.push({ key, who: "you", text: String(p.text), at: e.at, source: p.via === "gmail" ? "gmail" : "copied" });
+    if (e.type === "message_sent" && p.text) out.push({ key, who: "you", text: String(p.text), at: e.at, source: p.auto ? "auto" : p.via === "gmail" ? "gmail" : "copied" });
     else if (e.type === "creator_reply" && p.text) out.push({ key, who: "them", text: String(p.text), at: e.at, source: p.source === "gmail" ? "gmail" : "pasted" });
   });
   return out;
@@ -81,6 +81,7 @@ const PROFILE: Partial<Record<Channel, (d: Deal, text?: string) => string | unde
 
 const SOURCE: Record<string, { icon: typeof Mail; label: string }> = {
   gmail: { icon: Mail, label: "Email" },
+  auto: { icon: Sparkles, label: "Sent by autopilot" },
   pasted: { icon: Clipboard, label: "Pasted" },
   copied: { icon: Clipboard, label: "Copied to send yourself" },
 };
@@ -202,7 +203,7 @@ export function DealChat({ deal, api, proposals, gmailReady, website, onReconnec
   const [celebrate, setCelebrate] = useState(false);
   const [who, setWho] = useState<Who>("you");
   const [texts, setTexts] = useState<Record<Who, string>>({ you: "", them: "" });
-  const [busy, setBusy] = useState<"reword" | "discard" | "accept" | "again" | null>(null);
+  const [busy, setBusy] = useState<"reword" | "discard" | "accept" | "again" | "close" | null>(null);
   const [note, setNote] = useState<Problem | null>(null);
   const [agreeOpen, setAgreeOpen] = useState(false);
   const [subject, setSubject] = useState("");
@@ -211,6 +212,7 @@ export function DealChat({ deal, api, proposals, gmailReady, website, onReconnec
   const name = firstName(deal.name);
 
   const draft = proposals.find((p) => p.is_message) ?? null;
+  const closing = proposals.find((p) => p.kind === "mark_lost" && !p.is_message) ?? null;
   // ReachAI's draft fills the message box; a new draft replaces what's there (your own unsent text stays if there's no draft)
   const [draftFor, setDraftFor] = useState<string | null>(null);
   if ((draft?.id ?? null) !== draftFor) {
@@ -319,6 +321,21 @@ export function DealChat({ deal, api, proposals, gmailReady, website, onReconnec
     if (!text || pending.some((p) => p.status === "sending")) return;
     if (who === "them") return run({ kind: "paste" }, text);
     return run(draft ? { kind: "draft", proposalId: draft.id } : { kind: "own" }, text);
+  };
+
+  const closeDeal = async () => {
+    if (!closing) return;
+    setBusy("close");
+    try {
+      const r = (await api(`/api/proposals/${closing.id}/approve`, { method: "POST", data: { via: "copy" } })).data as { deal: Deal; proposals?: Proposal[] };
+      onChange(r.deal);
+      onProposals(r);
+      inboxStore.refresh();
+    } catch (e) {
+      setNote(problem(e, "Couldn't close it"));
+    } finally {
+      setBusy(null);
+    }
   };
 
   const call = async (kind: "reword" | "discard" | "accept" | "again") => {
@@ -513,6 +530,20 @@ export function DealChat({ deal, api, proposals, gmailReady, website, onReconnec
         )}
       </AnimatePresence>
 
+      {/* their address bounced, or they asked not to be contacted: close it (nothing more is sent either way) */}
+      <AnimatePresence>
+        {closing && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="shrink-0 px-4 md:px-6">
+            <div className="mb-2 rounded-xl border border-rose-300/60 dark:border-rose-500/25 bg-rose-50/50 dark:bg-rose-500/5 px-3.5 py-2.5 flex flex-wrap items-center gap-x-3 gap-y-2">
+              <p className="text-xs text-zinc-800 dark:text-zinc-200 flex-1 min-w-[200px]">{closing.reason}</p>
+              <button type="button" onClick={closeDeal} disabled={!!busy} className={btn}>
+                {busy === "close" && <Loader2 size={12} className="animate-spin" />} Mark lost
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* they asked for more after agreeing */}
       <AnimatePresence>
         {change && (
@@ -601,6 +632,10 @@ export function DealChat({ deal, api, proposals, gmailReady, website, onReconnec
                     {note.text}
                     {note.action === "reconnect" && <button type="button" onClick={onReconnect} className="underline">Reconnect</button>}
                   </span>
+                ) : who === "you" && draft?.auto ? (
+                  <span className="flex items-center gap-1 text-violet-600 dark:text-violet-400"><Sparkles size={11} /> Autopilot sends this in a few minutes. Edit and send it now, or leave it</span>
+                ) : who === "you" && draft?.held ? (
+                  <span className="text-amber-700 dark:text-amber-400" title={draft.held}>Waiting for you: {draft.held.replace(/\.$/, "")}</span>
                 ) : who === "you" ? (canSend ? `From your Gmail to ${deal.contact_email}`
                   : channel === "email" ? (deal.contact_email ? "Connect Gmail to send" : "Add their email in Details")
                   : PROFILE[channel]?.(deal) ? "Copies and opens their profile" : "Copies the message")

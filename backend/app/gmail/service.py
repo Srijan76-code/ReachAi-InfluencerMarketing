@@ -112,6 +112,11 @@ async def sync_deal(db: AsyncSession, account: ConnectedAccount, d: CreatorDeal,
             d.gmail_last_message_id = mid  # our next reply answers the latest message, whoever sent it
         if m.get("id") in seen or mail.sender_email(m) == me or "SENT" in (m.get("labelIds") or []):
             continue
+        if mail.is_bounce(m):
+            # their address doesn't exist (or their inbox refused us): never email it again, stop the follow-ups
+            await _bounced(db, d, m.get("id"), user_id)
+            seen.add(m.get("id"))
+            continue
         body = mail.reply_text(m)
         if not body:
             continue
@@ -131,6 +136,23 @@ async def sync_deal(db: AsyncSession, account: ConnectedAccount, d: CreatorDeal,
     lead = next((l for l in (camp.campaign_leads or []) if isinstance(l, dict) and l.get("id") == d.creator_id), {})
     await negotiate(db, d, latest, lead=lead, details=camp.campaign_details or {}, user_id=user_id)
     return 1
+
+
+async def _bounced(db: AsyncSession, d: CreatorDeal, gmail_id: Optional[str], user_id: str) -> None:
+    from app.contacts.ledger import record_contact, suppress
+    from app.models.deal import AgentProposal
+
+    if d.contact_email:
+        await suppress(db, d.contact_email, "bounce")
+        await record_contact(db, user_id, d.contact_email, d.campaign_id, outcome="bounced")
+    for p in (await db.execute(select(AgentProposal).where(AgentProposal.deal_id == d.deal_id,
+                                                           AgentProposal.status == "pending"))).scalars():
+        p.status = "stale"
+    db.add(DealEvent(deal_id=d.deal_id, type="bounced", payload={"gmail_id": gmail_id, "address": d.contact_email}))
+    db.add(AgentProposal(campaign_id=d.campaign_id, deal_id=d.deal_id, key=f"bounce:{gmail_id}", kind="mark_lost",
+                         status="pending", title="Mark lost",
+                         reason="Their email address bounced. Reach them by DM, or add a different address in Details.",
+                         payload={"stage": "lost", "bounced": True}))
 
 
 async def sync_deals(db: AsyncSession, account: ConnectedAccount, deals: list[CreatorDeal], *, user_id: str,

@@ -165,6 +165,8 @@ export type Proposal = {
   seen?: boolean; // you've looked at this first message ("Send all reviewed")
   needs_review?: boolean; // a first message that failed ReachAI's checks: fix it before sending ("Send all" skips it)
   problems?: string[]; // what the checks found
+  auto?: boolean; // autopilot sends this by itself in a few minutes
+  held?: string | null; // why autopilot left it for you (one line)
   name: string;
   avatar_url: string | null;
   created_at: string | null;
