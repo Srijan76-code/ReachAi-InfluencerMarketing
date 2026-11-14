@@ -20,6 +20,12 @@ CFEMAIL = re.compile(r"data-cfemail=[\"']([0-9a-fA-F]+)[\"']")
 HREF = re.compile(r"href\s*=\s*[\"']([^\"'#][^\"']*)[\"']", re.I)
 ANCHOR = re.compile(r"<a\b[^>]*href\s*=\s*[\"']([^\"'#][^\"']*)[\"'][^>]*>(.*?)</a>", re.I | re.S)
 TAGS = re.compile(r"<(script|style)\b.*?</\1>|<[^>]+>", re.I | re.S)
+# link pages (Linktree, Beacons) keep their links and contact details as JSON inside a script tag
+JSON_URL = re.compile(r'"(?:url|href|link)"\s*:\s*"(https?:(?:\\/|/)[^"\s]+)"', re.I)
+
+
+def _unjson(text: str) -> str:
+    return text.replace("\\u002F", "/").replace("\\u002f", "/").replace("\\/", "/").replace("\\u0040", "@")
 
 
 def _cf_decode(hexstr: str) -> str:
@@ -57,6 +63,8 @@ def emails_in(text: str) -> list[str]:
     found += [_cf_decode(h) for h in CFEMAIL.findall(text)]
     plain = html.unescape(TAGS.sub(" ", text)) if "<" in text else html.unescape(text)
     found += EMAIL.findall(plain)
+    if "<script" in text.lower():
+        found += EMAIL.findall(_unjson(text))  # addresses inside the page's JSON (junk is filtered below)
     found += [f"{m.group(1)}@{DOT.sub('.', m.group(2))}" for m in OBFUSCATED.finditer(plain)]
     out: list[str] = []
     for f in found:
@@ -69,8 +77,8 @@ def emails_in(text: str) -> list[str]:
 def links_in(page: str, base: str) -> list[str]:
     """Absolute http(s) links on a page, first seen first."""
     out: list[str] = []
-    for href in HREF.findall(page or ""):
-        url = urljoin(base, html.unescape(href.strip()))
+    for href in [*HREF.findall(page or ""), *JSON_URL.findall(_unjson(page or ""))]:
+        url = urljoin(base, html.unescape(_unjson(href).strip()))
         if url.startswith(("http://", "https://")) and url not in out:
             out.append(url.split("#")[0])
     return out
@@ -80,15 +88,21 @@ def contact_links(page: str, base: str, same_host: str) -> list[str]:
     """Links on the same site that look like a contact, about or work-with-me page."""
     from app.contacts.fetch import host_of
 
-    scored: list[str] = []
+    from urllib.parse import urlsplit
+
+    scored: dict[str, int] = {}
     for href, label in ANCHOR.findall(page or ""):
-        url = urljoin(base, html.unescape(href.strip())).split("#")[0]
-        if not url.startswith(("http://", "https://")) or host_of(url) != same_host:
+        url = urljoin(base, html.unescape(href.strip())).split("#")[0].split("?")[0]
+        if not url.startswith(("http://", "https://")) or host_of(url) != same_host or url.rstrip("/") == base.rstrip("/"):
             continue
-        hay = (url.lower() + " " + TAGS.sub(" ", label).lower())
-        if any(h in hay for h in C.CONTACT_HINTS) and url not in scored and url.rstrip("/") != base.rstrip("/"):
-            scored.append(url)
-    return scored
+        segments = [s for s in urlsplit(url).path.lower().split("/") if s]
+        if not segments or len(segments) > 2 or len(segments[-1]) > 30:
+            continue  # a contact page sits near the top ("/contact", "/pages/contact"), not deep in a blog
+        words = re.split(r"[^a-z]+", " ".join(segments) + " " + TAGS.sub(" ", label).lower())
+        rank = min((i for i, h in enumerate(C.CONTACT_HINTS) for w in words if w and w.startswith(h)), default=None)
+        if rank is not None and (url not in scored or rank < scored[url]):
+            scored[url] = rank
+    return [u for u, _ in sorted(scored.items(), key=lambda kv: kv[1])]
 
 
 def name_candidates(texts: Iterable[str]) -> list[str]:

@@ -20,8 +20,8 @@ NOT_A_WEBSITE_HOSTS = (
     "bit.ly", "tinyurl.com", "geni.us", "rebrand.ly", "linkedin.cn",
 )
 # A link or path on a website that probably holds a business contact.
-CONTACT_HINTS = ("contact", "about", "collab", "business", "sponsor", "work-with", "workwithme", "partner",
-                 "advertis", "press", "media-kit", "mediakit", "brands", "hire")
+CONTACT_HINTS = ("contact", "collab", "sponsor", "partner", "advertis", "work", "business", "brands", "press",
+                 "media", "hire", "about")  # best first
 FALLBACK_CONTACT_PATH = "/contact"
 
 FETCH_TIMEOUT_S = 6.0

@@ -192,3 +192,24 @@ async def test_big_pages_are_cut_and_non_html_skipped():
     assert got and len(got[1]) <= 600_000 and "late@far.com" not in got[1]
     assert await F.fetch_page(client, "https://img.site") is None
     json.dumps(got[0])
+
+
+async def test_link_pages_that_keep_links_in_json():
+    from app.contacts.extract import links_in
+    from app.contacts.find import _socials_on
+
+    page = ('<html><script id="__NEXT_DATA__">{"links":[{"url":"https:\\/\\/instagram.com\\/priya.builds"},'
+            '{"url":"https://x.com/priyabuilds"}],"email":"collabs\\u0040priyabuilds.com","sentry":"abc@o1.ingest.sentry.io"}'
+            '</script></html>')
+    assert "collabs@priyabuilds.com" in emails_in(page)
+    assert _socials_on(links_in(page, "https://linktr.ee/priya")) == {
+        "instagram": "https://instagram.com/priya.builds", "x": "https://x.com/priyabuilds"}
+
+
+async def test_contact_pages_rank_above_blog_posts():
+    from app.contacts.extract import contact_links
+
+    page = ('<a href="/videos/7-mistakes-building-your-first-business/">Read</a><a href="/about/">About</a>'
+            '<a href="/business/">Business</a><a href="/contact/">Contact</a><a href="https://other.com/contact">x</a>')
+    assert contact_links(page, "https://site.com/", "site.com") == [
+        "https://site.com/contact/", "https://site.com/business/", "https://site.com/about/"]
