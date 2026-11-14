@@ -87,3 +87,15 @@ def same_text(a: Optional[str], b: Optional[str]) -> bool:
     """The same message, ignoring spacing and case (a pasted copy of an email, or an email pasted again)."""
     norm = lambda t: " ".join((t or "").lower().split())  # noqa: E731
     return bool(norm(a)) and norm(a) == norm(b)
+
+
+_BOUNCE_SENDERS = ("mailer-daemon@", "postmaster@")
+_BOUNCE_SUBJECTS = ("delivery status notification", "undeliverable", "mail delivery failed", "returned mail",
+                    "delivery failure", "undelivered mail")
+
+
+def is_bounce(msg: dict) -> bool:
+    """A delivery failure notice (Gmail's "Address not found") rather than the creator's reply."""
+    sender = (sender_email(msg) or "").lower()
+    subject = (header(msg, "Subject") or "").lower()
+    return sender.startswith(_BOUNCE_SENDERS) or any(s in subject for s in _BOUNCE_SUBJECTS)

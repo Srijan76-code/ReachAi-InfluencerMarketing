@@ -166,6 +166,9 @@ async def run_outreach_graph(outreach_job_id: str, run_id: str, thread_id: str) 
             job.thread_id = thread_id
             await db.commit()
             await _publish(outreach_job_id, run_id, "completed", status="completed", stats=stats)
+            from app.inngest.functions import start_autopilot
+
+            await start_autopilot([job.user_id])  # autopilot sends the new first emails (when it's on)
             return {
                 "success": True,
                 "outreach_job_id": outreach_job_id,

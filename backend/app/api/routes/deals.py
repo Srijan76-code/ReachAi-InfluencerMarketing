@@ -34,7 +34,7 @@ def _now() -> datetime:
 
 async def _campaign(db: AsyncSession, campaign_id: str, user: User):
     row = (await db.execute(
-        select(Campaign.campaign_id, Campaign.campaign_leads, Campaign.campaign_details)
+        select(Campaign.campaign_id, Campaign.campaign_leads, Campaign.campaign_details, Campaign.outreach_settings)
         .where(Campaign.campaign_id == campaign_id, Campaign.user_id == user.user_id)
     )).one_or_none()
     if row is None:
@@ -62,15 +62,18 @@ async def _campaign_slim(db: AsyncSession, campaign_id: str, user: User):
     if db.bind is None or db.bind.dialect.name != "postgresql":
         row = await _campaign(db, campaign_id, user)
         slim = [{k: l.get(k) for k in LEAD_FIELDS} for l in (row.campaign_leads or []) if isinstance(l, dict)]
-        return SimpleNamespace(campaign_id=row.campaign_id, campaign_details=row.campaign_details, campaign_leads=slim)
+        return SimpleNamespace(campaign_id=row.campaign_id, campaign_details=row.campaign_details, campaign_leads=slim,
+                               outreach_settings=row.outreach_settings)
     from sqlalchemy import literal_column
 
     row = (await db.execute(
-        select(Campaign.campaign_id, Campaign.campaign_details, literal_column(_slim_leads_sql()).label("campaign_leads"))
+        select(Campaign.campaign_id, Campaign.campaign_details, literal_column(_slim_leads_sql()).label("campaign_leads"),
+               Campaign.outreach_settings)
         .where(Campaign.campaign_id == campaign_id, Campaign.user_id == user.user_id))).one_or_none()
     if row is None:
         raise HTTPException(404, "Campaign not found")
-    return SimpleNamespace(campaign_id=row.campaign_id, campaign_details=row.campaign_details, campaign_leads=row.campaign_leads)
+    return SimpleNamespace(campaign_id=row.campaign_id, campaign_details=row.campaign_details, campaign_leads=row.campaign_leads,
+                           outreach_settings=row.outreach_settings)
 
 
 async def _deal(db: AsyncSession, deal_id: str, user: User) -> tuple[CreatorDeal, object]:
@@ -80,7 +83,7 @@ async def _deal(db: AsyncSession, deal_id: str, user: User) -> tuple[CreatorDeal
     pg = db.bind is not None and db.bind.dialect.name == "postgresql"
     leads_col = literal_column(_slim_leads_sql()).label("campaign_leads") if pg else Campaign.campaign_leads
     row = (await db.execute(
-        select(CreatorDeal, leads_col, Campaign.campaign_details)
+        select(CreatorDeal, leads_col, Campaign.campaign_details, Campaign.outreach_settings)
         .join(Campaign, Campaign.campaign_id == CreatorDeal.campaign_id)
         .where(CreatorDeal.deal_id == deal_id, Campaign.user_id == user.user_id)
     )).one_or_none()
@@ -222,10 +225,17 @@ async def _proposals(db: AsyncSession, deals: list[CreatorDeal], camp, user: Use
 
     from app.outreach.drafts import auto_channel
 
+    from app.agent.autopilot import hold_reason, settings_of
+
     gmail = usable(await account_for(db, user.user_id))
-    return [Q.out(p, names.get(p.deal_id) or by_id[p.deal_id].creator_name or "", lead[p.deal_id].get("avatar_url"),
-                  can_send=gmail and bool(by_id[p.deal_id].contact_email) and auto_channel(by_id[p.deal_id], lead[p.deal_id]) == "email")
-            for p in pending]
+    s = settings_of(getattr(camp, "outreach_settings", None))
+    out = []
+    for p in pending:
+        d = by_id[p.deal_id]
+        can = gmail and bool(d.contact_email) and auto_channel(d, lead[p.deal_id]) == "email"
+        auto = gmail and hold_reason(p, d, lead[p.deal_id], s, email_route=can) is None
+        out.append(Q.out(p, names.get(p.deal_id) or d.creator_name or "", lead[p.deal_id].get("avatar_url"), can_send=can, auto=auto))
+    return out
 
 
 async def _campaign_proposals(db: AsyncSession, campaign_id: str, camp, user: User) -> list[dict]:
@@ -310,7 +320,7 @@ async def inbox(user: User = Depends(get_db_user), db: AsyncSession = Depends(ge
 
     # names only: the full creator lists (~10 KB per creator) are never loaded on this poll
     camps = {c.campaign_id: c for c in (await db.execute(
-        select(Campaign.campaign_id, Campaign.name).where(Campaign.user_id == user.user_id))).all()}
+        select(Campaign.campaign_id, Campaign.name, Campaign.outreach_settings).where(Campaign.user_id == user.user_id))).all()}
     if not camps:
         return {"items": [], "unread": 0, "waiting": 0, "by_campaign": {}}
     deals = list((await db.execute(select(CreatorDeal).where(CreatorDeal.campaign_id.in_(list(camps))))).scalars())
@@ -329,8 +339,18 @@ async def inbox(user: User = Depends(get_db_user), db: AsyncSession = Depends(ge
         .where(DealEvent.deal_id.in_(ids), DealEvent.type == "creator_reply",
                (CreatorDeal.last_read_at.is_(None)) | (DealEvent.created_at > CreatorDeal.last_read_at))
         .order_by(DealEvent.created_at))).all()
-    drafts = {p.deal_id for p in (await db.execute(select(AgentProposal.deal_id).where(
-        AgentProposal.deal_id.in_(ids), AgentProposal.status == "pending", AgentProposal.kind.in_(A.CHAT_KINDS)))).all()}
+    from app.agent.autopilot import settings_of
+
+    piloted = {cid: s.since for cid, c in camps.items() if (s := settings_of(c.outreach_settings)).autopilot} if GS.usable(account) else {}
+    drafts = set()
+    for p in (await db.execute(select(AgentProposal.deal_id, AgentProposal.campaign_id, AgentProposal.kind,
+                                      AgentProposal.payload["held"].astext.label("held"), AgentProposal.created_at).where(
+            AgentProposal.deal_id.in_(ids), AgentProposal.status == "pending", AgentProposal.kind.in_(A.CHAT_KINDS)))).all():
+        since = piloted.get(p.campaign_id)
+        at = p.created_at.replace(tzinfo=timezone.utc) if p.created_at and p.created_at.tzinfo is None else p.created_at
+        if p.campaign_id in piloted and p.kind in A.AUTO_KINDS and not p.held and (since is None or (at and at >= since)):
+            continue  # autopilot sends it: nothing for the founder to do
+        drafts.add(p.deal_id)
     news: dict = {}
     for r in replies:
         n = news.setdefault(r.deal_id, {"count": 0})
@@ -569,7 +589,7 @@ async def _proposal(db: AsyncSession, proposal_id: str, user: User):
     from app.models.deal import AgentProposal
 
     row = (await db.execute(
-        select(AgentProposal, CreatorDeal, Campaign.campaign_leads, Campaign.campaign_details)
+        select(AgentProposal, CreatorDeal, Campaign.campaign_leads, Campaign.campaign_details, Campaign.outreach_settings)
         .join(CreatorDeal, CreatorDeal.deal_id == AgentProposal.deal_id)
         .join(Campaign, Campaign.campaign_id == CreatorDeal.campaign_id)
         .where(AgentProposal.proposal_id == proposal_id, Campaign.user_id == user.user_id)
@@ -634,6 +654,38 @@ async def proposal_seen(proposal_id: str, user: User = Depends(get_db_user), db:
     row[0].payload = {**(row[0].payload or {}), "seen": True}
     await db.commit()
     return {"seen": proposal_id}
+
+
+class AutopilotIn(BaseModel):
+    autopilot: bool
+    review_first: bool = False
+
+
+@router.get("/api/campaigns/{campaign_id}/autopilot")
+async def get_autopilot(campaign_id: str, user: User = Depends(get_db_user), db: AsyncSession = Depends(get_db)):
+    from app.agent.autopilot import settings_of
+
+    s = settings_of((await db.execute(select(Campaign.outreach_settings).where(
+        Campaign.campaign_id == campaign_id, Campaign.user_id == user.user_id))).scalar_one_or_none())
+    return {"autopilot": s.autopilot, "review_first": s.review_first}
+
+
+@router.put("/api/campaigns/{campaign_id}/autopilot")
+async def set_autopilot(campaign_id: str, body: AutopilotIn, user: User = Depends(get_db_user), db: AsyncSession = Depends(get_db)):
+    """Autopilot on or off for this campaign, and whether first emails wait for the founder's check. Turning it
+    on only covers messages drafted from now on; older drafts stay for the founder."""
+    from app.agent.autopilot import turned_on
+    from app.inngest.functions import start_autopilot
+
+    camp = (await db.execute(select(Campaign).where(Campaign.campaign_id == campaign_id,
+                                                    Campaign.user_id == user.user_id))).scalar_one_or_none()
+    if camp is None:
+        raise HTTPException(404, "Campaign not found")
+    camp.outreach_settings = turned_on(camp.outreach_settings, autopilot=body.autopilot, review_first=body.review_first)
+    await db.commit()
+    if body.autopilot:
+        await start_autopilot([user.user_id])
+    return {"autopilot": body.autopilot, "review_first": body.review_first}
 
 
 class SendAll(BaseModel):

@@ -31,6 +31,8 @@ class Campaign(Base):
     campaign_details = Column(JSONB, nullable=True)
     campaign_leads = Column(JSONB, nullable=True)
     workflow_status = Column(JSONB, nullable=True, default=dict)
+    # autopilot for outreach (app/agent/autopilot.py): {"autopilot": bool, "review_first": bool, "since": iso}
+    outreach_settings = Column(JSONB, nullable=True)
 
     status = Column(Enum(CampaignStatus), default=CampaignStatus.CREATED)
     current_stage = Column(String, nullable=True)
