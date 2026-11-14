@@ -1,3 +1,25 @@
+/** One of a creator's accounts (backend app/discovery/people_cards.py). Numbers are measured on that platform. */
+export type Account = {
+  creator_id: string | null;
+  platform: string;
+  handle: string | null;
+  name?: string | null;
+  url: string | null;
+  avatar_url?: string | null;
+  followers?: number;
+  avg_views?: number | null;
+  engagement_rate?: number | null;
+  fair_low?: number | null;
+  fair_high?: number | null;
+  valuation?: number | null;
+  posts_per_week?: number | null;
+  score?: number | null;
+  status: "main" | "linked" | "suggested" | "unmeasured";
+  measured: boolean;
+  main: boolean;
+  key?: string;
+};
+
 export interface Influencer {
   id: string;
   title: string;
@@ -13,6 +35,10 @@ export interface Influencer {
   estimated_cpm: number;
   lifetime_health: number;
   valuation: number | null; // null: no public views to price from yet
+
+  // ---------- OTHER PLATFORMS (one person, several accounts) ----------
+  accounts?: Account[]; // main account first, then linked / "probably also" / not measured yet
+  reach_total?: number; // followers on the main and linked accounts
 
   // ---------- METRICS ----------
   metrics: {

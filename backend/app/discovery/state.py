@@ -44,6 +44,8 @@ class DiscoveryState(TypedDict, total=False):
     reasons: Annotated[dict, merge_dicts]  # creator_id -> sentence
     warnings: Annotated[list, operator.add]
     final_leads: list[dict]
+    person_of: dict  # creator_id -> person_id: one result per person (the "people" step)
+    people_stats: dict  # {"linked", "suggested", "measured"} from the people step
 
 
 class BranchState(TypedDict, total=False):

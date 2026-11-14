@@ -11,6 +11,7 @@ SOCIAL_PATTERNS = {
     "x": re.compile(r"https?://(?:www\.)?(?:twitter|x)\.com/(?!intent/|share|hashtag/|search)([A-Za-z0-9_]+)", re.I),
     "linkedin": re.compile(r"https?://(?:[a-z]{2,3}\.)?linkedin\.com/in/([A-Za-z0-9_\-%]+)", re.I),
     "tiktok": re.compile(r"https?://(?:www\.)?tiktok\.com/@([A-Za-z0-9_.]+)", re.I),
+    "youtube": re.compile(r"https?://(?:www\.|m\.)?youtube\.com/(?:@[\w.\-]+|channel/UC[\w-]{20,}|c/[\w.\-]+)", re.I),
 }
 
 def extract_links(text: str) -> tuple[list[str], dict[str, str], list[str]]:

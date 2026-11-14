@@ -1,3 +1,4 @@
+import { PlatformStack } from "@/components/PlatformAccounts";
 import { CreatorAvatar } from "@/components/CreatorAvatar";
 import type { Influencer } from "@/data/influencerList";
 import { CreatorBadges, badgeFlags } from "@/components/CreatorBadges";
@@ -97,6 +98,7 @@ export const InfluencerRow = ({
             <span className={`flex-shrink-0 px-1.5 py-0.5 rounded-[4px] border text-[9px] font-bold tracking-wider whitespace-nowrap ${STATUS_STYLES[deal_status] ?? STATUS_STYLES.Consider}`}>
               {deal_status}
             </span>
+            <PlatformStack accounts={influencer.accounts} reachTotal={influencer.reach_total} />
             <CreatorBadges flags={badgeFlags(influencer)} compact="auto" />
             <FeedbackChip items={feedback} />
           </div>

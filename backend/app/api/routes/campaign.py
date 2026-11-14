@@ -349,3 +349,73 @@ async def stream_campaign_progress(
             "X-Accel-Buffering": "no",
         }
     )
+
+class MeasureAccount(BaseModel):
+    platform: str
+
+
+@router.post("/{campaign_id}/leads/{lead_id}/accounts/measure")
+async def measure_linked_account(campaign_id: str, lead_id: str, body: MeasureAccount,
+                                 user: User = Depends(get_db_user), db: AsyncSession = Depends(get_db)):
+    """Measures one of a creator's other accounts on demand (the "Measure" button in the platform switcher).
+    Free for the founder: only accounts the creator links to themselves, once per account. → {"accounts", "reach_total"}"""
+    from datetime import datetime, timezone
+
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from app.billing.costs import CostContext
+    from app.creators import constants as CC
+    from app.creators import identity as I
+    from app.creators import repository as repo
+    from app.discovery.brief import parse_brief
+    from app.discovery.people import _measure, _same_person
+    from app.discovery.people_cards import accounts_for
+    from app.discovery.runtime import default_deps
+
+    camp = (await db.execute(select(Campaign).where(Campaign.campaign_id == campaign_id,
+                                                    Campaign.user_id == user.user_id))).scalar_one_or_none()
+    if camp is None:
+        raise HTTPException(404, "Campaign not found")
+    leads = camp.campaign_leads if isinstance(camp.campaign_leads, list) else []
+    lead = next((l for l in leads if isinstance(l, dict) and l.get("id") == lead_id), None)
+    if lead is None or not lead.get("creator_id"):
+        raise HTTPException(404, "Creator not found in this campaign")
+    card = next((a for a in lead.get("accounts") or [] if a.get("platform") == body.platform), None)
+    if card is None or card.get("measured"):
+        raise HTTPException(409, "Nothing to measure on that platform.")
+    deps = default_deps(CostContext(user_id=user.user_id, campaign_id=campaign_id))
+    if body.platform not in deps.adapters:
+        raise HTTPException(409, f"{body.platform} isn't available yet.")
+    main = (await repo.get_creators([lead["creator_id"]])).get(lead["creator_id"])
+    if main is None:
+        raise HTTPException(404, "Creator data has expired. Run the search again.")
+    try:
+        new = await _measure(deps.adapters, body.platform, card["key"], parse_brief(camp.campaign_details or {}).metrics_context(),
+                             None, datetime.now(timezone.utc))
+    except Exception:  # noqa: BLE001 - provider down or out of credits
+        logger.exception("measuring a linked account failed")
+        raise HTTPException(502, "Couldn't reach that platform just now. Try again in a minute.")
+    finally:
+        for client in deps.extra.values():
+            if hasattr(client, "aclose"):
+                await client.aclose()
+    if new is None:
+        raise HTTPException(404, "That account couldn't be found. It may be private or renamed.")
+    fresh = (await repo.get_creators([new])).get(new)
+    verdict = I.decide(main, fresh) if fresh else "no"
+    if verdict == "link":
+        await repo.link_accounts(lead["creator_id"], new, source=CC.LINK_SELF)
+    elif verdict == "check":
+        from app.judge.client import judge
+
+        ctx = CostContext(user_id=user.user_id, campaign_id=campaign_id)
+        if await _same_person(lambda st, q: judge(st, q, context=ctx), main, fresh):
+            await repo.link_accounts(lead["creator_id"], new, source=CC.LINK_NAME_MATCH,
+                                     confidence=CC.NAME_MATCH_MERGE_FROM, suggest_only=True)
+    cards = await accounts_for({**main, "creator_id": lead["creator_id"]},
+                               scored={lead["creator_id"]: {"final_score": lead.get("final_score")}})
+    lead["accounts"] = cards
+    lead["reach_total"] = sum(c.get("followers") or 0 for c in cards if c["status"] in ("main", "linked"))
+    flag_modified(camp, "campaign_leads")
+    await db.commit()
+    return {"accounts": cards, "reach_total": lead["reach_total"]}
