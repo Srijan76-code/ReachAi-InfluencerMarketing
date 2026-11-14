@@ -31,6 +31,25 @@ async def _publish(job_id: str, run_id: str | None, stage: str, status: str = "r
         logger.exception("Unable to publish outreach status for %s", job_id)
 
 
+async def _find_contacts(db, job: OutreachJob, campaign: Campaign) -> None:
+    from app.contacts.leads import find_for_leads
+    from app.outreach.utils import available_channels
+
+    try:
+        found = await find_for_leads(db, campaign, list(job.selected_creator_ids or []), user_id=job.user_id)
+        if found:
+            leads = {str(l.get("id")): l for l in campaign.campaign_leads or []}
+            pitches = (await db.execute(select(OutreachPitch).where(
+                OutreachPitch.outreach_job_id == job.outreach_job_id))).scalars().all()
+            for p in pitches:
+                if p.creator_id in leads:
+                    p.available_channels = available_channels(leads[p.creator_id])
+        await db.commit()
+    except Exception:  # noqa: BLE001 - pitches still get written without the found contacts
+        logger.exception("contact search failed for outreach job %s", job.outreach_job_id)
+        await db.rollback()
+
+
 async def run_outreach_graph(outreach_job_id: str, run_id: str, thread_id: str) -> dict:
     async with AsyncSessionLocal() as db:
         job_result = await db.execute(select(OutreachJob).where(OutreachJob.outreach_job_id == outreach_job_id))
@@ -42,6 +61,11 @@ async def run_outreach_graph(outreach_job_id: str, run_id: str, thread_id: str) 
         campaign = campaign_result.scalar_one_or_none()
         if not campaign:
             raise ValueError("Campaign not found")
+
+        # find each chosen creator's email and first name first (free sources, Jev-checked), so the pitches
+        # are written for the right channel and greet the right person
+        await _publish(outreach_job_id, run_id, "find_contacts")
+        await _find_contacts(db, job, campaign)
 
         leads_by_id = {
             str(creator.get("id") or creator.get("creator_id")): creator

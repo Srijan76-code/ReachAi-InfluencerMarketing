@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
-  AlertCircle, ArrowLeft, ArrowUp, Check, ChevronDown, Clipboard, Clock, Handshake, Info, Instagram, Loader2, Mail, MessageCircle,
+  AlertCircle, ArrowLeft, ArrowUp, Check, ChevronDown, Clipboard, Clock, Handshake, Info, Instagram, Linkedin, Loader2, Mail, MessageCircle,
   MoreHorizontal, RotateCcw, Sparkles, Twitter, X,
 } from "lucide-react";
 import { CreatorAvatar } from "@/components/CreatorAvatar";
@@ -65,10 +65,17 @@ function bubblesFrom(events: DealEvent[]): Bubble[] {
   return out;
 }
 
-const CHANNEL_ICON: Record<Channel, typeof Mail> = { email: Mail, instagram: Instagram, twitter: Twitter, whatsapp: MessageCircle, other: Clipboard };
-const PROFILE: Partial<Record<Channel, (d: Deal) => string | undefined>> = {
-  instagram: (d) => d.socials?.instagram,
-  twitter: (d) => d.socials?.twitter,
+const CHANNEL_ICON: Record<Channel, typeof Mail> = { email: Mail, instagram: Instagram, twitter: Twitter, linkedin: Linkedin, whatsapp: MessageCircle, other: Clipboard };
+const handleOf = (url?: string) => url?.replace(/\/+$/, "").split("/").pop()?.replace(/^@/, "") || undefined;
+/** Where one click takes you to send a DM: straight into the conversation when the platform allows it
+ * (Instagram's ig.me link; X's compose box with the message filled in), else their profile. */
+const PROFILE: Partial<Record<Channel, (d: Deal, text?: string) => string | undefined>> = {
+  instagram: (d) => (handleOf(d.socials?.instagram) ? `https://ig.me/m/${handleOf(d.socials?.instagram)}` : undefined),
+  twitter: (d, text) =>
+    d.platform === "x" && /^\d+$/.test(d.creator_id)
+      ? `https://x.com/messages/compose?recipient_id=${d.creator_id}${text ? `&text=${encodeURIComponent(text)}` : ""}`
+      : d.socials?.twitter,
+  linkedin: (d) => d.socials?.linkedin,
   whatsapp: () => "https://web.whatsapp.com/",
 };
 
@@ -282,7 +289,7 @@ export function DealChat({ deal, api, proposals, gmailReady, website, onReconnec
         try {
           await navigator.clipboard.writeText(text);
         } catch {} // copying can be blocked; it's still recorded
-        const profile = PROFILE[channel]?.(deal);
+        const profile = PROFILE[channel]?.(deal, text);
         if (profile) window.open(profile, "_blank", "noopener,noreferrer");
       }
       const via = canSend ? "gmail" : "copy";

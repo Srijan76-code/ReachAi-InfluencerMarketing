@@ -94,6 +94,8 @@ export type Deal = {
   channel?: Channel; // how you reach them (picked from what we have unless you chose)
   channel_set?: boolean;
   socials?: Partial<Record<"instagram" | "twitter" | "linkedin", string>>;
+  // where ReachAI found their email (and whether AI checked it), that it found none, or an earlier contact
+  contact?: { source?: "bio" | "link_page" | "website"; checked?: boolean; none?: boolean; contacted_before?: string | null } | null;
   pay_when?: string | null;
   tracking_code?: string | null;
   posts?: DealPost[]; // what they agreed to post (only on the list, and after agreeing)
@@ -103,11 +105,12 @@ export type Deal = {
 
 export type DealPost = { id: string; deliverable: string; due_on: string | null; post_url: string | null; live_at: string | null };
 
-export type Channel = "email" | "instagram" | "twitter" | "whatsapp" | "other";
+export type Channel = "email" | "instagram" | "twitter" | "linkedin" | "whatsapp" | "other";
 export const CHANNELS: { value: Channel; label: string; verb: string }[] = [
   { value: "email", label: "Email", verb: "Send" },
   { value: "instagram", label: "Instagram DM", verb: "Copy and open Instagram" },
   { value: "twitter", label: "X DM", verb: "Copy and open X" },
+  { value: "linkedin", label: "LinkedIn message", verb: "Copy and open LinkedIn" },
   { value: "whatsapp", label: "WhatsApp", verb: "Copy and open WhatsApp" },
   { value: "other", label: "Somewhere else", verb: "Copy" },
 ];

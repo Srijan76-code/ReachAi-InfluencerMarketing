@@ -53,6 +53,10 @@ async def send_for_deal(db: AsyncSession, account: ConnectedAccount, d: CreatorD
     with `subject`. Updates the deal's thread fields. → {"gmail_id", "thread_id"}. Raises HTTPException."""
     if not d.contact_email:
         raise HTTPException(422, "Add their email address first.")
+    from app.contacts.ledger import record_contact, suppressed
+
+    if await suppressed(db, d.contact_email):
+        raise HTTPException(422, "This address can't be emailed: the person opted out or it bounced before.")
     today = date.today()
     if account.sent_day != today:
         account.sent_day, account.sent_today = today, 0
@@ -74,6 +78,7 @@ async def send_for_deal(db: AsyncSession, account: ConnectedAccount, d: CreatorD
     except GC.GmailError as e:
         raise HTTPException(409 if e.revoked else 502, str(e))
     account.sent_today += 1
+    await record_contact(db, account.user_id, d.contact_email, d.campaign_id)
     d.gmail_thread_id = sent.get("threadId") or d.gmail_thread_id
     if new_thread:
         d.gmail_subject = subj

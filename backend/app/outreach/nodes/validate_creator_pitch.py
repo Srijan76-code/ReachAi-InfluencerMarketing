@@ -109,7 +109,10 @@ def validate_bundle(bundle_data: dict, creator_input: CreatorPitchInput) -> list
 
     if brand_name and brand_name.lower() not in text_lower:
         errors.append("brand name is missing from the pitch")
+    first_name = str((creator_input.get("creator_identity") or {}).get("first_name") or "").strip()
     forms = _name_forms(creator_name) if creator_name.lower() != "unknown creator" else []
+    if forms and first_name:
+        forms = [*forms, first_name.lower()]
     if forms and not any(re.search(rf"(?<!\w){re.escape(f)}(?!\w)", text_lower) for f in forms):
         errors.append("creator name is missing from the pitch")
 

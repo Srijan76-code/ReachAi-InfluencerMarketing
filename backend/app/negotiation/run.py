@@ -58,7 +58,7 @@ async def _stale_suggestions(db: AsyncSession, d: CreatorDeal) -> None:
 
 
 def _name(d: CreatorDeal, lead: dict) -> str:
-    return N.greeting_name((lead or {}).get("title") or d.creator_name)
+    return (lead or {}).get("first_name") or N.greeting_name((lead or {}).get("title") or d.creator_name)
 
 
 async def negotiate(db: AsyncSession, d: CreatorDeal, reply: DealEvent, *, lead: dict, details: dict, user_id: str) -> dict:

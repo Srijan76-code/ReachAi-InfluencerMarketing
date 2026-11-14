@@ -10,6 +10,20 @@ const ask = (fee: number | null | undefined, pct: number | null | undefined) =>
   fee == null && pct ? `${pct}% commission` : `${money(fee ?? 0)}${pct ? ` + ${pct}%` : ""}`;
 
 /** The deal's terms and contact, in a side panel so the chat stays clean. Changes save as you go. */
+const FOUND_ON = { bio: "their bio", link_page: "their link-in-bio page", website: "their website" } as const;
+
+/** One short line: where we found the address, that we found none, or that you wrote to them before. */
+function contactNote(deal: Deal): string | null {
+  const c = deal.contact;
+  if (!c) return null;
+  const before = c.contacted_before
+    ? `You wrote to them on ${new Date(c.contacted_before).toLocaleDateString(undefined, { month: "short", day: "numeric" })} in another campaign.`
+    : "";
+  const where = c.source ? `Found on ${FOUND_ON[c.source]}${c.checked ? ", checked by AI" : ""}.`
+    : c.none ? "No public email found. Send a DM instead." : "";
+  return [where, before].filter(Boolean).join(" ") || null;
+}
+
 export function DealDetails({ open, onOpenChange, deal, save }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -47,6 +61,7 @@ export function DealDetails({ open, onOpenChange, deal, save }: {
             <Field label="Their email" hint="With Gmail connected, messages go from your address to this one.">
               <Input value={deal.contact_email ?? null} onSave={(v) => save({ contact_email: v })} placeholder="their@email.com" />
             </Field>
+            {contactNote(deal) && <p className="text-[11px] text-zinc-500 -mt-1">{contactNote(deal)}</p>}
           </section>
 
           <section className="space-y-3">

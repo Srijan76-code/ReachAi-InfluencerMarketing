@@ -23,6 +23,8 @@ async def prepare_pitch_batch(state: OutreachState) -> OutreachState:
             "deliverables": list(deliverables),
             "creator_identity": {
                 "name": creator_name(creator),
+                # the person's first name when we found it (Jev-checked), for the greeting
+                "first_name": creator.get("first_name"),
                 "country": creator.get("country"),
                 "channel_id": creator.get("id"),
             },
