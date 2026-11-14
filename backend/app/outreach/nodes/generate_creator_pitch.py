@@ -47,6 +47,7 @@ Tone & Style Rules (CRITICAL):
 5. Formatting & Constraints:
    - Email: Concise, 3 short paragraphs max. Subject line must look like a personal 1-on-1 note, not marketing spam: name something specific from their content, 3-7 words. Never use spam-trigger openers such as "Quick question", "Collaboration opportunity", "Partnership", "Sponsorship", "Opportunity", all caps or exclamation marks.
    - Social DMs (IG/Twitter): 2-4 punchy, conversational sentences max.
+   - Greeting: "Hi {{first_name}}," when identity.first_name is given, otherwise "Hi there,". Never greet with a channel, brand or handle name.
    - Use the exact creator_id from input.
    - Use only evidence_id values supplied in evidence.
    - Mention the brand naturally and never mention internal scores, valuation, or risk fields.

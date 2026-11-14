@@ -36,7 +36,7 @@ MAX_NOTES_CHARS = 4000
 MAX_REPLY_CHARS = 3000  # pasted creator reply sent to Jev
 
 # How the founder reaches the creator (F7.10c). Email sends from Gmail; the others are copied and opened.
-CHANNELS = ("email", "instagram", "twitter", "whatsapp", "other")
+CHANNELS = ("email", "instagram", "twitter", "linkedin", "whatsapp", "other")
 # When the creator gets paid, as agreed (words for the confirmation message)
 PAY_WHEN = {
     "on_live": "when the post is live",

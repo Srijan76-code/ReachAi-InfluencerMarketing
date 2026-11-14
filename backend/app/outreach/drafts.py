@@ -22,7 +22,7 @@ def auto_channel(d: CreatorDeal, lead: Optional[dict]) -> str:
     if d.contact_email:
         return "email"
     socials = (lead or {}).get("socials") or {}
-    return next((c for c in ("instagram", "twitter") if socials.get(c)), "other")
+    return next((c for c in ("instagram", "twitter", "linkedin") if socials.get(c)), "other")
 
 
 def texts_from_bundle(bundle: dict) -> dict:

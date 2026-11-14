@@ -45,7 +45,7 @@ async def _campaign(db: AsyncSession, campaign_id: str, user: User):
 # Every creator field the Deals page and deal actions read (checked with grep on Nov 13). The rest of a stored
 # creator (posts, descriptions, reasons: ~10 KB each) stays in the database on these hot paths.
 LEAD_FIELDS = ("id", "title", "url", "avatar_url", "platform", "country", "deal_status", "final_score", "metrics", "socials",
-               "signals", "subscribers", "valuation", "fair_low", "fair_high", "data_expired")
+               "signals", "subscribers", "valuation", "fair_low", "fair_high", "data_expired", "contact")
 
 
 def _slim_leads_sql() -> str:
@@ -131,6 +131,18 @@ def _advice(d: CreatorDeal) -> N.Advice:
                     deliverable=d.deliverable, usage_rights=d.usage_rights, exclusivity_days=d.exclusivity_days or 0)
 
 
+def _contact_note(d: CreatorDeal, found: Optional[dict]) -> Optional[dict]:
+    """Where the address came from, when it's the one ReachAI found (not one the founder typed)."""
+    if not found:
+        return None
+    note = {"contacted_before": found.get("contacted_before")}
+    if found.get("email") and found["email"] == d.contact_email:
+        note.update(source=found.get("email_source"), checked=found.get("email_checked") == "jev")
+    elif not d.contact_email:
+        note["none"] = True
+    return note
+
+
 def _out(d: CreatorDeal, lead: Optional[dict], today: date, extras: Optional[dict] = None) -> dict:
     from app.outreach.drafts import auto_channel
 
@@ -158,6 +170,7 @@ def _out(d: CreatorDeal, lead: Optional[dict], today: date, extras: Optional[dic
         "last_read_at": d.last_read_at.isoformat() if d.last_read_at else None,
         "channel": auto_channel(d, lead), "channel_set": bool(d.channel),
         "socials": {k: socials.get(k) for k in ("instagram", "twitter", "linkedin") if socials.get(k)},
+        "contact": _contact_note(d, lead.get("contact")),
         "pay_when": d.pay_when, "tracking_code": d.tracking_code,
         **(extras or {}),  # posts and link: only when loaded (single-deal answers leave the list's copy as it is)
         "updated_at": d.updated_at.isoformat() if d.updated_at else None,

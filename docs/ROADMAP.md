@@ -117,7 +117,7 @@ Known gaps in what's built:
 
 | ID | Feature | Status | Spec |
 |---|---|---|---|
-| F6.1 | Identity: email ranking, sponsor blocklist, Jev pick, verification, first name, contact ledger, suppression list | later | §7.1 |
+| F6.1 | Identity, free sources only (decided Nov 14): bio on every linked account → link-in-bio page → own website + contact pages; filters (junk, service inboxes, sponsor domains, dead domains via DNS-over-HTTPS, shared inboxes); one Jev request per creator picks the address (≥ 0.8) and first name; contact ledger (90-day warning) + global suppression list; runs at the start of each pitch run, cached 30 days on the creator. Branch `creator-emails` | done | §7.1 | `app/contacts/` (find, fetch, extract, leads, ledger), `app/models/contact.py`, `app/outreach/runtime.py`, `app/gmail/service.py`, `components/deals/DealDetails.tsx`. Left: opt-out and bounce detection that fill the suppression list come with reply sorting (F6.9) |
 | F6.2 | Creator dossier | later | §7.2 |
 | F6.3 | Primary channel per creator | later | §7.3 |
 | F6.4 | Pitch quality: founder voice, soft vs offer A/B, plain-text first email | later | §7.4 |
@@ -130,7 +130,7 @@ Known gaps in what's built:
 | F6.8c | Deals rework (`deals-memory`): negotiation memory (counters move from our last offer toward their ask, never below it or above fair; final offer after 3 rounds; mark lost if still too high), Jev reads replies with the negotiation so far (`reply-v3`), AI may not mention the full counter in a fee + commission message (bug: "the $65 we discussed"), quote edits within 2 min merge into one timeline entry, prices under $50 round to the dollar; Board \| To do switch with bulk select / approve / skip (edits kept); dot on cards with a to-do; panel shows what matters at each stage (next step + reply box, quote with Save and loading, offers so far, agreed price and date, post and payment), terms folded into one line, notes and history folded; app-wide sentence-case labels and ⓘ tooltips | done | §7.8, §8.7 | `backend/app/deals/negotiation.py`, `backend/app/agent/proposals.py`, `backend/app/api/routes/deals.py`, `frontend/components/deals/*`, `frontend/components/ui/stat.tsx`, `docs/UI_GUIDE.md` |
 | F6.8d | Per-step automation setting per campaign (follow-ups and late-post nudges automatic; money and terms always approved). Needs Gmail sending (F6.5) | next | §0, §7.5 | `backend/app/agent/`, Deals settings |
 | F6.8b | Needs-you count on the Deals tab and in the navbar (across campaigns); a cron so time-based suggestions (follow-ups, late posts) can notify without opening the page (bell, tab badge and alerts shipped in F7.10b; a cron for time-based suggestions is still open in F6.8d) | done | §7.8 | `CampaignTabs.tsx`, `app/inngest/functions.py` |
-| F6.1b | Creator first name for greetings (Jev picks it from the channel's about text; today a cautious code rule) | later | §7.1 | `app/deals/negotiation.py` (`greeting_name`) |
+| F6.1b | Creator first name for greetings: Jev picks it with the email (F6.1) from the bio, display names and the address; the code rule is the fallback | done | §7.1 | `app/contacts/find.py`, `app/outreach/nodes/prepare_pitch_batch.py`, `app/negotiation/run.py` |
 | F6.9 | Inbox + reply classification | later | §7.9 |
 | F6.10 | Assisted DMs | later | §7.10 |
 | F6.11 | Reply-rate analytics | later | §7.11 |
