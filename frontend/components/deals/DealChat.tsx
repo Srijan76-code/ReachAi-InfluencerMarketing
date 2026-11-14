@@ -563,6 +563,11 @@ export function DealChat({ deal, api, proposals, gmailReady, website, onReconnec
                 )}
               </AnimatePresence>
             </div>
+            {who === "you" && draft?.kind === "pitch" && draft.needs_review && (
+              <p role="alert" className="px-3.5 pt-2.5 text-[11px] leading-relaxed text-amber-700 dark:text-amber-400">
+                Check this draft before sending: {(draft.problems ?? []).slice(0, 2).join("; ") || "it didn't pass ReachAI's checks"}.
+              </p>
+            )}
             {who === "you" && draft?.kind === "pitch" && firstEmail && (
               <input value={subject} onChange={(e) => setSubject(e.target.value.slice(0, 200))} placeholder="Subject" aria-label="Subject line"
                 className="block w-full bg-transparent px-3.5 pt-2.5 pb-1 text-[13px] font-medium text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none border-b border-zinc-100 dark:border-zinc-800/70" />

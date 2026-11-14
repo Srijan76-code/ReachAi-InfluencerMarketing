@@ -34,7 +34,7 @@ def build_outreach_graph() -> StateGraph:
     graph.add_node(
         "generate_creator_pitch",
         generate_creator_pitch,
-        destinations=("validate_creator_pitch",),
+        destinations=("validate_creator_pitch", "collect_creator_pitch"),
         retry_policy=RetryPolicy(),
         cache_policy=CachePolicy(key_func=pitch_cache_key, ttl=3600),
     )
@@ -46,7 +46,7 @@ def build_outreach_graph() -> StateGraph:
     graph.add_node(
         "repair_creator_pitch",
         repair_creator_pitch,
-        destinations=("validate_creator_pitch",),
+        destinations=("validate_creator_pitch", "collect_creator_pitch"),
         retry_policy=RetryPolicy(),
         cache_policy=CachePolicy(key_func=pitch_cache_key, ttl=3600),
     )

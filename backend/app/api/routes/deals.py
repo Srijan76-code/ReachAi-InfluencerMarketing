@@ -4,8 +4,10 @@ contact to paid, with the agreed terms, a negotiation helper and a timeline. Own
 from __future__ import annotations
 
 from datetime import date, datetime, timezone
+from types import SimpleNamespace
 from typing import Optional
 
+import logging
 import os
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -24,6 +26,7 @@ from app.models.deal import CreatorDeal, DealEvent, DealPost, LinkClick, Trackin
 from app.models.user import User
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
@@ -39,9 +42,45 @@ async def _campaign(db: AsyncSession, campaign_id: str, user: User):
     return row
 
 
-async def _deal(db: AsyncSession, deal_id: str, user: User) -> tuple[CreatorDeal, object]:
+# Every creator field the Deals page and deal actions read (checked with grep on Nov 13). The rest of a stored
+# creator (posts, descriptions, reasons: ~10 KB each) stays in the database on these hot paths.
+LEAD_FIELDS = ("id", "title", "url", "avatar_url", "platform", "country", "deal_status", "final_score", "metrics", "socials",
+               "signals", "subscribers", "valuation", "fair_low", "fair_high", "data_expired")
+
+
+def _slim_leads_sql() -> str:
+    """SQL for campaigns.campaign_leads cut down to LEAD_FIELDS (constants only, no user input)."""
+    pairs = ", ".join(f"'{k}', e->'{k}'" for k in LEAD_FIELDS)
+    return ("COALESCE((SELECT jsonb_agg(jsonb_build_object(" + pairs + ")) FROM jsonb_array_elements("
+            "CASE WHEN jsonb_typeof(campaigns.campaign_leads) = 'array' THEN campaigns.campaign_leads ELSE '[]'::jsonb END) e), "
+            "'[]'::jsonb)")
+
+
+async def _campaign_slim(db: AsyncSession, campaign_id: str, user: User):
+    """The campaign with each creator cut down to LEAD_FIELDS (what the Deals page shows), picked inside Postgres
+    so the full results (~10 KB per creator: posts, descriptions) never travel to the server."""
+    if db.bind is None or db.bind.dialect.name != "postgresql":
+        row = await _campaign(db, campaign_id, user)
+        slim = [{k: l.get(k) for k in LEAD_FIELDS} for l in (row.campaign_leads or []) if isinstance(l, dict)]
+        return SimpleNamespace(campaign_id=row.campaign_id, campaign_details=row.campaign_details, campaign_leads=slim)
+    from sqlalchemy import literal_column
+
     row = (await db.execute(
-        select(CreatorDeal, Campaign.campaign_leads, Campaign.campaign_details)
+        select(Campaign.campaign_id, Campaign.campaign_details, literal_column(_slim_leads_sql()).label("campaign_leads"))
+        .where(Campaign.campaign_id == campaign_id, Campaign.user_id == user.user_id))).one_or_none()
+    if row is None:
+        raise HTTPException(404, "Campaign not found")
+    return SimpleNamespace(campaign_id=row.campaign_id, campaign_details=row.campaign_details, campaign_leads=row.campaign_leads)
+
+
+async def _deal(db: AsyncSession, deal_id: str, user: User) -> tuple[CreatorDeal, object]:
+    """The deal and its campaign, with creators cut down to LEAD_FIELDS on Postgres (every chat action calls this)."""
+    from sqlalchemy import literal_column
+
+    pg = db.bind is not None and db.bind.dialect.name == "postgresql"
+    leads_col = literal_column(_slim_leads_sql()).label("campaign_leads") if pg else Campaign.campaign_leads
+    row = (await db.execute(
+        select(CreatorDeal, leads_col, Campaign.campaign_details)
         .join(Campaign, Campaign.campaign_id == CreatorDeal.campaign_id)
         .where(CreatorDeal.deal_id == deal_id, Campaign.user_id == user.user_id)
     )).one_or_none()
@@ -52,6 +91,34 @@ async def _deal(db: AsyncSession, deal_id: str, user: User) -> tuple[CreatorDeal
 
 def _leads_by_id(leads) -> dict:
     return {l.get("id"): l for l in (leads or []) if isinstance(l, dict)}
+
+
+INBOX_SYNC_BUDGET_SECONDS = 4.0
+PREVIEW_CHARS = 140
+
+
+async def _lead_cards(db: AsyncSession, pairs: list[tuple[str, str]]) -> dict:
+    """{(campaign_id, creator_id): {"title", "avatar_url"}} for just these creators, read inside Postgres so the
+    campaigns' full creator lists never travel to the server (they're ~10 KB per creator)."""
+    if not pairs:
+        return {}
+    camp_ids = list({c for c, _ in pairs})
+    creator_ids = list({x for _, x in pairs})
+    if db.bind is not None and db.bind.dialect.name == "postgresql":
+        from sqlalchemy import text
+
+        rows = (await db.execute(text(
+            "SELECT c.campaign_id, e->>'id' AS id, e->>'title' AS title, e->>'avatar_url' AS avatar_url "
+            "FROM campaigns c CROSS JOIN LATERAL jsonb_array_elements("
+            "  CASE WHEN jsonb_typeof(c.campaign_leads) = 'array' THEN c.campaign_leads ELSE '[]'::jsonb END) e "
+            "WHERE c.campaign_id = ANY(:camps) AND e->>'id' = ANY(:ids)"), {"camps": camp_ids, "ids": creator_ids})).all()
+        return {(r.campaign_id, r.id): {"title": r.title, "avatar_url": r.avatar_url} for r in rows}
+    out = {}
+    for cid, leads in (await db.execute(select(Campaign.campaign_id, Campaign.campaign_leads)
+                                        .where(Campaign.campaign_id.in_(camp_ids)))).all():
+        for l in _leads_by_id(leads).values():
+            out[(cid, l.get("id"))] = {"title": l.get("title"), "avatar_url": l.get("avatar_url")}
+    return out
 
 
 def _goal(details) -> Optional[str]:
@@ -129,14 +196,14 @@ async def _full(db: AsyncSession, d: CreatorDeal, lead: Optional[dict], request:
     return _out(d, lead, date.today(), (await _extras(db, [d], app_url(request)))[d.deal_id])
 
 
-async def _proposals(db: AsyncSession, deals: list[CreatorDeal], camp, user: User) -> list[dict]:
-    """The campaign's "Needs you" list, brought up to date (spec §7.8)."""
+async def _proposals(db: AsyncSession, deals: list[CreatorDeal], camp, user: User, rows: Optional[list] = None) -> list[dict]:
+    """The campaign's "Needs you" list, brought up to date (spec §7.8). `rows`: the deals' events, if loaded."""
     from app.agent import queue as Q
 
     leads = _leads_by_id(camp.campaign_leads)
     lead = {d.deal_id: leads.get(d.creator_id) or {} for d in deals}
     names = {i: l.get("title") for i, l in lead.items()}
-    pending = await Q.refresh(db, deals, names=names, goal=_goal(camp.campaign_details))
+    pending = await Q.refresh(db, deals, names=names, goal=_goal(camp.campaign_details), rows=rows)
     by_id = {d.deal_id: d for d in deals}
     from app.gmail.service import account_for, usable
 
@@ -173,7 +240,7 @@ def _summary(deals: list[CreatorDeal], details) -> dict:
 async def list_deals(campaign_id: str, request: Request, user: User = Depends(get_db_user), db: AsyncSession = Depends(get_db)):
     from app.models.outreach import OutreachJob, OutreachPitch
 
-    camp = await _campaign(db, campaign_id, user)
+    camp = await _campaign_slim(db, campaign_id, user)  # only the fields this page shows, not ~10 KB per creator
     deals = (await db.execute(
         select(CreatorDeal).where(CreatorDeal.campaign_id == campaign_id).order_by(CreatorDeal.position, CreatorDeal.created_at)
     )).scalars().all()
@@ -185,18 +252,20 @@ async def list_deals(campaign_id: str, request: Request, user: User = Depends(ge
     body = {"deals": [{**_out(d, leads.get(d.creator_id), today, extras[d.deal_id]), "writing": d.creator_id in writing} for d in deals], "summary": _summary(list(deals), camp.campaign_details),
             "goal": _goal(camp.campaign_details), "website": ((camp.campaign_details or {}).get("brand") or {}).get("website"),
             "suggested_deal_type": N.suggest_deal_type(_goal(camp.campaign_details))}
-    body["proposals"] = await _proposals(db, list(deals), camp, user)
+    # every chat's events, loaded once: for the suggestions and for each deal's latest message
+    rows = list((await db.execute(
+        select(DealEvent.event_id, DealEvent.deal_id, DealEvent.type, DealEvent.payload, DealEvent.created_at)
+        .where(DealEvent.deal_id.in_([d.deal_id for d in deals])).order_by(DealEvent.created_at)
+    )).all()) if deals else []
+    body["proposals"] = await _proposals(db, list(deals), camp, user, rows=rows)
     # the inbox list shows each deal's latest message (who wrote it, a short preview, when)
     last: dict = {}
     unread: dict = {}
     read_at = {d.deal_id: d.last_read_at for d in deals}
     if deals:
-        rows = (await db.execute(
-            select(DealEvent.deal_id, DealEvent.type, DealEvent.payload, DealEvent.created_at)
-            .where(DealEvent.deal_id.in_([d.deal_id for d in deals]), DealEvent.type.in_(("message_sent", "creator_reply")))
-            .order_by(DealEvent.created_at)
-        )).all()
         for r in rows:
+            if r.type not in ("message_sent", "creator_reply"):
+                continue
             text = ((r.payload or {}).get("text") or "").strip()
             if text and r.type == "creator_reply" and (read_at[r.deal_id] is None or (r.created_at and r.created_at > read_at[r.deal_id])):
                 unread[r.deal_id] = unread.get(r.deal_id, 0) + 1
@@ -226,36 +295,40 @@ async def inbox(user: User = Depends(get_db_user), db: AsyncSession = Depends(ge
     from app.gmail import service as GS
     from app.models.deal import AgentProposal
 
+    # names only: the full creator lists (~10 KB per creator) are never loaded on this poll
     camps = {c.campaign_id: c for c in (await db.execute(
-        select(Campaign.campaign_id, Campaign.name, Campaign.campaign_leads).where(Campaign.user_id == user.user_id))).all()}
+        select(Campaign.campaign_id, Campaign.name).where(Campaign.user_id == user.user_id))).all()}
     if not camps:
         return {"items": [], "unread": 0, "waiting": 0, "by_campaign": {}}
     deals = list((await db.execute(select(CreatorDeal).where(CreatorDeal.campaign_id.in_(list(camps))))).scalars())
     account = await GS.account_for(db, user.user_id)
     if GS.usable(account):
-        await GS.sync_deals(db, account, deals, user_id=user.user_id)
+        # a short time budget: the bell must stay fast; threads not reached are checked on the next poll
+        await GS.sync_deals(db, account, deals, user_id=user.user_id, budget_seconds=INBOX_SYNC_BUDGET_SECONDS)
     if not deals:
         return {"items": [], "unread": 0, "waiting": 0, "by_campaign": {}}
     ids = [d.deal_id for d in deals]
-    replies = (await db.execute(select(DealEvent.deal_id, DealEvent.payload, DealEvent.created_at, DealEvent.event_id)
-                                .where(DealEvent.deal_id.in_(ids), DealEvent.type == "creator_reply")
-                                .order_by(DealEvent.created_at))).all()
+    # only unread replies, and only the start of their text (the preview)
+    replies = (await db.execute(
+        select(DealEvent.deal_id, func.substr(DealEvent.payload["text"].astext, 1, PREVIEW_CHARS * 2).label("text"),
+               DealEvent.created_at, DealEvent.event_id)
+        .join(CreatorDeal, CreatorDeal.deal_id == DealEvent.deal_id)
+        .where(DealEvent.deal_id.in_(ids), DealEvent.type == "creator_reply",
+               (CreatorDeal.last_read_at.is_(None)) | (DealEvent.created_at > CreatorDeal.last_read_at))
+        .order_by(DealEvent.created_at))).all()
     drafts = {p.deal_id for p in (await db.execute(select(AgentProposal.deal_id).where(
         AgentProposal.deal_id.in_(ids), AgentProposal.status == "pending", AgentProposal.kind.in_(A.CHAT_KINDS)))).all()}
-    by_deal = {d.deal_id: d for d in deals}
     news: dict = {}
     for r in replies:
-        d = by_deal[r.deal_id]
-        if d.last_read_at is None or (r.created_at and r.created_at > d.last_read_at):
-            n = news.setdefault(r.deal_id, {"count": 0})
-            n.update(count=n["count"] + 1, text=" ".join(((r.payload or {}).get("text") or "").split())[:140],
-                     at=r.created_at.isoformat() if r.created_at else None, id=r.event_id)
+        n = news.setdefault(r.deal_id, {"count": 0})
+        n.update(count=n["count"] + 1, text=" ".join((r.text or "").split())[:PREVIEW_CHARS],
+                 at=r.created_at.isoformat() if r.created_at else None, id=r.event_id)
+    shown = [d for d in deals if d.deal_id in news or d.deal_id in drafts]
+    cards = await _lead_cards(db, [(d.campaign_id, d.creator_id) for d in shown])
     items = []
-    for d in deals:
-        if d.deal_id not in news and d.deal_id not in drafts:
-            continue
+    for d in shown:
         c = camps[d.campaign_id]
-        lead = _leads_by_id(c.campaign_leads).get(d.creator_id) or {}
+        lead = cards.get((d.campaign_id, d.creator_id)) or {}
         n = news.get(d.deal_id) or {}
         items.append({"campaign_id": d.campaign_id, "campaign_name": c.name, "deal_id": d.deal_id,
                       "name": lead.get("title") or d.creator_name, "avatar_url": lead.get("avatar_url"),
@@ -522,8 +595,16 @@ async def approve_proposal(proposal_id: str, body: ApproveIn, user: User = Depen
         if usable(account):
             async def send(text: str) -> dict:
                 return await send_for_deal(db, account, d, text, subject=subject or _default_subject(row))
-    result = await Q.approve(db, p, d, body.message, send=send, subject=subject)
-    await db.commit()
+    pid = p.proposal_id
+    if not await Q.claim(db, p):  # another click or "Send all" got there first: never send twice
+        raise HTTPException(409, "This suggestion was already handled.")
+    try:
+        result = await Q.approve(db, p, d, body.message, send=send, subject=subject)
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        await Q.release(db, pid)  # nothing was sent or saved: it can be tried again
+        raise
     await db.refresh(d)
     deal = _out(d, lead, date.today())
     return {"deal": deal, "sent": bool(result.get("sent")), "proposals": await _campaign_proposals(db, d.campaign_id, row, user)}
@@ -559,31 +640,51 @@ async def send_reviewed_pitches(campaign_id: str, body: SendAll, user: User = De
     account = await account_for(db, user.user_id)
     if not usable(account):
         raise HTTPException(409, "Connect Gmail first.")
-    q = select(AgentProposal, CreatorDeal).join(CreatorDeal, CreatorDeal.deal_id == AgentProposal.deal_id).where(
+    q = select(AgentProposal.proposal_id).where(
         AgentProposal.campaign_id == campaign_id, AgentProposal.kind == "pitch", AgentProposal.status == "pending")
     if body.proposal_ids:
         q = q.where(AgentProposal.proposal_id.in_(body.proposal_ids))
     leads = _leads_by_id(camp.campaign_leads)
+    default_subject = _default_subject(camp)
     sent, skipped = 0, []
-    for p, d in (await db.execute(q.order_by(AgentProposal.created_at))).all():
+    # one at a time, each loaded fresh: a failed send rolls back only itself and the rest still go out
+    for pid in list((await db.execute(q.order_by(AgentProposal.created_at))).scalars()):
+        row = (await db.execute(select(AgentProposal, CreatorDeal).join(CreatorDeal, CreatorDeal.deal_id == AgentProposal.deal_id)
+                                .where(AgentProposal.proposal_id == pid, AgentProposal.status == "pending"))).one_or_none()
+        if row is None:
+            continue  # handled meanwhile (sent from the chat, or skipped)
+        p, d = row
+        pl = p.payload or {}
         name = (leads.get(d.creator_id) or {}).get("title") or d.creator_name or "?"
-        if not body.proposal_ids and not (p.payload or {}).get("seen"):
+        if not body.proposal_ids and not pl.get("seen"):
+            continue
+        if pl.get("needs_review"):
+            skipped.append({"name": name, "why": "The draft has problems: open it, fix it and send it yourself"})
             continue
         if auto_channel(d, leads.get(d.creator_id)) != "email" or not d.contact_email:
             skipped.append({"name": name, "why": "Not by email: send it yourself"})
             continue
-        subject = (p.payload or {}).get("subject") or _default_subject(camp)
+        subject = pl.get("subject") or default_subject
+        if not await Q.claim(db, p):
+            continue
         try:
             async def send(text: str, d=d, subject=subject) -> dict:
                 return await send_for_deal(db, account, d, text, subject=subject)
             await Q.approve(db, p, d, None, send=send, subject=subject)
             await db.commit()
             sent += 1
-        except HTTPException as e:
+        except Exception as e:  # noqa: BLE001 - one creator's failure must not stop the others
             await db.rollback()
-            skipped.append({"name": name, "why": str(e.detail)})
-            if e.status_code == 429:
-                break
+            await Q.release(db, pid)
+            account = await account_for(db, user.user_id)  # the rollback expired it: load it again
+            if isinstance(e, HTTPException):
+                skipped.append({"name": name, "why": str(e.detail)})
+                if e.status_code == 429 or not usable(account):
+                    break
+            else:
+                logger.exception("send-all: one pitch failed")
+                skipped.append({"name": name, "why": "Couldn't send it just now: try again"})
+            camp = await _campaign(db, campaign_id, user)  # expired by the rollback too
     return {"sent": sent, "skipped": skipped, "proposals": await _campaign_proposals(db, campaign_id, camp, user)}
 
 

@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 from typing import Optional
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,16 +26,21 @@ def _now() -> datetime:
 
 
 async def refresh(db: AsyncSession, deals: list[CreatorDeal], *, names: dict, goal: Optional[str],
-                  today: Optional[date] = None) -> list[AgentProposal]:
+                  today: Optional[date] = None, rows: Optional[list] = None) -> list[AgentProposal]:
     """Brings the stored suggestions in line with the deals (new ones added, outdated ones marked stale; ones
-    the founder approved or skipped never come back) and returns the pending ones, oldest first. Commits."""
+    the founder approved or skipped never come back) and returns the pending ones, oldest first. Commits.
+    `rows`: the deals' events when the caller already loaded them (saves loading every chat twice)."""
     if not deals:
         return []
     today = today or date.today()
     ids = [d.deal_id for d in deals]
     events: dict[str, list[Ev]] = {i: [] for i in ids}
-    for e in (await db.execute(select(DealEvent).where(DealEvent.deal_id.in_(ids)))).scalars():
-        events[e.deal_id].append(Ev(e.event_id, e.type, e.payload or {}, e.created_at or _now()))
+    if rows is None:
+        rows = list((await db.execute(select(DealEvent.event_id, DealEvent.deal_id, DealEvent.type, DealEvent.payload,
+                                             DealEvent.created_at).where(DealEvent.deal_id.in_(ids)))).all())
+    for e in rows:
+        if e.deal_id in events:
+            events[e.deal_id].append(Ev(e.event_id, e.type, e.payload or {}, e.created_at or _now()))
     stored: dict[tuple[str, str], AgentProposal] = {
         (p.deal_id, p.key): p for p in (await db.execute(select(AgentProposal).where(AgentProposal.deal_id.in_(ids)))).scalars()
     }
@@ -60,6 +65,29 @@ async def refresh(db: AsyncSession, deals: list[CreatorDeal], *, names: dict, go
         select(AgentProposal).where(AgentProposal.deal_id.in_(ids), AgentProposal.status == "pending")
         .order_by(AgentProposal.created_at)
     )).scalars())
+
+
+SENDING = "sending"  # claimed by one approval: no second request can send it too
+
+
+async def claim(db: AsyncSession, p: AgentProposal) -> bool:
+    """Atomically takes a pending suggestion for this request (pending → sending) and commits, before anything
+    is sent. A double-click, a second tab or "Send all" running at the same time gets False, so a message can
+    only ever be sent once. Postgres re-checks the WHERE after a concurrent update, so exactly one wins."""
+    r = await db.execute(update(AgentProposal).where(AgentProposal.proposal_id == p.proposal_id,
+                                                     AgentProposal.status == "pending").values(status=SENDING))
+    if r.rowcount != 1:
+        return False
+    await db.commit()
+    p.status = SENDING
+    return True
+
+
+async def release(db: AsyncSession, proposal_id: str) -> None:
+    """Gives a claimed suggestion back (sending failed: nothing was sent, so it can be tried again)."""
+    await db.execute(update(AgentProposal).where(AgentProposal.proposal_id == proposal_id,
+                                                 AgentProposal.status == SENDING).values(status="pending"))
+    await db.commit()
 
 
 def _change_for(p: AgentProposal, d: CreatorDeal) -> dict:
@@ -126,4 +154,6 @@ def out(p: AgentProposal, name: str, avatar: Optional[str], can_send: bool = Fal
             "can_send": can_send and p.kind in A.MESSAGE_KINDS and bool(pl.get("message")),
             "terms": pl.get("terms"), "change": pl.get("change"),
             "subject": pl.get("subject"), "texts": pl.get("texts"), "seen": bool(pl.get("seen")),
+            # a first message that failed the checks twice: shown with its problems, never sent by "Send all"
+            "needs_review": bool(pl.get("needs_review")), "problems": pl.get("problems") or [],
             "name": name, "avatar_url": avatar, "created_at": p.created_at.isoformat() if p.created_at else None}

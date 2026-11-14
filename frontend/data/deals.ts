@@ -160,6 +160,8 @@ export type Proposal = {
   subject?: string | null; // a first email's subject line
   texts?: Partial<Record<string, { subject?: string; body: string }>> | null; // pitch: the message for each channel
   seen?: boolean; // you've looked at this first message ("Send all reviewed")
+  needs_review?: boolean; // a first message that failed ReachAI's checks: fix it before sending ("Send all" skips it)
+  problems?: string[]; // what the checks found
   name: string;
   avatar_url: string | null;
   created_at: string | null;

@@ -155,7 +155,7 @@ export default function DealsBoard({ campaignId, apiOverride }: {
   const drafts = new Set(draftOf.keys());
   const byId = new Map((deals ?? []).map((d) => [d.id, d] as const));
   // first emails you've opened and looked at: "Send N reviewed" sends them from Gmail in one go
-  const reviewed = proposals.filter((p) => p.kind === "pitch" && p.seen && p.can_send && byId.get(p.deal_id)?.channel === "email");
+  const reviewed = proposals.filter((p) => p.kind === "pitch" && p.seen && !p.needs_review && p.can_send && byId.get(p.deal_id)?.channel === "email");
   const sendReviewed = async () => {
     setBulk("busy");
     setBulkNote(null);

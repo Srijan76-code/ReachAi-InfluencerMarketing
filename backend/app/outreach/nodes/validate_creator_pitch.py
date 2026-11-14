@@ -31,6 +31,41 @@ FORMULAIC_OPENERS = (
     "i stumbled upon your channel",
 )
 
+# What a first message must never contain (spec §7.4): money is agreed later in the chat, links other than the
+# brand's own site look like spam or come from untrusted creator text, contact details and phone numbers come
+# from the founder's Gmail, and template leftovers or AI phrases give the message away.
+MONEY = re.compile(
+    r"[$€£₹]\s?\d|\b\d[\d,]*(?:\.\d+)?\s?(?:usd|eur|gbp|inr|dollars?|bucks|rupees?)\b|\b(?:rs\.?|inr|usd)\s?\d"
+    r"|\b\d+(?:\.\d+)?\s?k\b",
+    re.I,
+)
+URL = re.compile(r"\b(?:https?://|www\.)[^\s<>()\"']+|\b[a-z0-9-]+\.(?:ly|gl|io|co|com|net|me|app|link)/[^\s<>()\"']*", re.I)
+EMAIL_ADDR = re.compile(r"\b[\w.+-]+@[\w-]+\.[\w.-]+\b")
+PHONE = re.compile(r"(?<![\w$€£₹])\+?\d[\d\s().-]{8,}\d\b")
+PLACEHOLDER = re.compile(r"\[[^\]\n]{2,40}\]|\{[^}\n]{2,40}\}|<<?[a-z_ ]{3,30}>>?", re.I)
+AI_TELLS = ("as an ai", "language model", "ignore previous", "ignore all previous", "system prompt",
+            "as instructed", "i cannot help", "i can't help with")
+MAX_SUBJECT_CHARS = 80
+MAX_EMAIL_CHARS = 1500
+MAX_DM_CHARS = 600
+
+
+def _name_forms(name: str) -> list[str]:
+    """Ways the pitch may write the creator's name: the full name, or its first word ("Sofia ♡" → "sofia",
+    "Sofia | Tech & AI" → "sofia", "@sofia.codes" → "sofia.codes"). Empty when the name has no letters."""
+    clean = re.sub(r"[^\w\s.'-]", " ", name.replace("@", " ")).strip().lower()
+    words = [w.strip(".'-") for w in clean.split() if len(w.strip(".'-")) >= 2]
+    if not words:
+        return []
+    forms = {clean, words[0]}
+    forms.update(p for p in re.split(r"[._-]", words[0]) if len(p) >= 3)
+    return [f for f in forms if f]
+
+
+def _host(url: str) -> str:
+    u = re.sub(r"^(?:https?://)?(?:www\.)?", "", url.lower())
+    return u.split("/", 1)[0].split("?", 1)[0]
+
 
 def _bundle_text(bundle: dict) -> str:
     parts = [str(bundle.get("pitch_angle", ""))]
@@ -74,8 +109,50 @@ def validate_bundle(bundle_data: dict, creator_input: CreatorPitchInput) -> list
 
     if brand_name and brand_name.lower() not in text_lower:
         errors.append("brand name is missing from the pitch")
-    if creator_name and creator_name.lower() != "unknown creator" and creator_name.lower() not in text_lower:
+    forms = _name_forms(creator_name) if creator_name.lower() != "unknown creator" else []
+    if forms and not any(re.search(rf"(?<!\w){re.escape(f)}(?!\w)", text_lower) for f in forms):
         errors.append("creator name is missing from the pitch")
+
+    # message text only (not the internal angle/reasons): what the creator would actually read
+    message = "\n".join(str(v) for f in CHANNEL_FIELDS.values() if (ch := bundle_data.get(f)) and isinstance(ch, dict)
+                        for v in ch.values() if v)
+    brand_site = _host(str((creator_input.get("campaign_context") or {}).get("brand", {}).get("website") or ""))
+    links = URL.findall(message)
+    if any(not brand_site or _host(u) != brand_site for u in links):
+        errors.append("pitch links to a site other than the brand's own website")
+    no_links = URL.sub(" ", message)
+    if MONEY.search(no_links):
+        errors.append("pitch mentions money: prices are agreed later in the chat")
+    if EMAIL_ADDR.search(no_links):
+        errors.append("pitch contains an email address")
+    if PHONE.search(no_links):
+        errors.append("pitch contains a phone number")
+    if PLACEHOLDER.search(message):
+        errors.append("pitch contains a template placeholder")
+    lower_message = message.lower()
+    for tell in AI_TELLS:
+        if tell in lower_message:
+            errors.append(f"pitch contains AI or instruction text: '{tell}'")
+
+    email = bundle_data.get("email") if isinstance(bundle_data.get("email"), dict) else None
+    if email is not None:
+        subject, body = str(email.get("subject") or "").strip(), str(email.get("body") or "").strip()
+        if not body:
+            errors.append("email body is empty")
+        elif len(body) > MAX_EMAIL_CHARS:
+            errors.append(f"email is too long (over {MAX_EMAIL_CHARS} characters)")
+        if not subject:
+            errors.append("email subject is empty")
+        elif len(subject) > MAX_SUBJECT_CHARS:
+            errors.append(f"email subject is too long (over {MAX_SUBJECT_CHARS} characters)")
+    for f in ("instagram", "twitter", "linkedin"):
+        dm = bundle_data.get(f)
+        if isinstance(dm, dict):
+            body = str(dm.get("body") or "").strip()
+            if not body:
+                errors.append(f"{f} message is empty")
+            elif len(body) > MAX_DM_CHARS:
+                errors.append(f"{f} message is too long (over {MAX_DM_CHARS} characters)")
     if (creator_input.get("collaboration") or {}).get("type") and not any(
         phrase in text_lower for phrase in ("collaboration", "partnership", "work together")
     ):
@@ -95,7 +172,7 @@ def validate_bundle(bundle_data: dict, creator_input: CreatorPitchInput) -> list
     for term in INTERNAL_TERMS:
         if re.search(rf"\b{re.escape(term)}\b", text_lower):
             errors.append(f"internal scoring field exposed: {term}")
-    if text.count("?") > 2:
+    if URL.sub(" ", text).count("?") > 2:
         errors.append("pitch contains more than two questions")
     if not bundle.personalization:
         errors.append("at least one evidence-backed personalization item is required")

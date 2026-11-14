@@ -764,6 +764,14 @@ Default sequence (editable per campaign):
   - Other intents with high confidence → draft a reply (LLM `reply`, with the fair-price range for rate intents) for approval.
   - Low confidence or `needs_human` → "Needs you" tab.
 
+### 7.9b Hardening (Nov 13): checked with simulated models and a stress test
+- **Send once:** approving claims the suggestion atomically (`pending → sending`, committed before Gmail is called; `app/agent/queue.claim`). A second click, a second tab or "Send all" at the same time gets 409 and nothing is sent twice; a failed send releases it back to `pending`. A crash between Gmail and the save leaves it in `sending` (never resent automatically).
+- **Send all:** each pitch loaded fresh and committed on its own; any error skips that creator and continues; drafts with `needs_review` are never sent in bulk.
+- **Pitch checks** (`validate_creator_pitch.py`): money in any currency or "1.5k", links other than the brand's website, email addresses, phone numbers, placeholders, AI/instruction phrases, empty or oversized email/subject/DM; the creator's name matches on its first word (emoji and handles ignored). Still failing after one repair → the draft carries `needs_review` + `problems`. One creator's AI failure → status `failed`, the batch continues.
+- **Negotiation:** `numbers_ok` rejects any amount not written as the decided `$` fee; offers are rounded within the ceiling (never up past it); when our last offer exceeds the budget left, no price is suggested; an AI outage stores the reply with a note (`AGENT_DOWN`) and stales the old suggestion. Fuzzed with 6,000+ random Jev answers (`tests/hardening/test_negotiation_fuzz.py`).
+- **Gmail sync:** one broken thread is logged and skipped; the bell's sync has a 4 s budget, oldest-checked threads first.
+- **Hot paths:** the inbox reads only names and unread previews (creator names via `jsonb_array_elements` in SQL); the Deals page and chat actions read creators cut down to `LEAD_FIELDS` in SQL and load each chat's events once. Stress test: `PERF=1 pytest tests/perf` (10 campaigns × 50 creators, 300 deals).
+
 ### 7.10 Assisted DMs (X / Instagram / LinkedIn)
 - "Copy and open DM" button: copies the message and opens `x.com/messages/compose?recipient_id=…`, `ig.me/m/<handle>` or the LinkedIn profile. The founder marks it sent in one click → `outreach_messages(channel=dm, status=sent_manual)`.
 - No automated cold DMs: they break X's automation rules and put the user's LinkedIn/Instagram account at risk.
