@@ -465,6 +465,9 @@ const InfluencerPage = ({ campaignId }: InfluencerPageProps) => {
                     <DropdownMenuCheckboxItem className="focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-900 dark:focus:text-zinc-100 cursor-pointer" checked={view.hideSuspicious} onCheckedChange={(c) => set("hideSuspicious", c === true)} onSelect={(e) => e.preventDefault()}>
                       Hide unusual engagement
                     </DropdownMenuCheckboxItem>
+                    <DropdownMenuCheckboxItem className="focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-900 dark:focus:text-zinc-100 cursor-pointer" checked={view.competitor} onCheckedChange={(c) => set("competitor", c === true)} onSelect={(e) => e.preventDefault()}>
+                      Promoted a competitor
+                    </DropdownMenuCheckboxItem>
                     <DropdownMenuCheckboxItem className="focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-900 dark:focus:text-zinc-100 cursor-pointer" checked={view.approved} onCheckedChange={(c) => set("approved", c === true)} onSelect={(e) => e.preventDefault()}>
                       Approved by reviewers
                     </DropdownMenuCheckboxItem>
@@ -616,12 +619,12 @@ const InfluencerPage = ({ campaignId }: InfluencerPageProps) => {
               </DialogContent>
             </Dialog>
 
-            {/* --- RUN NOTE + PLATFORM CHIPS --- */}
-            {platforms.length > 1 && (
-              <div className="flex items-center gap-2 -mt-3 mb-1">
-                <div className="w-10 flex-shrink-0" />
-                <div className="flex-1 min-w-0 flex flex-wrap items-center justify-between gap-2 pl-1">
-                  {platforms.length > 1 && (
+            {/* --- CAMPAIGN SUMMARY BANNER --- */}
+            <motion.div variants={staggerItemVariants}  className="flex items-stretch gap-2 mb-4">
+              <div className="w-10 flex-shrink-0" />
+              <div className="flex-1 min-w-0  ">
+                <CampaignSummaryBanner
+                  actions={platforms.length > 1 ? (
                     <div className="flex items-center gap-1" role="group" aria-label="Platforms">
                       {[{ platform: "all", count: final_ranked_leads.length }, ...platforms].map(({ platform, count }) => {
                         const on = platform === "all" ? view.platforms.length === 0 : view.platforms.includes(platform);
@@ -640,16 +643,7 @@ const InfluencerPage = ({ campaignId }: InfluencerPageProps) => {
                         );
                       })}
                     </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* --- CAMPAIGN SUMMARY BANNER --- */}
-            <motion.div variants={staggerItemVariants}  className="flex items-stretch gap-2 mb-4">
-              <div className="w-10 flex-shrink-0" />
-              <div className="flex-1 min-w-0  ">
-                <CampaignSummaryBanner
+                  ) : null}
                   influencers={
                     selectedIds.size > 0
                       ? displayedLeads.filter((l) => selectedIds.has(l.id))

@@ -45,6 +45,8 @@ class Brief:
     exclude_kids_content: bool = True
     ignored_countries: list[str] = field(default_factory=list)  # codes the form sent that aren't real
     platforms: list[str] = field(default_factory=list)  # chosen by the user; empty = ReachAI chooses
+    competitors: list[str] = field(default_factory=list)  # entered by the user; empty = the strategy's suggestions
+    competitor_mode: str = "show"  # show | prefer | avoid: what promoting a competitor does to a creator
 
     @property
     def founder_type(self) -> str:
@@ -78,7 +80,9 @@ class Brief:
         }
 
     def hash(self) -> str:
-        return hashlib.sha256(json.dumps(asdict(self), sort_keys=True, default=str).encode()).hexdigest()
+        # competitors only change code-side scoring, so they don't invalidate cached strategies and Jev answers
+        d = {k: v for k, v in asdict(self).items() if k not in ("competitors", "competitor_mode")}
+        return hashlib.sha256(json.dumps(d, sort_keys=True, default=str).encode()).hexdigest()
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -92,6 +96,17 @@ def _clean_countries(codes: Any) -> tuple[list[str], list[str]]:
             continue
         (good if code in ISO_COUNTRIES else bad).append("GB" if code == "UK" else code)
     return list(dict.fromkeys(good)), bad
+
+
+COMPETITOR_MODES = ("show", "prefer", "avoid")
+MAX_COMPETITORS = 10
+
+
+def _clean_competitors(values: Any) -> list[str]:
+    if not isinstance(values, (list, tuple)):
+        return []
+    names = [" ".join(str(v).split())[:60] for v in values]
+    return list(dict.fromkeys(n for n in names if len(n) >= 2))[:MAX_COMPETITORS]
 
 
 def _clean_platforms(values: Any) -> list[str]:
@@ -131,4 +146,6 @@ def parse_brief(details: dict) -> Brief:
         exclude_kids_content=bool(cons.get("exclude_kids_content", True)),
         ignored_countries=ignored,
         platforms=_clean_platforms(campaign.get("platforms")),
+        competitors=_clean_competitors(campaign.get("competitors")),
+        competitor_mode=campaign.get("competitor_mode") if campaign.get("competitor_mode") in COMPETITOR_MODES else "show",
     )

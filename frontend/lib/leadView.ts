@@ -24,6 +24,7 @@ export type LeadView = {
   rising: boolean;
   onTrend: boolean;
   hideSuspicious: boolean;
+  competitor: boolean; // only creators who promoted a competitor
   savedOnly: boolean;
   approved: boolean; // reviewers gave more 👍 than 👎
   hasFeedback: boolean;
@@ -39,6 +40,7 @@ export const DEFAULT_VIEW: LeadView = {
   rising: false,
   onTrend: false,
   hideSuspicious: false,
+  competitor: false,
   savedOnly: false,
   approved: false,
   hasFeedback: false,
@@ -54,6 +56,7 @@ export function activeFilterCount(v: LeadView): number {
     Number(v.rising) +
     Number(v.onTrend) +
     Number(v.hideSuspicious) +
+    Number(v.competitor) +
     Number(v.approved) +
     Number(v.hasFeedback)
   );
@@ -121,6 +124,7 @@ export function applyView(
     if (v.rising && !(l.rising || flags.includes("rising"))) return false;
     if (v.onTrend && !flags.includes("trend")) return false;
     if (v.hideSuspicious && flags.includes("suspicious")) return false;
+    if (v.competitor && !flags.includes("competitor")) return false;
     if (v.savedOnly && !saved[l.id]) return false;
     const fb = feedback[l.id];
     if (v.approved && !(fb && fb.yes > fb.no)) return false;
@@ -145,7 +149,7 @@ export function parseView(raw: string | null): LeadView {
     if (["All", "High", "Stable"].includes(o.reliability)) v.reliability = o.reliability;
     if (["All", "Micro", "Mid", "Premium"].includes(o.price)) v.price = o.price;
     if (Array.isArray(o.platforms)) v.platforms = o.platforms.filter((p: unknown) => typeof p === "string");
-    for (const k of ["rising", "onTrend", "hideSuspicious", "savedOnly", "approved", "hasFeedback"] as const) v[k] = o[k] === true;
+    for (const k of ["rising", "onTrend", "hideSuspicious", "competitor", "savedOnly", "approved", "hasFeedback"] as const) v[k] = o[k] === true;
     return v; // the search box is not restored: it surprises people on return
   } catch {
     return DEFAULT_VIEW;

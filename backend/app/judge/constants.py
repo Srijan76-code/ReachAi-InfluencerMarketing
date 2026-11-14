@@ -31,6 +31,9 @@ COUNTRY_JEV_DROP_FROM = 0.75  # Jev says "another country" with at least this co
 MAX_SUMMARIES_IN_STATE = 5  # post descriptions' opening lines sent with the country question
 MAX_SUMMARY_CHARS = 200
 TREND_BONUS = 0.05
+# Creators who recently promoted a competitor (roadmap F1.19), by the campaign's choice: "prefer" adds this
+# (they've shown they can sell in your category), "avoid" drops them (exclusivity risk), "show" only badges them.
+COMPETITOR_BONUS = 0.06
 TREND_THRESHOLD = 0.6
 PROMO_RISK_FACTOR = 0.5  # "mostly ads" counts half as much as a safety problem
 ANOMALY_RISK_FROM = 0.6  # anomaly scores below this add no risk

@@ -451,11 +451,16 @@ async def judge_score(state: BranchState, runtime: Runtime[Deps]) -> dict:
             judgments[cid] = j
             await repo.save_judgment(cid, hashes[cid], bh, K.QUESTIONS_VERSION, j.to_dict(), session_factory=sf)
 
+    from app.metrics.competitors import promotions
+
+    # the founder's competitors, else the ones the strategy suggested
+    rivals = brief.competitors or [c for c in (strategy.get("competitors") or []) if isinstance(c, str)]
     results = []
     for cid, j in judgments.items():
         p = profiles[cid]
+        promos = promotions(p.get("recent_posts") or [], rivals)
         s = score_creator(j, Metrics(**(p.get("metrics") or {})), exclude_kids_content=brief.exclude_kids_content,
-                          country_unknown=no_country(p))
+                          country_unknown=no_country(p), competitor_promos=promos, competitor_mode=brief.competitor_mode)
         results.append({
             "creator_id": cid, "platform": platform, "platform_id": p["platform_id"],
             "display_name": p.get("display_name", ""), "found_via": via.get(p["platform_id"]), "mode": state["mode"],
@@ -464,6 +469,7 @@ async def judge_score(state: BranchState, runtime: Runtime[Deps]) -> dict:
             "parts": s.parts,
             "country_judged": s.country,  # Jev's answer when the platform listed no country
             "signals": _signals(j),
+            "competitor_promos": promos,
         })
     if ids and not results:
         # Every judgment failed (Jev and its backup down): fail this step so the run is retried

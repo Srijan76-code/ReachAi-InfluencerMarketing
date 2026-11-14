@@ -47,6 +47,8 @@ export function transformPayload(store: CampaignState) {
       goal: goalMap[store.campaignGoal] || "signups",
       creator_authority_level: authorityMap[store.creatorAuthority] || "peer",
       platforms: store.platforms, // empty = ReachAI chooses (preset for the business type + a quick AI check)
+      competitors: store.competitors, // empty = ReachAI suggests them
+      competitor_mode: store.competitorMode,
       budget_total: parseInt(store.totalBudget) || 5000,
       creator_count: store.numberOfCreators[0] || 5,
     },

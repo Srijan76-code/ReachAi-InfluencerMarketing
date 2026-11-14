@@ -16,7 +16,7 @@ function largePhoto(url?: string | null): string | undefined {
   if (!url) return undefined;
   return /=s\d+/.test(url) ? url.replace(/=s\d+/, "=s800") : url;
 }
-import { CreatorBadges, badgeFlags } from "@/components/CreatorBadges";
+import { CreatorBadges, badgeFlags, competitorHelp } from "@/components/CreatorBadges";
 import { 
   SheetContent, 
   SheetTitle,
@@ -155,7 +155,7 @@ export const InfluencerDetailSheet = ({
                     {deal_status}
                   </span>
                 </div>
-                <CreatorBadges flags={badgeFlags(influencer)} size="md" />
+                <CreatorBadges flags={badgeFlags(influencer)} size="md" help={competitorHelp(influencer.competitor_promos)} />
                 {influencer.data_expired && (
                   <p className="text-[12px] text-zinc-500">
                     This creator&apos;s YouTube numbers are over 30 days old, so they were removed. Run the campaign again for fresh numbers.

@@ -87,6 +87,7 @@ def to_legacy_lead(profile: dict, metrics: dict, record: dict, reason: Optional[
         "avatar_url": profile.get("avatar_url"),
         "found_via": record.get("found_via"),
         "flags": record.get("flags") or [],
+        "competitor_promos": record.get("competitor_promos") or [],  # [{"brand", "posts"}]: sponsored posts for a competitor
         "fair_low": m.get("fair_low"),
         "fair_high": m.get("fair_high"),
         "rising": bool(m.get("rising")),

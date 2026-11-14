@@ -78,7 +78,8 @@ def judged_country(j: Judgment) -> tuple[str, Optional[str]]:
 
 
 def score_creator(j: Judgment, metrics: Metrics, *, exclude_kids_content: bool = False,
-                  country_unknown: bool = False) -> CreatorScore:
+                  country_unknown: bool = False, competitor_promos: Optional[list] = None,
+                  competitor_mode: str = "show") -> CreatorScore:
     """`country_unknown`: the brief sets target countries and the platform lists no country for this
     creator. Jev's country answer then decides: a target country (kept, no penalty), another country
     (dropped), or no clue (kept and flagged; ranked lower only on platforms that normally list a country)."""
@@ -103,6 +104,8 @@ def score_creator(j: Judgment, metrics: Metrics, *, exclude_kids_content: bool =
 
     trend = _noul(j, "posts_on_trend", 0.0)
     bonus = (K.RISING_BONUS if metrics.rising else 0.0) + (K.TREND_BONUS if trend > K.TREND_THRESHOLD else 0.0)
+    if competitor_promos and competitor_mode == "prefer":
+        bonus += K.COMPETITOR_BONUS
 
     raw = K.FINAL_WEIGHTS["fit"] * fit + K.FINAL_WEIGHTS["health"] * metrics.health + bonus - K.RISK_WEIGHT * risk
     parts = {
@@ -127,6 +130,8 @@ def score_creator(j: Judgment, metrics: Metrics, *, exclude_kids_content: bool =
         drops.append("content made for children")
     if _noul(j, "injection", 0.0) > K.DROP_INJECTION_ABOVE:
         drops.append("profile contains instructions aimed at AI")
+    if competitor_promos and competitor_mode == "avoid":
+        drops.append(f"recently promoted a competitor ({competitor_promos[0]['brand']})")
 
     flags = []
     if metrics.rising:
@@ -139,6 +144,8 @@ def score_creator(j: Judgment, metrics: Metrics, *, exclude_kids_content: bool =
         flags.append("country_unknown")
     if country:
         flags.append("country_by_jev")
+    if competitor_promos:
+        flags.append("competitor")
 
     return CreatorScore(
         fit=round(fit, 4),

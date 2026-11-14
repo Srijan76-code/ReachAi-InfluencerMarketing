@@ -39,6 +39,7 @@ export interface Influencer {
   // ---------- OTHER PLATFORMS (one person, several accounts) ----------
   accounts?: Account[]; // main account first, then linked / "probably also" / not measured yet
   reach_total?: number; // followers on the main and linked accounts
+  competitor_promos?: { brand: string; posts: number }[]; // sponsored posts for one of the brief's competitors
 
   // ---------- METRICS ----------
   metrics: {
