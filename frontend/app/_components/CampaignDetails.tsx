@@ -3,6 +3,7 @@ import React from "react";
 import CreatorAuthority from "@/components/CreatorAuthority";
 import FlagAndSearchCountry from "@/components/FlagAndSearchCountry";
 import MultiPlatform from "@/components/MultiPlatform";
+import Competitors from "@/components/Competitors";
 import {
   Status,
   StatusIndicator,
@@ -25,6 +26,7 @@ const CampaignDetails = () => {
         <CreatorAuthority />
         <MultiPlatform />
         <FlagAndSearchCountry />
+        <Competitors />
       </div>
     </div>
   );

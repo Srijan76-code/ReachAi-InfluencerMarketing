@@ -1,4 +1,4 @@
-import { TrendingUp, Flame, AlertTriangle, Globe, Clock } from "lucide-react";
+import { TrendingUp, Flame, AlertTriangle, Globe, Clock, Swords } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 /** Labels the discovery engine attaches to a creator (`flags` on each result). */
@@ -27,9 +27,15 @@ export const BADGES: Record<string, { label: string; help: string; icon: typeof 
     icon: Clock,
     className: "text-zinc-600 dark:text-zinc-400 bg-zinc-500/10 border-zinc-500/20",
   },
+  competitor: {
+    label: "Competitor",
+    help: "Recently promoted one of your competitors in a sponsored post.",
+    icon: Swords,
+    className: "text-amber-700 dark:text-amber-400 bg-amber-500/10 border-amber-500/20",
+  },
   country_unknown: {
     label: "Country unknown",
-    help: "This channel doesn't list a country and its posts give no clear clue, so we can't confirm its audience is in your market. It's ranked a little lower.",
+    help: "No country listed and its posts give no clear clue, so we can't confirm its audience is in your market. On YouTube and LinkedIn it's ranked a little lower.",
     icon: Globe,
     className: "text-zinc-600 dark:text-zinc-400 bg-zinc-500/10 border-zinc-500/20",
   },
@@ -41,10 +47,11 @@ export function knownFlags(flags: string[] | undefined | null): string[] {
 
 /** `compact`: with many badges, show each as a small coloured icon (name and meaning on hover), so
  *  every badge stays visible on one line. "auto" turns compact on at 3 or more badges. */
-export function CreatorBadges({ flags, size = "sm", compact = false }: {
+export function CreatorBadges({ flags, size = "sm", compact = false, help = {} }: {
   flags?: string[] | null;
   size?: "sm" | "md";
   compact?: boolean | "auto";
+  help?: Record<string, string | undefined>; // per-creator detail, e.g. which competitor
 }) {
   const shown = knownFlags(flags);
   if (!shown.length) return null;
@@ -68,7 +75,7 @@ export function CreatorBadges({ flags, size = "sm", compact = false }: {
             </TooltipTrigger>
             <TooltipContent side="top" className="max-w-[220px] text-xs">
               {iconOnly && <span className="block font-semibold mb-0.5">{b.label}</span>}
-              {b.help}
+              {help[f] ?? b.help}
             </TooltipContent>
           </Tooltip>
         );
@@ -80,4 +87,10 @@ export function CreatorBadges({ flags, size = "sm", compact = false }: {
 /** Flags to show for a result, including "data_expired" when the nightly refresh removed its numbers. */
 export function badgeFlags(lead: { flags?: string[] | null; data_expired?: boolean }): string[] {
   return [...(lead.data_expired ? ["data_expired"] : []), ...(lead.flags ?? [])];
+}
+
+/** "Sponsored posts for Notion (2), ClickUp (1)" from a result's competitor_promos. */
+export function competitorHelp(promos?: { brand: string; posts: number }[] | null): Record<string, string | undefined> {
+  if (!promos?.length) return {};
+  return { competitor: `Sponsored posts for ${promos.map((p) => `${p.brand} (${p.posts})`).join(", ")}.` };
 }

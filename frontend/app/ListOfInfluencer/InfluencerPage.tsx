@@ -465,6 +465,9 @@ const InfluencerPage = ({ campaignId }: InfluencerPageProps) => {
                     <DropdownMenuCheckboxItem className="focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-900 dark:focus:text-zinc-100 cursor-pointer" checked={view.hideSuspicious} onCheckedChange={(c) => set("hideSuspicious", c === true)} onSelect={(e) => e.preventDefault()}>
                       Hide unusual engagement
                     </DropdownMenuCheckboxItem>
+                    <DropdownMenuCheckboxItem className="focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-900 dark:focus:text-zinc-100 cursor-pointer" checked={view.competitor} onCheckedChange={(c) => set("competitor", c === true)} onSelect={(e) => e.preventDefault()}>
+                      Promoted a competitor
+                    </DropdownMenuCheckboxItem>
                     <DropdownMenuCheckboxItem className="focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-900 dark:focus:text-zinc-100 cursor-pointer" checked={view.approved} onCheckedChange={(c) => set("approved", c === true)} onSelect={(e) => e.preventDefault()}>
                       Approved by reviewers
                     </DropdownMenuCheckboxItem>

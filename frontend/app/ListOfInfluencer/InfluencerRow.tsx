@@ -1,7 +1,7 @@
 import { PlatformStack } from "@/components/PlatformAccounts";
 import { CreatorAvatar } from "@/components/CreatorAvatar";
 import type { Influencer } from "@/data/influencerList";
-import { CreatorBadges, badgeFlags } from "@/components/CreatorBadges";
+import { CreatorBadges, badgeFlags, competitorHelp } from "@/components/CreatorBadges";
 import { FeedbackChip } from "@/components/Feedback";
 import type { FeedbackItem } from "@/data/influencerList";
 import { ShieldCheck, Info, Bookmark } from "lucide-react";
@@ -99,7 +99,7 @@ export const InfluencerRow = ({
               {deal_status}
             </span>
             <PlatformStack accounts={influencer.accounts} reachTotal={influencer.reach_total} />
-            <CreatorBadges flags={badgeFlags(influencer)} compact="auto" />
+            <CreatorBadges flags={badgeFlags(influencer)} compact="auto" help={competitorHelp(influencer.competitor_promos)} />
             <FeedbackChip items={feedback} />
           </div>
         </div>

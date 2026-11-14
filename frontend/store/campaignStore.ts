@@ -23,6 +23,8 @@ export interface CampaignState {
   campaignGoal: string;
   creatorAuthority: string;
   platforms: string[];
+  competitors: string[]; // empty = ReachAI suggests them
+  competitorMode: "show" | "prefer" | "avoid";
   audienceLocation: string;
   pitch: string;
   targetAudience: string;
@@ -73,6 +75,8 @@ export const useCampaignStore = create<CampaignState>((set, get) => ({
   campaignGoal: "1",
   creatorAuthority: "1",
   platforms: [], // empty = let ReachAI choose the platforms
+  competitors: [],
+  competitorMode: "show",
   audienceLocation: "",
   pitch: "",
   targetAudience: "",
@@ -133,6 +137,8 @@ export const useCampaignStore = create<CampaignState>((set, get) => ({
       campaignGoal: goalReverseMap[campaign.goal] || "1",
       creatorAuthority: authorityReverseMap[campaign.creator_authority_level] || "1",
       platforms: Array.isArray(campaign.platforms) ? campaign.platforms : [],
+      competitors: Array.isArray(campaign.competitors) ? campaign.competitors : [],
+      competitorMode: ["show", "prefer", "avoid"].includes(campaign.competitor_mode) ? campaign.competitor_mode : "show",
       totalBudget: campaign.budget_total ? String(campaign.budget_total) : "",
       numberOfCreators: campaign.creator_count ? [campaign.creator_count] : [3],
     });
