@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type React from "react";
 import { CreatorAvatar } from "@/components/CreatorAvatar";
+import { PlatformSwitcher } from "@/components/PlatformAccounts";
 import { FeedbackSection } from "@/components/Feedback";
 import { AddToDealsButton } from "@/components/deals/AddToDealsButton";
 import type { FeedbackItem } from "@/data/influencerList";
@@ -163,7 +164,7 @@ export const InfluencerDetailSheet = ({
                 
                 <div className="flex items-center gap-2.5 text-[12px] text-zinc-500">
                   <span className="flex items-center gap-1.5 font-medium">
-                    <Globe size={13} className="text-zinc-500" /> {influencer.platform === "youtube" || !influencer.platform ? "YouTube" : influencer.platform} creator
+                    <Globe size={13} className="text-zinc-500" /> {platformName === "their channel" ? "YouTube" : platformName} creator
                   </span>
                   <span className="w-1 h-1 rounded-full bg-zinc-200 dark:bg-zinc-700" />
                   <span
@@ -186,11 +187,13 @@ export const InfluencerDetailSheet = ({
             </div>
           </div>
 
+          <PlatformSwitcher accounts={influencer.accounts} campaignId={campaignId} leadId={influencer.id} readOnly={readOnly} />
+
           {!readOnly && (
           <div className="flex items-center justify-between pt-1">
             <div className="flex items-center gap-2">
-              <SocialLink href={socials.instagram} label="Instagram" className="w-8 h-8 rounded border border-zinc-200/60 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-900/50 flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors text-zinc-600 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"><Instagram size={14} /></SocialLink>
-              <SocialLink href={socials.twitter} label="X" className="w-8 h-8 rounded border border-zinc-200/60 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-900/50 flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors text-zinc-600 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"><Twitter size={14} /></SocialLink>
+              {(influencer.accounts?.length ?? 0) < 2 && <SocialLink href={socials.instagram} label="Instagram" className="w-8 h-8 rounded border border-zinc-200/60 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-900/50 flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors text-zinc-600 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"><Instagram size={14} /></SocialLink>}
+              {(influencer.accounts?.length ?? 0) < 2 && <SocialLink href={socials.twitter} label="X" className="w-8 h-8 rounded border border-zinc-200/60 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-900/50 flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors text-zinc-600 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"><Twitter size={14} /></SocialLink>}
               <SocialLink href={socials.email ? `mailto:${socials.email}` : null} label="Email" external={false} className="w-8 h-8 rounded border border-zinc-200/60 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-900/50 flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors text-zinc-600 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"><Mail size={14} /></SocialLink>
             </div>
             {readOnly ? null : campaignId ? (

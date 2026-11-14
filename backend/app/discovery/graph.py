@@ -44,6 +44,7 @@ def build_discovery_graph() -> StateGraph:
     g.add_node("plan", nodes.plan)
     g.add_node("platform_branch", build_branch_graph().compile())
     g.add_node("merge_rank", nodes.merge_rank, defer=True)
+    g.add_node("people", nodes.people, retry_policy=API_RETRY)
     g.add_node("reason", nodes.reason, retry_policy=API_RETRY)
     g.add_node("finalize", nodes.finalize, defer=True)
 
@@ -52,7 +53,8 @@ def build_discovery_graph() -> StateGraph:
     g.add_edge(["strategy", "platform_select", "db_search"], "plan")  # waits for all three
     g.add_conditional_edges("plan", nodes.fan_out, ["platform_branch", "merge_rank"])
     g.add_edge("platform_branch", "merge_rank")
-    g.add_conditional_edges("merge_rank", nodes.probe_check, ["platform_branch", "reason", "finalize"])
+    g.add_conditional_edges("merge_rank", nodes.probe_check, ["platform_branch", "people"])
+    g.add_conditional_edges("people", nodes.after_people, ["reason", "finalize"])
     g.add_edge("reason", "finalize")
     g.add_edge("finalize", END)
     return g

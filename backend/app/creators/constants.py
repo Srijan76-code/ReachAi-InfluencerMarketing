@@ -19,6 +19,9 @@ LINK_REVERSE = "reverse_link"  # the other account links back
 LINK_NAME_MATCH = "name_match"  # same name/handle, no link: only a suggestion unless confirmed
 AUTO_MERGE_SOURCES = {LINK_SELF, LINK_REVERSE}
 NAME_MATCH_MERGE_FROM = 0.85  # Jev "same person?" probability needed to merge a name match
+NAME_SIMILAR_FROM = 0.85  # code: names/handles this alike count as matching (difflib ratio after normalising)
+ENRICH_TOP_PEOPLE = 10  # after a search, the other accounts of this many top people are measured automatically
+MAX_SAME_PERSON_CHECKS = 30  # Jev "same person?" checks per search (pairs that code found worth asking)
 
 # Nightly YouTube refresh (spec §4.4, roadmap F1.11). Creators due within REFRESH_AHEAD are refreshed
 # if they're useful (scored in a run or in someone's results/saved leads); the rest are deleted once

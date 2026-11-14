@@ -13,7 +13,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Iterable, Optional, Sequence
 
 import numpy as np
-from sqlalchemy import delete, func, select, text, update
+from sqlalchemy import delete, func, or_, select, text, update
 
 from app.creators import constants as C
 from app.metrics.stats import follower_tier
@@ -485,16 +485,18 @@ async def link_accounts(
     *,
     source: str,
     confidence: float = 1.0,
+    suggest_only: bool = False,
     session_factory=None,
 ) -> Optional[str]:
     """Mark two accounts as the same person. Returns the person_id, or None if only suggested.
 
     Self/reverse links (one account links to the other) merge right away. A name match only
     merges at confidence >= NAME_MATCH_MERGE_FROM; below that it's stored as a suggestion.
+    `suggest_only`: store it as a suggestion whatever the confidence (shown as "Probably also").
     """
     if creator_a == creator_b:
         raise ValueError("cannot link an account to itself")
-    merge = source in C.AUTO_MERGE_SOURCES or (source == C.LINK_NAME_MATCH and confidence >= C.NAME_MATCH_MERGE_FROM)
+    merge = not suggest_only and (source in C.AUTO_MERGE_SOURCES or (source == C.LINK_NAME_MATCH and confidence >= C.NAME_MATCH_MERGE_FROM))
     async with _factory(session_factory)() as session:
         a, b = await session.get(Creator, creator_a), await session.get(Creator, creator_b)
         if a is None or b is None:
@@ -539,6 +541,64 @@ async def link_accounts(
                     link.link_source, link.confidence = src, conf
         await session.commit()
         return target
+
+
+async def find_by_keys(keys: Sequence[tuple[str, str]], *, session_factory=None) -> dict[tuple[str, str], str]:
+    """{(platform, key): creator_id} for accounts we've measured, matched by platform id or handle (any case).
+    Keys come from app/creators/identity.parse_link ("@handle" for YouTube handles)."""
+    out: dict[tuple[str, str], str] = {}
+    wanted = [(p, k) for p, k in dict.fromkeys(keys) if p and k]
+    if not wanted:
+        return out
+    by_platform: dict[str, set[str]] = {}
+    for p, k in wanted:
+        by_platform.setdefault(p, set()).add(k)
+    async with _factory(session_factory)() as session:
+        for p, ks in by_platform.items():
+            plain = {k.lstrip("@").lower() for k in ks}
+            rows = (await session.execute(select(Creator.creator_id, Creator.platform_id, Creator.handle).where(
+                Creator.platform == p,
+                or_(Creator.platform_id.in_(list(ks)), func.lower(func.ltrim(Creator.handle, "@")).in_(list(plain)),
+                    func.lower(Creator.platform_id).in_(list(plain)))))).all()
+            for cid, pid, handle in rows:
+                for k in ks:
+                    bare = k.lstrip("@").lower()
+                    if k == pid or bare == (pid or "").lower() or bare == (handle or "").lstrip("@").lower():
+                        out[(p, k)] = cid
+    return out
+
+
+async def people_of(creator_ids: Sequence[str], *, session_factory=None) -> dict[str, dict]:
+    """{creator_id: {"person_id", "accounts": [{creator_id, status, source}]}} for these accounts: the other
+    accounts linked to the same person, plus suggestions ("suggested") pointing at them."""
+    ids = list(dict.fromkeys(creator_ids))
+    if not ids:
+        return {}
+    async with _factory(session_factory)() as session:
+        persons = dict((await session.execute(select(Creator.creator_id, Creator.person_id).where(Creator.creator_id.in_(ids)))).all())
+        # an account suggested for someone else's person: show that person's accounts from its side too
+        suggested_for = dict((await session.execute(select(PersonLink.creator_id, PersonLink.person_id).where(
+            PersonLink.creator_id.in_(ids), PersonLink.status == "suggested"))).all())
+        pids = {p for p in persons.values() if p} | set(suggested_for.values())
+        members = (await session.execute(select(Creator.creator_id, Creator.person_id).where(Creator.person_id.in_(list(pids))))).all() if pids else []
+        links = {l.creator_id: l for l in (await session.execute(select(PersonLink).where(PersonLink.person_id.in_(list(pids))))).scalars()} if pids else {}
+    out: dict[str, dict] = {}
+    for cid in ids:
+        pid = persons.get(cid)
+        accounts = []
+        if pid:
+            accounts = [{"creator_id": m, "status": "linked", "source": (links.get(m).link_source if links.get(m) else C.LINK_SELF)}
+                        for m, mp in members if mp == pid and m != cid]
+            accounts += [{"creator_id": l.creator_id, "status": "suggested", "source": l.link_source}
+                         for l in links.values() if l.status == "suggested" and l.creator_id != cid
+                         and l.creator_id not in {a["creator_id"] for a in accounts}]
+        other = suggested_for.get(cid)
+        if other and other != pid:
+            seen = {a["creator_id"] for a in accounts}
+            accounts += [{"creator_id": m, "status": "suggested", "source": C.LINK_NAME_MATCH}
+                         for m, mp in members if mp == other and m != cid and m not in seen]
+        out[cid] = {"person_id": pid, "accounts": accounts}
+    return out
 
 
 async def person_accounts(person_id: str, *, session_factory=None) -> list[CreatorProfile]:

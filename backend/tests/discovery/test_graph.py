@@ -34,6 +34,9 @@ async def test_full_run_produces_ranked_leads_in_the_legacy_shape(sf, monkeypatc
     _, _, state, events = await run(sf, deps, stream=True)
 
     leads = state["final_leads"]
+    # every result carries its accounts (the main one first) for the platform switcher
+    assert all(l["accounts"][0]["main"] and l["accounts"][0]["platform"] == l["platform"] for l in leads)
+    assert all(l["reach_total"] >= l["subscribers"] for l in leads)
     assert leads, state.get("warnings")
     scores = [l["final_score"] for l in leads]
     assert scores == sorted(scores, reverse=True)

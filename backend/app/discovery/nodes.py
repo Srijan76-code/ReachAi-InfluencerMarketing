@@ -540,6 +540,48 @@ def probe_check(state: DiscoveryState) -> list[Send]:
             }))
     if sends:
         return sends
+    return [Send("people", state)]
+
+
+async def people(state: DiscoveryState, runtime: Runtime[Deps]) -> dict:
+    """One person = one result: link accounts across platforms and measure the top people's other accounts
+    (app/discovery/people.py). Never fails the search."""
+    from app.discovery.people import link_people
+
+    ranked = _ranked(state)[: L.FINAL_LIST_MAX]
+    ctx, sf = _ctx(runtime, state), runtime.context.session_factory
+    stats, warnings = {}, []
+    try:
+        _emit({"type": "stage", "stage": "Matching each creator's other platforms"})
+        stats = await link_people(ranked, adapters=runtime.context.adapters,
+                                  judge=lambda st, q: _judge(runtime, st, q, ctx),
+                                  metrics_ctx=_brief(state).metrics_context(), session_factory=sf, now=_now(runtime))
+    except Exception as exc:  # noqa: BLE001 - extra accounts are a bonus, never a reason to fail the search
+        logger.exception("people step failed")
+        warnings.append(f"other platforms couldn't be matched: {type(exc).__name__}")
+    try:
+        found = await repo.people_of([r["creator_id"] for r in ranked], session_factory=sf)
+        person_of = {cid: v["person_id"] for cid, v in found.items() if v.get("person_id")}
+    except Exception:  # noqa: BLE001
+        logger.exception("people lookup failed")
+        person_of = {}
+    return {"person_of": person_of, "people_stats": stats, "warnings": warnings}
+
+
+def _ranked_people(state: DiscoveryState) -> list[dict]:
+    """Ranked results with each person once (their best-scoring account)."""
+    person_of, seen, out = state.get("person_of") or {}, set(), []
+    for r in _ranked(state):
+        key = person_of.get(r["creator_id"]) or r["creator_id"]
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(r)
+    return out
+
+
+def after_people(state: DiscoveryState) -> list[Send]:
+    top = _ranked_people(state)[: Brief(**state["brief"]).creator_count]
     return [Send("reason", {"run_id": state["run_id"], "brief": state["brief"], "creator": r}) for r in top] or [
         Send("finalize", state)
     ]
@@ -571,7 +613,7 @@ async def reason(state: ReasonState, runtime: Runtime[Deps]) -> dict:
 
 async def finalize(state: DiscoveryState, runtime: Runtime[Deps]) -> dict:
     brief = Brief(**state["brief"])
-    ranked = _ranked(state)[: L.FINAL_LIST_MAX]
+    ranked = _ranked_people(state)[: L.FINAL_LIST_MAX]
     profiles = await repo.get_creators([r["creator_id"] for r in ranked], session_factory=runtime.context.session_factory)
     reasons = state.get("reasons") or {}
     strategy = state.get("strategy") or {}
@@ -581,4 +623,11 @@ async def finalize(state: DiscoveryState, runtime: Runtime[Deps]) -> dict:
                        reasons.get(r["creator_id"]), brief.industry, topics=topics)
         for r in ranked if r["creator_id"] in profiles
     ]
+    try:
+        from app.discovery.people_cards import attach_accounts
+
+        scored = {r["creator_id"]: r for r in _ranked(state)}
+        await attach_accounts(leads, profiles, scored, session_factory=runtime.context.session_factory)
+    except Exception:  # noqa: BLE001 - the list still shows without the other platforms
+        logger.exception("attaching other platforms failed")
     return {"final_leads": leads}
