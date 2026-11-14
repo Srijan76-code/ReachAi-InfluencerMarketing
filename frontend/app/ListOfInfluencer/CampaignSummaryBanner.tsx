@@ -10,8 +10,11 @@ import { Info } from "lucide-react";
 
 export const CampaignSummaryBanner = ({
   influencers,
+  actions,
 }: {
   influencers: Influencer[];
+  /** Shown on the right of the header, e.g. the platform filter. */
+  actions?: React.ReactNode;
 }) => {
   const stats = useMemo(() => {
     if (influencers.length === 0) return null;
@@ -74,7 +77,7 @@ export const CampaignSummaryBanner = ({
     };
   }, [influencers]);
 
-  if (!stats) return null;
+  if (!stats) return actions ? <div className="flex justify-end mb-4 px-1 lg:pt-3">{actions}</div> : null;
 
   // Minimalist numeric formatter (e.g., 21500 -> 21.5K)
   const formatCompact = (num: number) => {
@@ -94,7 +97,7 @@ export const CampaignSummaryBanner = ({
       <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-zinc-200 dark:via-zinc-700/50 to-transparent opacity-50 hidden lg:block" />
 
       {/* Ultra Minimal Banner Header */}
-      <div className="flex items-center justify-between mb-4 px-1 lg:pt-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-4 px-1 lg:pt-3">
         <div className="flex items-center gap-2">
           <div className="w-1 h-1 animate-pulse rounded-full bg-blue-500" />
           <h2 className="text-[12px] font-medium text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
@@ -104,6 +107,7 @@ export const CampaignSummaryBanner = ({
             </span>
           </h2>
         </div>
+        {actions}
       </div>
 
       <TooltipProvider delayDuration={150}>
