@@ -46,9 +46,13 @@ async def test_repair_uses_the_pitch_route_and_logs_cost_to_the_job(monkeypatch)
     assert cmd.update["creator_repair_counts"]["UC1"] == 1
 
 
-def test_pitch_route_keeps_the_model_outreach_already_used():
-    assert routes.route_models("pitch")[0].model == "gemini-3.5-flash-lite"
-    assert routes.route_models("judge_eval")[0].model == "gemini-3.5-flash-lite"
+def test_writing_routes_use_the_tested_models_with_backups_from_other_providers():
+    for route in ("pitch", "reply", "strategy"):
+        chain = routes.route_models(route)
+        assert [m.model for m in chain[:2]] == ["anthropic/claude-haiku-5.5", "openai/gpt-5-mini"]
+        assert {m.vendor for m in chain[2:]} == {"google", "groq"}  # still answers if the gateway is down
+    assert routes.route_models("judge_eval")[0].vendor != "anthropic"  # a different family judges the writer
+    assert not any(m.model == "gemini-3.8-flash" for r in routes.ROUTES.values() for m in r)
 
 
 def test_no_code_imports_the_old_hard_coded_model():

@@ -22,7 +22,7 @@ from pydantic import BaseModel
 
 from app.billing.costs import CostContext, CostRecord, record_cost, token_cost
 from app.core import config
-from app.llm.routes import ModelSpec, route_models
+from app.llm.routes import ModelSpec, key_for, route_models
 
 logger = logging.getLogger(__name__)
 
@@ -54,21 +54,27 @@ def _candidate_specs(route: str) -> list[ModelSpec]:
     return route_models(route)
 
 
-@lru_cache(maxsize=64)
 def _build_model(spec: ModelSpec, temperature: Optional[float]):
-    """Create (and reuse) a LangChain chat model. Retries are kept low so fallbacks kick in fast."""
-    api_key = os.getenv(spec.api_key_env)
+    """A LangChain chat model for this spec (reused while its key stays the same: a Vercel OIDC token rotates)."""
+    return _cached_model(spec, temperature, key_for(spec))
+
+
+@lru_cache(maxsize=64)
+def _cached_model(spec: ModelSpec, temperature: Optional[float], api_key: Optional[str]):
+    """Retries are kept low so fallbacks kick in fast."""
     kwargs: dict[str, Any] = {"model": spec.model, "max_retries": 1}
-    if temperature is not None:
+    if temperature is not None and spec.temperature:
         kwargs["temperature"] = temperature
     if spec.provider == "openai_compat":
         from langchain_openai import ChatOpenAI
 
-        return ChatOpenAI(base_url=spec.base_url, api_key=api_key, **kwargs)
+        if spec.reasoning_effort:
+            kwargs["reasoning_effort"] = spec.reasoning_effort
+        return ChatOpenAI(base_url=spec.base_url, api_key=api_key, max_tokens=spec.max_tokens, **kwargs)
     if spec.provider == "google":
         from langchain_google_genai import ChatGoogleGenerativeAI
 
-        return ChatGoogleGenerativeAI(google_api_key=api_key, **kwargs)
+        return ChatGoogleGenerativeAI(google_api_key=api_key, max_output_tokens=spec.max_tokens, **kwargs)
     raise ValueError(f"Unsupported provider {spec.provider}")
 
 
@@ -121,7 +127,7 @@ async def achat(
     context = context or CostContext()
     errors: list[str] = []
     for spec in _candidate_specs(route):
-        if not os.getenv(spec.api_key_env):
+        if not key_for(spec):
             errors.append(f"{spec.vendor}/{spec.model}: {spec.api_key_env} not set")
             continue
         attempts = PARSE_ATTEMPTS_PER_MODEL if schema is not None else 1
