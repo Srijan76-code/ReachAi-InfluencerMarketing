@@ -5,6 +5,10 @@ not always run lifespans, so the HTTP app is built (and started) for each reques
 stateless, so nothing is lost, and the tools themselves are defined once.
 """
 
+import asyncio
+import json
+import logging
+import time
 from functools import lru_cache
 from typing import Any
 from urllib.parse import urlsplit
@@ -22,6 +26,12 @@ from app.mcp.setup import setup_routes
 from app.mcp.tools import register_tools
 from app.mcp.tools_outreach import register_outreach_tools
 from app.mcp.tools_write import register_write_tools
+
+logger = logging.getLogger(__name__)
+
+# A tool call that takes longer than this is stopped with an error the client can show, instead of running until
+# the host kills it at 300 s. Every tool reads the database or sends one event, so 60 s is far beyond normal.
+REQUEST_TIMEOUT_S = 60
 
 INSTRUCTIONS = """\
 ReachAI finds the creators who will convert for a founder's product, shows a fair price for each, \
@@ -105,6 +115,28 @@ async def _method_not_allowed(send: Send) -> None:
                 "body": b'{"error":"This MCP server does not open event streams; send requests with POST."}'})
 
 
+SLOW_REQUEST_MS = 5000
+
+
+def _describe(body: bytes) -> str:
+    """The JSON-RPC method and tool name of a request, for logs (never arguments: they can hold user text)."""
+    try:
+        msg = json.loads(bytes(body) or b"{}")
+    except ValueError:
+        return "unreadable body"
+    if not isinstance(msg, dict):
+        return "batch"
+    tool = (msg.get("params") or {}).get("name") if msg.get("method") == "tools/call" else None
+    return f"{msg.get('method')}" + (f" {tool}" if tool else "")
+
+
+async def _timed_out(send: Send) -> None:
+    await send({"type": "http.response.start", "status": 504, "headers": [(b"content-type", b"application/json")]})
+    await send({"type": "http.response.body", "body": json.dumps({
+        "jsonrpc": "2.0", "id": None,
+        "error": {"code": -32001, "message": "ReachAI took too long to answer. Please try again."}}).encode()})
+
+
 class McpASGI:
     """ASGI app for the MCP endpoint and its OAuth metadata route."""
 
@@ -116,8 +148,35 @@ class McpASGI:
             await _method_not_allowed(send)
             return
         app = build_http_app(self._server)
-        async with app.router.lifespan_context(app):
-            await app(scope, receive, send)
+        body = bytearray()
+        started = False
+
+        async def receive_logged():
+            msg = await receive()
+            if msg.get("type") == "http.request":
+                body.extend(msg.get("body", b"")[:4096])
+            return msg
+
+        async def send_tracked(msg):
+            nonlocal started
+            started = started or msg.get("type") == "http.response.start"
+            await send(msg)
+
+        async def run():
+            async with app.router.lifespan_context(app):
+                await app(scope, receive_logged, send_tracked)
+
+        t0 = time.monotonic()
+        try:
+            await asyncio.wait_for(run(), REQUEST_TIMEOUT_S)
+        except asyncio.TimeoutError:
+            logger.warning("mcp request timed out after %ss: %s", REQUEST_TIMEOUT_S, _describe(body))
+            if not started:
+                await _timed_out(send)
+            return
+        ms = (time.monotonic() - t0) * 1000
+        if ms > SLOW_REQUEST_MS:
+            logger.info("mcp slow request %.0f ms: %s", ms, _describe(body))
 
 
 def mcp_routes(server: MCPServer | None = None) -> list[Route]:
