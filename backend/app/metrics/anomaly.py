@@ -66,10 +66,17 @@ class AnomalyModel:
 
 
 def fit_model(rows: Sequence[dict], random_state: int = 0) -> Optional[AnomalyModel]:
-    """Train on one platform's creators. Returns None if there aren't enough rows yet."""
+    """Train on one platform's creators. Returns None if there aren't enough rows yet.
+
+    Nothing in production trains a model yet, so scikit-learn (with scipy, ~160 MB) is only in
+    requirements-dev.txt: deploying it pushed the bundle over Vercel's size limit, which made every cold start
+    install packages first. Add it back to requirements.txt when the nightly job starts training."""
     if len(rows) < C.ANOMALY_MIN_TRAINING_ROWS:
         return None
-    from sklearn.ensemble import IsolationForest
+    try:
+        from sklearn.ensemble import IsolationForest
+    except ImportError:  # not deployed (see above): the rules keep deciding
+        return None
 
     X = np.array([feature_row(r) for r in rows], dtype=float)
     mean, std = X.mean(axis=0), X.std(axis=0)

@@ -205,3 +205,40 @@ async def test_event_stream_requests_are_refused_quickly(client, db):
         assert resp.status_code == 405 and resp.headers["allow"] == "POST"
     meta = await client.get("/.well-known/oauth-protected-resource/api/mcp")
     assert meta.status_code == 200  # the metadata route still answers GET
+
+
+async def test_a_hung_tool_call_is_stopped_with_a_clear_error(client, db, monkeypatch, caplog):
+    """A tool stuck on a dead connection used to run until the host killed it at 300 s."""
+    import asyncio
+    from app.mcp import server as S
+    from app.mcp import tools as T
+
+    async def hang(*a, **k):
+        await asyncio.sleep(30)
+
+    monkeypatch.setattr(S, "REQUEST_TIMEOUT_S", 0.2)
+    monkeypatch.setattr(T, "session_scope", lambda: _Hang(hang))
+    token = await make_key(db)
+    resp = await rpc(client, token, "tools/call", {"name": "list_campaigns", "arguments": {}})
+    assert resp.status_code == 504
+    assert "too long" in resp.json()["error"]["message"]
+    assert "tools/call list_campaigns" in caplog.text
+
+
+class _Hang:
+    def __init__(self, fn):
+        self.fn = fn
+
+    async def __aenter__(self):
+        await self.fn()
+
+    async def __aexit__(self, *exc):
+        return False
+
+
+def test_requests_are_described_without_their_arguments():
+    from app.mcp.server import _describe
+
+    assert _describe(b'{"method":"tools/call","params":{"name":"get_creator","arguments":{"q":"secret"}}}') == "tools/call get_creator"
+    assert _describe(b'{"method":"ping"}') == "ping"
+    assert _describe(b"not json") == "unreadable body"

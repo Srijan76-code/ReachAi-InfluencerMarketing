@@ -219,3 +219,14 @@ def test_adapter_protocol_is_checkable():
     assert set(PLATFORMS) == {"youtube", "x", "instagram", "linkedin"}
     p: CreatorProfile = profile()
     assert p["platform"] == "youtube"
+
+
+def test_without_scikit_learn_the_rules_keep_deciding(monkeypatch):
+    """Production doesn't ship scikit-learn (bundle size): training returns None instead of failing."""
+    import builtins
+    import app.metrics.constants as C
+
+    real = builtins.__import__
+    monkeypatch.setattr(builtins, "__import__",
+                        lambda name, *a, **k: (_ for _ in ()).throw(ImportError(name)) if name.startswith("sklearn") else real(name, *a, **k))
+    assert fit_model([{}] * C.ANOMALY_MIN_TRAINING_ROWS) is None
