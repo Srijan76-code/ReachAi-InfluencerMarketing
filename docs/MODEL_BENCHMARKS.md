@@ -72,7 +72,7 @@ of $195 + 10% commission, and say usage rights aren't decided. 8 runs per model,
 
 **Decision:** Claude Haiku 5.5 writes, then GPT-5 mini, then Gemini 3.5 Flash (direct), then gpt-oss (Groq).
 Gemini 3.8 Flash was removed everywhere. GPT-5 mini runs with low reasoning effort (14 s → 8 s on a structured
-reply). Every model invented something at least once in other tests, which is why the reply agent (being built)
+reply). Every model invented something at least once in other tests, which is why the reply agent
 has Jev check every sentence of every reply before it's sent.
 
 Script: `outreach_reply_models.py`, `direct_providers.py`.
@@ -145,9 +145,38 @@ Scripts: `reason_prompts.py`, `reason_loop.py`.
 
 ---
 
+## Outreach: the reply agent against simulated creators (Nov 15)
+
+**Task:** the whole reply agent (`app/replies/agent.py`, on the shared checked writer) with real Jev and a real writer,
+for 10 creators: a fair ask, a pushy $900 ask, payment/contract questions, "what results did other creators get?" (bait
+to invent), out of office, "email my manager", opt-out, prompt injection, a decline, and a follow-up. Claude Haiku 5.5
+wasn't reachable from the test machine (gateway key not there, OpenRouter credit used up), so the writer was the
+fallback chain: Gemini 3.5 Flash until its **free-tier quota (20 requests a day)** ran out, then gpt-oss-120b on Groq.
+
+| Version (20 runs unless noted) | Right outcome | Held when it was wrong | Sent something wrong | Notes |
+|---|---|---|---|---|
+| 1 (10 runs) | 5/10 | 5 | 0 | Grounding asked "supported, *or* only a greeting?": thanks scored 0.5–0.7 and failed; "fair" judged a counter against their $900 ask |
+| 2 (10 runs) | 7/10 | 3 | 0 | One plain question per sentence ("a claim … that goes beyond the sources?"), the deal terms added to the sources, "fair" minor, "answers" only when they asked something |
+| 3 | 11/20 | 9 | 0 | 5 held because the writer failed (Gemini quota, Groq errors); the writer didn't know today's date ("until 2 December") |
+| **4: final** | **15/20** | 5 | **0** | Today's date given; a holding line to the creator only says "let me check"; no "long-term relationship" in the writer's instructions |
+
+In version 4, 4 of the 5 misses were the writer failing (backup models), so the reply was held for the founder; the
+5th passed every check but Jev wasn't sure it could go as is, so it was held too. **Nothing wrong was ever sent**: in
+every run, opt-outs stopped everything, injections were held unread by the writer, and inventions ("we've partnered
+with a handful of creators and seen solid sign-ups", Jev 0.94) were caught.
+
+What Jev's per-sentence score means now: real inventions 0.73–0.94, restating their question 0.52–0.58, so the bar is
+0.6 (`UNSUPPORTED_MAX`).
+
+**Decisions:** keep the agent; the Google key needs billing (or Gemini removed from the `reply` chain) before Gemini is a
+real backup; rerun this with Claude Haiku 5.5 through the gateway before turning autopilot on in production.
+
+Script: `reply_agent.py`.
+
+---
+
 ## Still to test
 
 - **Search strategy** (`strategy`): judgment matters more than price there, and it's one call per search.
   Compare Claude Haiku 5.5 and GPT-5 mini on the queries they produce.
-- **The reply agent** with simulated creators (pushy, off-topic, legal questions, out of office) once it's
-  built: how often it invents, crosses a limit, or misses a question.
+- **The reply agent with Claude Haiku 5.5** through the gateway (the Nov 15 runs used the backup models).

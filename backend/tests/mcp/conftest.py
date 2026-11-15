@@ -31,7 +31,7 @@ def _jsonb_as_json(type_, compiler, **kw):  # the app uses Postgres JSONB; SQLit
     return "JSON"
 
 
-TABLES = ["users", "campaigns", "saved_leads", "api_keys", "agent_runs", "creator_deals", "deal_events", "agent_proposals",
+TABLES = ["users", "campaigns", "saved_leads", "api_keys", "agent_runs", "creator_deals", "deal_events", "agent_proposals", "agent_memory", "founder_questions",
           "deal_posts", "post_stats", "conversions", "tracking_links", "link_clicks",
           "credit_ledger", "credit_reservations", "subscriptions"]
 

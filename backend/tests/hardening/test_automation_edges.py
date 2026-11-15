@@ -17,7 +17,7 @@ needs_pg = pytest.mark.skipif(not os.getenv("PG_TEST_URL"), reason="needs PG_TES
 pytestmark = [needs_pg, pytest.mark.asyncio]
 
 TABLES = ["users", "campaigns", "saved_leads", "run_candidates", "share_links", "share_feedback", "creator_deals",
-          "deal_events", "share_events", "agent_proposals", "connected_accounts", "deal_posts", "tracking_links",
+          "deal_events", "share_events", "agent_proposals", "agent_memory", "founder_questions", "connected_accounts", "deal_posts", "tracking_links",
           "link_clicks", "outreach_jobs", "outreach_pitches", "post_stats", "conversions", "credit_ledger",
           "credit_reservations", "subscriptions", "payments", "billing_events", "contact_history", "suppression_list"]
 LEADS = [{"id": f"UC{i}", "title": f"Creator {i}", "socials": {"email": f"c{i}@example.com"}} for i in range(4)]
@@ -156,10 +156,10 @@ async def test_flagged_draft_shows_its_problems(env):
 
 
 async def test_an_ai_outage_never_loses_a_pasted_reply(env, monkeypatch):
-    async def down(state):
+    async def down(ctx, **k):
         raise RuntimeError("Jev timed out")
 
-    monkeypatch.setattr("app.negotiation.graph.run", down)
+    monkeypatch.setattr("app.replies.agent.reply", down)
     r = await env.post("/api/deals/d0/reply", json={"text": "My rate is $400 for a video."})
     assert r.status_code == 200, r.text
     assert r.json()["agent"]["action"] == "none"
@@ -275,13 +275,10 @@ async def test_opting_out_stops_everything(env, monkeypatch):
     """"Please stop emailing me": no counter, no follow-up, the address is never emailed again by anyone."""
     from app.contacts.ledger import suppressed
     from app.models.deal import AgentProposal
-    from app.negotiation.decide import Decision
+    from tests.replies import fakes as F
 
-    async def agent(state):
-        return {"decision": Decision("counter", reasons=["x"]), "ask": None, "message": "Offer $150", "source": "ai",
-                "answers": {"opt_out": 0.97}}
-
-    monkeypatch.setattr("app.negotiation.graph.run", agent)
+    w = F.writer({"action": "counter", "message": "Offer $150", "price": {"fee": 150}})
+    F.install(monkeypatch, F.jev(read={"opt_out": 0.97}), w)
     r = await env.post("/api/deals/d0/reply", json={"text": "Please remove me from your list and stop emailing me."})
     assert r.status_code == 200, r.text
     assert r.json()["agent"]["action"] == "lost"
@@ -291,6 +288,7 @@ async def test_opting_out_stops_everything(env, monkeypatch):
         [close] = [p for p in props if p.status == "pending"]
         assert close.kind == "mark_lost" and close.payload["opt_out"] and "message" not in close.payload
         assert await suppressed(s, "C0@example.com") == "opt_out"
+    assert w.seen == []  # nothing was even written
 
 
 async def test_a_bounce_is_not_a_reply(env, monkeypatch):

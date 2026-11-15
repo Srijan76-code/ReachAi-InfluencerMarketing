@@ -97,14 +97,16 @@ def test_bounces_are_recognised():
     assert not is_bounce(msg("Priya <priya@hey.com>", "Re: Your video"))
 
 
-def test_replies_that_need_the_founder_are_held():
-    from app.negotiation.run import _held
+def test_held_replies_wait_for_the_founder():
+    """The reply agent's held reasons (asked something only the founder knows, failed checks) are never sent."""
+    from app.agent.autopilot import Settings, hold_reason
 
-    assert _held({"needs_human": 0.9}, {"source": "ai", "check": {"answers": 0.9}}) == "needs_human"
-    assert _held({"asks_question": 0.9}, {"source": "ai", "check": {"answers": 0.4}}) == "question"
-    assert _held({"asks_question": 0.9}, {"source": "template"}) == "question"
-    assert _held({"asks_question": 0.9}, {"source": "ai", "check": {"answers": 0.85}}) is None  # the draft answers it
-    assert _held({"asks_question": 0.1, "needs_human": 0.1}, {}) is None
+    s = Settings(autopilot=True, review_first=False, since=None)
+    for held in ("ask_founder", "check_failed", "question", "needs_human"):
+        p = SimpleNamespace(kind="reply", payload={"message": "Hi", "held": held}, created_at=None)
+        assert hold_reason(p, None, {}, s, email_route=True) == held
+    p = SimpleNamespace(kind="reply", payload={"message": "Hi"}, created_at=None)
+    assert hold_reason(p, None, {}, s, email_route=True) is None  # a checked reply goes out by itself
 
 
 # --- with a database ---------------------------------------------------------------------------------
@@ -114,7 +116,7 @@ DB_NOW = datetime.now(timezone.utc)
 DB_SINCE = DB_NOW - timedelta(hours=1)
 needs_pg = pytest.mark.skipif(not os.getenv("PG_TEST_URL"), reason="needs PG_TEST_URL (real Postgres)")
 TABLES = ["users", "campaigns", "saved_leads", "run_candidates", "share_links", "share_feedback", "creator_deals",
-          "deal_events", "share_events", "agent_proposals", "connected_accounts", "deal_posts", "tracking_links",
+          "deal_events", "share_events", "agent_proposals", "agent_memory", "founder_questions", "connected_accounts", "deal_posts", "tracking_links",
           "link_clicks", "outreach_jobs", "outreach_pitches", "post_stats", "conversions", "contact_history",
           "suppression_list"]
 

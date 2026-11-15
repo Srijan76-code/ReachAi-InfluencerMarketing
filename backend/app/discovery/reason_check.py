@@ -1,6 +1,7 @@
-"""The "Why this creator" loop (decided Nov 15): Jev picks the facts → the LLM writes 3 bullets → Jev checks them →
-a critical miss goes back to the LLM with the facts, its last bullets, what was right and what to fix (at most
-twice) → still wrong: the facts themselves are shown (never wrong, just plainer).
+"""The "Why this creator" settings for the checked writer (app/agents/checked_writer.py, decided Nov 15): Jev picks
+the facts → the LLM writes 3 bullets → code and Jev check them → a critical miss goes back to the LLM with the facts,
+its last bullets, what was right and what to fix (at most twice) → still wrong: the facts themselves are shown
+(never wrong, just plainer).
 
 Critical (rewrite): a bullet states something not in the facts; the bullets contradict the verdict; bullet 2
 reads as a weakness when the fact isn't one, or the other way round; a quoted title used as proof of something
@@ -62,14 +63,21 @@ def verdict_of(j, points: dict, bullets: list[str]) -> tuple[list[dict], list[st
         critical.append({"check": "contradicts the verdict", "score": round(a, 2)})
     else:
         right["verdict"] = "agrees with the verdict"
-    if GENDERED.search(" ".join(bullets)):
-        critical.append({"check": "guesses the creator's gender: call them 'they'"})
     want_weak = points["watch"]["kind"] == "weakness"
     w = j.noul("is_weakness")
     if (w >= K.REASON_WATCH_KIND_FROM) != want_weak:
         critical.append({"bullet": 2, "check": "should be a weakness" if want_weak else "should be a strength, not a weakness",
                          "score": round(w, 2)})
     return critical, minor, right
+
+
+def limits(bullets: list[str]) -> list[dict]:
+    """Exact rules, checked in code before Jev is asked."""
+    if len(bullets) != 3:
+        return [{"check": "answer with exactly 3 lines starting with '- '"}]
+    if GENDERED.search(" ".join(bullets)):
+        return [{"check": "guesses the creator's gender: call them 'they'"}]
+    return []
 
 
 def feedback_prompt(base_prompt: str, last: list[str], critical: list[dict], right: dict) -> str:
@@ -83,32 +91,25 @@ def feedback_prompt(base_prompt: str, last: list[str], critical: list[dict], rig
 async def write_checked(base_prompt: str, points: dict, verdict: Optional[str], *, write: Write, judge: Optional[Judge],
                         parse: Callable[[str], list[str]]) -> Result:
     """`write(prompt)` → model text; `judge(state, questions)` → Jev judgment (None: Jev down, no check)."""
+    from app.agents.checked_writer import CheckedTask, Review, run
     from app.judge.questions import reason_check_questions
 
-    history: list[dict] = []
-    prompt = base_prompt
-    for rnd in range(1, K.REASON_MAX_REWRITES + 2):
-        try:
-            bullets = parse(await write(prompt))
-        except Exception as exc:  # noqa: BLE001 - every model failed
-            logger.warning("reason writer failed: %s", exc)
-            break
-        if len(bullets) != 3:
-            history.append({"bullets": bullets, "critical": [{"check": "not 3 bullets"}]})
-            prompt = feedback_prompt(base_prompt, bullets, [{"check": "answer with exactly 3 lines starting with '- '"}], {})
-            continue
-        if judge is None:
-            return Result(bullets, "ai", rnd, history=history)
-        try:
-            j = await judge(check_state(points, verdict, bullets), reason_check_questions())
-        except Exception as exc:  # noqa: BLE001 - can't check: the facts are always right
-            logger.warning("reason check failed: %s", exc)
-            break
+    async def write_bullets(note: Optional[dict]) -> list[str]:
+        prompt = base_prompt if note is None else feedback_prompt(base_prompt, note["your_last_draft"], note["fix_these"],
+                                                                  note["what_was_right"])
+        return parse(await write(prompt))
+
+    async def review(bullets: list[str]) -> Review:
+        j = await judge(check_state(points, verdict, bullets), reason_check_questions())
         if j.noul("injection") > K.DROP_INJECTION_ABOVE:
-            break
+            return Review(stop="injection")
         critical, minor, right = verdict_of(j, points, bullets)
-        history.append({"bullets": bullets, "critical": critical, "minor": minor})
-        if not critical:
-            return Result(bullets, "ai", rnd, minor=minor, history=history)
-        prompt = feedback_prompt(base_prompt, bullets, critical, right)
-    return Result(fact_bullets(points), "facts", len(history) or 1, history=history)
+        return Review(critical=critical, minor=minor, right=right)
+
+    out = await run(CheckedTask(name="reasons", write=write_bullets, limits=limits, review=review if judge else None,
+                                fallback=lambda history, why: fact_bullets(points), max_rewrites=K.REASON_MAX_REWRITES))
+    if out.source == "ai":
+        return Result(out.output, "ai", out.rounds, minor=out.review.minor if out.review else [], history=out.history)
+    if out.why not in (None, "failed"):
+        logger.warning("reason bullets fell back to the facts: %s", out.why)
+    return Result(out.output, "facts", out.rounds, history=out.history)

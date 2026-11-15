@@ -90,6 +90,15 @@ def propose(d, events: list[Ev], *, name: str, goal: Optional[str], today: date,
 
     # replies, prices, counters and agreeing are the negotiation agent's job (app/negotiation/), run when a
     # reply arrives; here only the time-based nudges
+    paused = _last(events, "paused")
+    if paused and (paused.payload or {}).get("until") and (not last_sent or paused.at > last_sent.at):
+        try:
+            if date.fromisoformat(paused.payload["until"]) > today:
+                return out  # they're away: no nudges until they're back
+        except ValueError:
+            pass
+        if fresh_reply and paused.at >= fresh_reply.at:
+            fresh_reply = None  # "away until …" isn't an answer: follow up once they're back
     if stage in ("contacted", "negotiating"):
         if not fresh_reply and not d.quoted_rate:
             since = last_sent.at if last_sent else getattr(d, "created_at", None)

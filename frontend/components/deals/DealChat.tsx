@@ -17,7 +17,7 @@ import { Field, NumberInput } from "@/components/ui/field";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { inboxStore } from "@/lib/inbox";
 import { btn } from "@/lib/ui";
-import { type Channel, CHANNELS, type Deal, type DealEvent, type Proposal, money } from "@/data/deals";
+import { type Channel, CHANNELS, type Deal, type DealEvent, type FounderQuestion, type Proposal, money } from "@/data/deals";
 
 type Api = (url: string, options?: Record<string, unknown>) => Promise<{ data: unknown }>;
 type Who = "you" | "them";
@@ -203,7 +203,7 @@ export function DealChat({ deal, api, proposals, gmailReady, website, onReconnec
   const [celebrate, setCelebrate] = useState(false);
   const [who, setWho] = useState<Who>("you");
   const [texts, setTexts] = useState<Record<Who, string>>({ you: "", them: "" });
-  const [busy, setBusy] = useState<"reword" | "discard" | "accept" | "again" | "close" | null>(null);
+  const [busy, setBusy] = useState<"reword" | "discard" | "accept" | "again" | "close" | "answer" | "handoff" | null>(null);
   const [note, setNote] = useState<Problem | null>(null);
   const [agreeOpen, setAgreeOpen] = useState(false);
   const [subject, setSubject] = useState("");
@@ -213,6 +213,14 @@ export function DealChat({ deal, api, proposals, gmailReady, website, onReconnec
 
   const draft = proposals.find((p) => p.is_message) ?? null;
   const closing = proposals.find((p) => p.kind === "mark_lost" && !p.is_message) ?? null;
+  const handOff = proposals.find((p) => p.kind === "new_contact") ?? null;
+  // a question ReachAI couldn't answer without guessing: you answer, it remembers, and it writes the reply
+  const [question, setQuestion] = useState<FounderQuestion | null>(null);
+  const [answer, setAnswer] = useState("");
+  useEffect(() => {
+    api(`/api/deals/${deal.id}/question`).then((r) => setQuestion((r.data as FounderQuestion | null) ?? null)).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- api changes every render
+  }, [deal.id, deal.last_message?.at, proposals.length]);
   // ReachAI's draft fills the message box; a new draft replaces what's there (your own unsent text stays if there's no draft)
   const [draftFor, setDraftFor] = useState<string | null>(null);
   if ((draft?.id ?? null) !== draftFor) {
@@ -321,6 +329,41 @@ export function DealChat({ deal, api, proposals, gmailReady, website, onReconnec
     if (!text || pending.some((p) => p.status === "sending")) return;
     if (who === "them") return run({ kind: "paste" }, text);
     return run(draft ? { kind: "draft", proposalId: draft.id } : { kind: "own" }, text);
+  };
+
+  const sendAnswer = async () => {
+    const text = answer.trim();
+    if (!text || !question) return;
+    setBusy("answer");
+    setDrafting(true);
+    setNote(null);
+    try {
+      const r = (await api(`/api/deals/${deal.id}/question/answer`, { method: "POST", data: { text } })).data as { deal: Deal; proposals?: Proposal[] };
+      setQuestion(null);
+      setAnswer("");
+      onChange(r.deal);
+      onProposals(r);
+      inboxStore.refresh();
+    } catch (e) {
+      setNote(problem(e, "Couldn't save your answer"));
+    } finally {
+      setBusy(null);
+      setDrafting(false);
+    }
+  };
+
+  const pickAddress = async (approve: boolean) => {
+    if (!handOff) return;
+    setBusy("handoff");
+    try {
+      const r = (await api(`/api/proposals/${handOff.id}/${approve ? "approve" : "skip"}`, { method: "POST", data: approve ? { via: "copy" } : undefined })).data as { deal?: Deal; proposals?: Proposal[] };
+      if (r.deal) onChange(r.deal);
+      onProposals(r);
+    } catch (e) {
+      setNote(problem(e, "That didn't work"));
+    } finally {
+      setBusy(null);
+    }
   };
 
   const closeDeal = async () => {
@@ -525,6 +568,46 @@ export function DealChat({ deal, api, proposals, gmailReady, website, onReconnec
                 <span className="font-medium">You agreed {agreedWords}.</span>
                               </p>
               <button type="button" onClick={() => setAgreeOpen(true)} className={btn}><Handshake size={12} /> Set up the deal</button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* they asked something ReachAI doesn't know: it asks you instead of guessing, then writes the reply */}
+      <AnimatePresence>
+        {question && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="shrink-0 px-4 md:px-6">
+            <div className="mb-2 rounded-xl border border-sky-300/60 dark:border-sky-500/25 bg-sky-50/50 dark:bg-sky-500/5 px-3.5 py-3 space-y-2">
+              <p className="text-xs text-zinc-800 dark:text-zinc-200">
+                <span className="font-medium">{name} asked something only you can answer.</span>{" "}
+                <span className="text-zinc-500">ReachAI remembers your answer for other creators too.{question.emailed ? " You can also reply to the email it sent you." : ""}</span>
+              </p>
+              <ul className="text-xs text-zinc-800 dark:text-zinc-200 list-disc pl-4 space-y-0.5">
+                {question.questions.map((q) => <li key={q}>{q}</li>)}
+              </ul>
+              <div className="flex items-end gap-2">
+                <textarea value={answer} onChange={(e) => setAnswer(e.target.value)} rows={2} placeholder="Your answer, in plain words"
+                  className="flex-1 min-w-0 resize-none rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 px-2.5 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                  onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) sendAnswer(); }} />
+                <button type="button" onClick={sendAnswer} disabled={!answer.trim() || !!busy} className={btn}>
+                  {busy === "answer" && <Loader2 size={12} className="animate-spin" />} Answer
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* they asked us to write to someone else (a manager or agency): you confirm the address */}
+      <AnimatePresence>
+        {handOff && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="shrink-0 px-4 md:px-6">
+            <div className="mb-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 px-3.5 py-2.5 flex flex-wrap items-center gap-x-3 gap-y-2">
+              <p className="text-xs text-zinc-800 dark:text-zinc-200 flex-1 min-w-[200px]">{handOff.reason}</p>
+              <button type="button" onClick={() => pickAddress(false)} disabled={!!busy} className="text-xs text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200">Ignore</button>
+              <button type="button" onClick={() => pickAddress(true)} disabled={!!busy} className={btn}>
+                {busy === "handoff" && <Loader2 size={12} className="animate-spin" />} Use this address
+              </button>
             </div>
           </motion.div>
         )}

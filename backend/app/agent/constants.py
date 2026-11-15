@@ -11,9 +11,11 @@ KINDS = (
     "hold_terms",  # the agent: after you agreed they ask for more; a kind reply keeping the agreed price
     "pitch",  # the first message to a creator, from a pitch run (one text per channel)
     "confirm_terms",  # after agreeing: what was agreed, their link and code (written by code)
+    "reply",  # the reply agent's answer that isn't a new offer (questions, thanks, details)
+    "new_contact",  # they asked us to write to someone else: the founder confirms the address
 )
-MESSAGE_KINDS = ("send_counter", "agree", "follow_up", "chase_post", "mark_lost", "hold_terms", "pitch", "confirm_terms")  # approving one sends it
-CHAT_KINDS = ("send_counter", "agree", "mark_lost", "follow_up", "hold_terms", "pitch", "confirm_terms", "chase_post")  # drafts shown in the chat's message box
+MESSAGE_KINDS = ("reply", "send_counter", "agree", "follow_up", "chase_post", "mark_lost", "hold_terms", "pitch", "confirm_terms")  # approving one sends it
+CHAT_KINDS = ("reply", "send_counter", "agree", "mark_lost", "follow_up", "hold_terms", "pitch", "confirm_terms", "chase_post")  # drafts shown in the chat's message box
 OWN_KEYS = ("nego:", "pitch:", "confirm:", "bounce:")  # suggestions made outside the time-based generator: refresh leaves them alone
 
 FOLLOW_UP_AFTER_DAYS = 4  # no answer this long after our last message → suggest a follow-up
@@ -25,7 +27,7 @@ MAX_REPLY_EVENT_CHARS = 3000  # pasted reply kept on the timeline (untrusted, ne
 # --- autopilot (decided Nov 14): outreach runs by itself once the founder starts it ------------------------
 # Sent without asking: first emails (unless the founder checks them first), follow-ups, late-post nudges, the
 # agent's counter-offers and replies that keep agreed terms, and the confirmation after the founder agrees.
-AUTO_KINDS = ("pitch", "follow_up", "chase_post", "send_counter", "hold_terms", "confirm_terms")
+AUTO_KINDS = ("pitch", "follow_up", "chase_post", "reply", "send_counter", "hold_terms", "confirm_terms")
 # Always the founder's call, with a notification: they accepted (Agree), they declined or opted out (mark lost).
 DECISION_KINDS = ("agree", "mark_lost")
 REPLY_DELAY_MINUTES = 10  # answer a creator ~10 minutes after they write, not in the same second
@@ -56,4 +58,6 @@ HELD = {
     "question": "They asked something only you can answer.",
     "needs_human": "Their message raises payment, contract or usage terms. Read it yourself.",
     "failed": "Sending failed twice. Check it and send it yourself.",
+    "ask_founder": "They asked something ReachAI doesn't know. Answer it and ReachAI writes the reply.",
+    "check_failed": "The reply didn't pass ReachAI's checks. Check it and send it yourself.",
 }

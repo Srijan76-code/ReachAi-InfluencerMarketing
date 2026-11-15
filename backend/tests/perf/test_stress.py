@@ -26,7 +26,7 @@ pytestmark = [
 
 CAMPAIGNS, LEADS_PER, DEALS_PER, EVENTS_PER = 10, 50, 30, 14
 TABLES = ["users", "campaigns", "saved_leads", "run_candidates", "share_links", "share_feedback", "creator_deals",
-          "deal_events", "share_events", "agent_proposals", "connected_accounts", "deal_posts", "tracking_links",
+          "deal_events", "share_events", "agent_proposals", "agent_memory", "founder_questions", "connected_accounts", "deal_posts", "tracking_links",
           "link_clicks", "outreach_jobs", "outreach_pitches", "post_stats", "conversions", "credit_ledger",
           "credit_reservations", "subscriptions", "payments", "billing_events"]
 

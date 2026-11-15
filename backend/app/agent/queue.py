@@ -133,6 +133,9 @@ async def approve(db: AsyncSession, p: AgentProposal, d: CreatorDeal, message: O
                                   "proposal_id": p.proposal_id, "via": "gmail" if via else "copied", **(via or {}),
                                   **({"auto": True} if auto else {})}))
         result = {"message": final, "edited": edited, "sent": bool(via)}
+    if p.kind == "new_contact" and pl.get("email"):
+        db.add(DealEvent(deal_id=d.deal_id, type="contact_changed", payload={"from": d.contact_email, "to": pl["email"]}))
+        d.contact_email = pl["email"]
     apply_change(db, d, change)
     db.add(DealEvent(deal_id=d.deal_id, type="proposal", payload={"kind": p.kind, "title": p.title, "decision": "approved",
                                                                  "edited": result.get("edited", False), **({"auto": True} if auto else {})}))
