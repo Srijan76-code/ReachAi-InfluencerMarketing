@@ -72,8 +72,8 @@ of $195 + 10% commission, and say usage rights aren't decided. 8 runs per model,
 
 **Decision:** Claude Haiku 5.5 writes, then GPT-5 mini, then Gemini 3.5 Flash (direct), then gpt-oss (Groq).
 Gemini 3.8 Flash was removed everywhere. GPT-5 mini runs with low reasoning effort (14 s → 8 s on a structured
-reply). Every model invented something at least once in other tests, which is why Jev checks every sentence
-of every reply before it's sent.
+reply). Every model invented something at least once in other tests, which is why the reply agent (being built)
+has Jev check every sentence of every reply before it's sent.
 
 Script: `outreach_reply_models.py`, `direct_providers.py`.
 
