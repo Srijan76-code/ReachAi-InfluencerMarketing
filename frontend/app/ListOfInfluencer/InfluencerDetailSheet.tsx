@@ -45,6 +45,9 @@ import {
   BadgeCheck,
   TrendingDown,
   Minus,
+  Check,
+  Plus,
+  TriangleAlert,
 } from "lucide-react";
 import { ScoreParts } from "@/components/ScoreParts";
 import { PostTabs } from "@/components/PostTabs";
@@ -233,7 +236,7 @@ export const InfluencerDetailSheet = ({
                 <Tooltip>
                   <TooltipTrigger asChild><Info size={12} className="text-zinc-400 dark:text-zinc-600 cursor-help hover:text-zinc-600 dark:hover:text-zinc-400 transition-colors" /></TooltipTrigger>
                   <TooltipContent side="top" className="bg-zinc-100 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700 text-xs shadow-xl max-w-[220px] text-zinc-700 dark:text-zinc-300">
-                     Read this to understand exactly why the AI believes this creator matches your specific campaign brief and target audience.
+                     Why they fit, what to watch out for, and when to pick them. Picked from their posts and our checks.
                   </TooltipContent>
                 </Tooltip>
               </div>
@@ -260,9 +263,13 @@ export const InfluencerDetailSheet = ({
                 </div>
               </div>
             </div>
-            <p className="text-[13px] text-zinc-700 dark:text-zinc-300 leading-relaxed pl-4 border-l-2 border-zinc-200 dark:border-zinc-800 py-0.5">
-              {influencer.llm_reasoning}
-            </p>
+            {influencer.reason_points && influencer.reason_points.length === 3 ? (
+              <ReasonPoints points={influencer.reason_points} />
+            ) : (
+              <p className="text-[13px] text-zinc-700 dark:text-zinc-300 leading-relaxed pl-4 border-l-2 border-zinc-200 dark:border-zinc-800 py-0.5">
+                {influencer.llm_reasoning}
+              </p>
+            )}
           </section>
 
           {reviewSlot}
@@ -455,3 +462,25 @@ const MetricCell = ({ label, value, icon, info, borderTop, removeBorderRight, va
     <span className={`text-[13px] font-semibold truncate pl-[1.125rem] ${valueColorClass || "text-zinc-900 dark:text-zinc-200"}`}>{value}</span>
   </div>
 );
+
+
+/** The three "Campaign fit" bullets: why them, the catch (or another strength), and when to pick them. */
+function ReasonPoints({ points }: { points: string[] }) {
+  const [why, watch, choose] = points;
+  const caution = /^watch out:/i.test(watch);
+  const rows = [
+    { icon: Check, tone: "text-emerald-500", text: why, label: "Why them" },
+    { icon: caution ? TriangleAlert : Plus, tone: caution ? "text-amber-500" : "text-emerald-500", text: watch.replace(/^watch out:\s*/i, ""), label: caution ? "Watch out" : "Also" },
+    { icon: Target, tone: "text-zinc-400", text: choose, label: "When to choose" },
+  ];
+  return (
+    <ul className="space-y-2">
+      {rows.map(({ icon: Icon, tone, text, label }) => (
+        <li key={label} className="flex gap-2.5 text-[13px] leading-snug text-zinc-700 dark:text-zinc-300">
+          <Icon size={14} className={`mt-0.5 shrink-0 ${tone}`} aria-label={label} />
+          <span>{text}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}

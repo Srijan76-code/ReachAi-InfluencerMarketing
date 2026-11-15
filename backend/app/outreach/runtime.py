@@ -86,7 +86,7 @@ async def run_outreach_graph(outreach_job_id: str, run_id: str, thread_id: str) 
             "default_collaboration": {"type": job.collaboration_type},
             "default_deliverables": job.deliverables or [],
             "creator_overrides": job.creator_overrides or {},
-            "model_name": "gemini-3.8-flash",
+            "model_name": "route:pitch",
         }
         config = {"configurable": {"thread_id": thread_id}, "max_concurrency": 5}
         await _publish(outreach_job_id, run_id, "prepare_pitch_batch")

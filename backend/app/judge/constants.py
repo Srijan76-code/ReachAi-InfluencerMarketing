@@ -104,3 +104,11 @@ EXTRAS = {
 # Track: what the audience said under a sponsored video (spec §7.6)
 COMMENT_SENTIMENT_LEVELS = ("Very negative", "Mostly negative", "Mixed", "Mostly positive", "Very positive")
 COMMENT_SIGNAL_FROM = 0.6
+
+# "Why this creator" bullets (decided Nov 15): Jev picks the facts, then checks the bullets the LLM wrote.
+REASON_GROUNDED_MIN = 0.5  # a bullet below this states something not in the facts → critical, rewrite
+REASON_AGREES_MIN = 0.5  # the bullets must agree with our verdict → critical
+REASON_WATCH_KIND_FROM = 0.5  # bullet 2 must read as a weakness exactly when the fact is one → critical
+REASON_ONE_POINT_MAX = 0.6  # two points in one bullet: minor, passes
+# a quoted title only goes with a content reason (reason_points.about_content); gendered words are caught in code
+REASON_MAX_REWRITES = 2  # then the facts are shown word for word (never wrong, just plainer)
