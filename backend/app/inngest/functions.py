@@ -139,6 +139,13 @@ async def sync_gmail_replies(ctx: inngest.Context):
                 .where(Campaign.user_id == a.user_id, CreatorDeal.gmail_thread_id.is_not(None))
             )).scalars())
             total += await sync_deals(db, a, deals, user_id=a.user_id)
+            try:  # the founder's email answers to ReachAI's questions
+                from app.negotiation.run import rerun_after_answer
+                from app.replies.ask import sync_answers
+
+                await sync_answers(db, a, a.user_id, rerun=rerun_after_answer)
+            except Exception as e:  # noqa: BLE001 - never stops the reply sync
+                logger.warning("founder answer sync failed: %s", type(e).__name__)
     # autopilot: answer new replies, send follow-ups that came due, carry on with first emails
     await start_autopilot(users)
     return {"accounts": len(accounts), "new_replies": total}

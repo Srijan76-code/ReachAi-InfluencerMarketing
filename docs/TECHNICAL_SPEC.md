@@ -17,7 +17,7 @@
 | Data sources | YouTube Data API · X through a third-party provider, with the official API behind a switch · Instagram through Apify (HikerAPI later if cost or speed needs it) · LinkedIn through **public, logged-out post search only** |
 | Judgment layer | **Jev (TypeSafe AI)** for every yes/no, label and scale judgment |
 | Numbers | **Code, statistics and ML**: metrics, anomaly detection, scoring, valuation. No LLM involved |
-| Negotiation | **An agent: Jev reads and decides, code guards, the LLM writes (decided Nov 5).** Jev picks the move, deal type, commission step (0–25%) and how far to concede from options code gives it; code turns those into exact amounts within the ceiling (fair top +15%, never over the budget left, never below our last offer) and never lets a model state a price. The writer sees the creator's own words (screened by Jev for injection) and every amount is checked. Default aim: good value while keeping the creator happy. Replaces the code formula and templates (§8.7) |
+| Negotiation | **The reply agent: the AI writes and decides, Jev checks, code enforces the limits (decided Nov 15; replaces the Nov 5 "Jev decides, code guards" agent).** The AI (route `reply`) reads the whole conversation, the founder's own messages, the brief, remembered answers and the creator's latest posts, and chooses the move and the price. Code enforces the hard limits (fee ≤ fair top +15% and ≤ budget left, never below our last offer, agreed terms never change, only our price and their ask as amounts, no placeholders). Jev checks every sentence for claims beyond the sources, plus answers / promises / tone / voice / value; critical misses go back with Jev's scores (≤2 rewrites). Missing information is asked of the founder (email + chat) and remembered. Code decides what happens next (send, ask, wait, hand-off, hold) (§8.6c) |
 | Text generation | LLM through the **LangSmith LLM Gateway**, behind our own thin wrapper |
 | Pricing | **Only creator searches cost credits** (YouTube 1, X 3, Instagram 4, LinkedIn 8); outreach, negotiation, tracking and agent use are unlimited. Free (3/mo) · Solo $12 / ₹499 (25) · Pro $29 / ₹1,299 (80) · packs that never expire. Welcome credits, refund guarantee, INR prices, referrals (decided Nov 12, §5) |
 | Payments | **Dodo Payments as merchant of record** (handles global tax, UPI, INR). Billing logic lives in our backend; Dodo only collects money. Replaces Cashfree (Nov 12, §5.4) |
@@ -923,6 +923,36 @@ judge (one Jev request) → guard (code) → write (LLM route "reply") → check
 - **Code guards** (`app/negotiation/decide.py`): ceiling = min(fair top × 1.15, budget left); opening fee halfway between the bottom and middle of the fair range; later rounds move `concession share` × (their ask − our last fee) and never below our last fee; commission takes 1.5% off the fee per point; accept only within the ceiling; reaching their ask becomes an agreement; final offer at the ceiling or after 4 rounds; injection → no suggestion, the founder reads it.
 - **Writer:** sees TERMS, the facts, the conversation and the creator's latest message as data; must use only the decided amounts. **Checks:** code allows only the decided fee and % (fee required); Jev flags extra promises. Fail → rewrite once with the reason → else a short standard message.
 - **Result:** one pending suggestion per deal (`agent_proposals.key = nego:<reply event>`, older ones marked stale) with the reasons in plain words; the reply event keeps `their_ask` and the agent's action; the deal's `quoted_rate` / `quoted_commission_pct` update.
+
+### 8.6c Reply agent (built Nov 15)
+Every "an LLM writes, Jev checks" task runs on one LangGraph agent, `app/agents/checked_writer.py`:
+
+```
+write → check (code limits first; Jev rubric only if they pass) → [critical: reviewer note → write, ≤2 rewrites] → done | fallback
+```
+The reviewer note is its own message, never part of the conversation: `{your_last_draft, what_was_right, fix_these}` with
+Jev's scores. Minor problems pass. The fallback gets every draft and why it failed. "Why this creator" (§3.2) and the reply
+agent are this agent with different settings.
+
+The reply agent (`app/replies/`):
+- **Read** (one Jev request on their message): `opt_out` (stop everything), `injection` (hold for the founder),
+  `needs_founder` (asks for something our sources don't hold), `asks_question`.
+- **Context** (`context.py`, code): brief facts + remembered founder answers (`agent_memory`), the founder's own messages
+  (sent by hand or edited) and style rules, the whole conversation, the creator and their latest posts, the deal's numbers
+  and hard limits, and lessons (checks this founder's drafts failed ≥2 times).
+- **Writer** (`writer.py`, `instructions.md`, route `reply`): returns `Draft {action, message, price, their_ask,
+  missing_info, resume_on, new_contact_email, strategy}`.
+- **Hard limits** (`judge.hard_limits`, critical): price within ceiling/floor, agreed terms kept, only our price, their ask,
+  the agreed price or our last offer as amounts, no placeholders, length, new contact copied exactly from their message.
+- **Rubric** (`judge.rubric`, one Jev request): per sentence "a claim about the brand, product, users, past work, payment,
+  dates or plans that goes beyond `sources`" (> 0.6 critical); `answers` (only if they asked), `promise`, `rude`,
+  `ask_read`, `value`, `voice` critical; `template` and `fair` minor; `safe_to_send` decides auto-send.
+- **Outcome** (code, `agent.outcome`): send (passed + safe_to_send ≥ 0.7) · decide (accept/close: the founder's call) ·
+  ask_founder (`FounderQuestion`: email to the founder's own inbox + chat card; the answer becomes a fact and the reply
+  is rewritten) · wait (`paused` event until a date ≤60 days; no follow-ups meanwhile) · new_contact (founder confirms) ·
+  opt_out · hold (failed after rewrites, AI down: best draft + what failed).
+- **Follow-ups**: composed at send time by the same agent in follow-up mode; if it doesn't pass, the code-written text is
+  used. Live results: `docs/MODEL_BENCHMARKS.md`.
 
 ### 8.7 Pricing a creator (fair range + deal design)
 - **Fair range** `fair_low…fair_high` (P25–P75):

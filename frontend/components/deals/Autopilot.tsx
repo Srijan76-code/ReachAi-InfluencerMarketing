@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, ChevronDown, Sparkles } from "lucide-react";
+import { Brain, Check, ChevronDown, Sparkles } from "lucide-react";
+import { AgentMemory } from "@/components/deals/AgentMemory";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 type Api = (url: string, options?: Record<string, unknown>) => Promise<{ data: unknown }>;
@@ -12,6 +13,7 @@ type State = { autopilot: boolean; review_first: boolean };
 export function Autopilot({ campaignId, api, gmailReady, onChange }: { campaignId: string; api: Api; gmailReady: boolean; onChange?: () => void }) {
   const [s, setS] = useState<State | null>(null);
   const [busy, setBusy] = useState(false);
+  const [memoryOpen, setMemoryOpen] = useState(false);
 
   useEffect(() => {
     api(`/api/campaigns/${campaignId}/autopilot`).then((r) => setS(r.data as State)).catch(() => setS(null));
@@ -35,6 +37,8 @@ export function Autopilot({ campaignId, api, gmailReady, onChange }: { campaignI
   if (!s) return null;
   const on = s.autopilot && gmailReady;
   return (
+    <>
+    <AgentMemory api={api} open={memoryOpen} onOpenChange={setMemoryOpen} />
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button type="button" disabled={busy} aria-label={`Autopilot ${on ? "on" : "off"}. Change`}
@@ -65,7 +69,13 @@ export function Autopilot({ campaignId, api, gmailReady, onChange }: { campaignI
             <span className="block text-[10px] text-zinc-500">They wait in each chat until you send them</span>
           </span>
         </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem className="text-xs cursor-pointer flex items-start gap-2" onSelect={() => setMemoryOpen(true)}>
+          <Brain size={13} className="mt-0.5 shrink-0 text-zinc-500" />
+          <span className="flex-1">What ReachAI remembers</span>
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+    </>
   );
 }

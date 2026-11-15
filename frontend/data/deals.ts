@@ -150,7 +150,7 @@ export const money = (n: number | null | undefined) =>
 export type Proposal = {
   id: string;
   deal_id: string;
-  kind: "record_quote" | "send_counter" | "agree" | "follow_up" | "chase_post" | "mark_live" | "mark_paid" | "mark_lost" | "hold_terms" | "pitch" | "confirm_terms";
+  kind: "record_quote" | "send_counter" | "agree" | "follow_up" | "chase_post" | "mark_live" | "mark_paid" | "mark_lost" | "hold_terms" | "pitch" | "confirm_terms" | "reply" | "new_contact";
   title: string;
   reason: string | null;
   message: string | null;
@@ -175,7 +175,7 @@ export type Proposal = {
 type Offer = { fee: number | null; commission_pct: number | null };
 
 /** Suggestions that are a message in the chat (they show up in the message box). */
-export const CHAT_KINDS: Proposal["kind"][] = ["send_counter", "agree", "mark_lost", "follow_up", "hold_terms", "pitch", "confirm_terms", "chase_post"];
+export const CHAT_KINDS: Proposal["kind"][] = ["reply", "new_contact", "send_counter", "agree", "mark_lost", "follow_up", "hold_terms", "pitch", "confirm_terms", "chase_post"];
 
 export const PROPOSAL_ACTION: Record<Proposal["kind"], string> = {
   hold_terms: "Copy and mark sent",
@@ -189,4 +189,9 @@ export const PROPOSAL_ACTION: Record<Proposal["kind"], string> = {
   mark_live: "Move to Live",
   mark_paid: "Mark paid",
   mark_lost: "Mark lost",
+  reply: "Copy and mark sent",
+  new_contact: "Use this address",
 };
+
+/** What ReachAI asked you about a creator because it didn't know the answer (it never guesses). */
+export type FounderQuestion = { id: string; questions: string[]; creator_text: string | null; emailed: boolean; created_at: string | null };

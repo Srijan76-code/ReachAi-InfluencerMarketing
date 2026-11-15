@@ -547,6 +547,70 @@ async def negotiate_again(deal_id: str, user: User = Depends(get_db_user), db: A
     return {"agent": result, "deal": _out(d, lead, date.today()), "proposals": await _campaign_proposals(db, d.campaign_id, row, user)}
 
 
+@router.get("/api/deals/{deal_id}/question")
+async def open_question(deal_id: str, user: User = Depends(get_db_user), db: AsyncSession = Depends(get_db)):
+    """What ReachAI asked the founder about this creator and is waiting on (or null)."""
+    from app.replies.ask import open_question as find
+
+    d, _ = await _deal(db, deal_id, user)
+    q = await find(db, d.deal_id)
+    if q is None:
+        return None
+    return {"id": q.question_id, "questions": q.questions, "creator_text": q.creator_text,
+            "emailed": bool(q.gmail_thread_id), "created_at": q.created_at.isoformat() if q.created_at else None}
+
+
+class AnswerIn(BaseModel):
+    text: str
+
+
+@router.post("/api/deals/{deal_id}/question/answer")
+async def answer_question(deal_id: str, body: AnswerIn, user: User = Depends(get_db_user), db: AsyncSession = Depends(get_db)):
+    """The founder's answer: remembered as a fact for this campaign, then the reply is written again with it."""
+    from app.negotiation.run import negotiate
+    from app.replies.ask import answer, open_question as find
+
+    text = (body.text or "").strip()
+    if not text:
+        raise HTTPException(422, "Type your answer.")
+    d, row = await _deal(db, deal_id, user)
+    q = await find(db, d.deal_id)
+    if q is None:
+        raise HTTPException(404, "There's no open question for this creator.")
+    await answer(db, q, text, campaign_id=d.campaign_id)
+    await db.flush()
+    reply = await db.get(DealEvent, q.reply_event_id) if q.reply_event_id else None
+    lead = _leads_by_id(row.campaign_leads).get(d.creator_id) or {}
+    result = await negotiate(db, d, reply, lead=lead, details=row.campaign_details or {}, user_id=user.user_id) if reply else None
+    await db.commit()
+    await db.refresh(d)
+    return {"agent": result, "deal": _out(d, lead, date.today()), "proposals": await _campaign_proposals(db, d.campaign_id, row, user)}
+
+
+@router.get("/api/agent/memory")
+async def agent_memory(user: User = Depends(get_db_user), db: AsyncSession = Depends(get_db)):
+    """What the reply agent has learned for this founder: their answers, style rules and lessons."""
+    from app.models.agent_memory import AgentMemory
+
+    rows = (await db.execute(select(AgentMemory).where(AgentMemory.user_id == user.user_id, AgentMemory.active.is_(True))
+                             .order_by(AgentMemory.updated_at.desc()))).scalars().all()
+    return [{"id": m.memory_id, "kind": m.kind, "text": m.text, "campaign_id": m.campaign_id, "source": m.source}
+            for m in rows]
+
+
+@router.delete("/api/agent/memory/{memory_id}")
+async def forget(memory_id: str, user: User = Depends(get_db_user), db: AsyncSession = Depends(get_db)):
+    """Switches a memory off (a wrong answer or rule must never stick)."""
+    from app.models.agent_memory import AgentMemory
+
+    m = await db.get(AgentMemory, memory_id)
+    if m is None or m.user_id != user.user_id:
+        raise HTTPException(404, "Not found.")
+    m.active = False
+    await db.commit()
+    return {"ok": True}
+
+
 class MessageIn(BaseModel):
     text: str  # written by the founder
     via: str = "gmail"  # "gmail" sends it when connected and we have their email; "copy" only records it

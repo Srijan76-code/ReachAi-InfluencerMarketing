@@ -13,7 +13,6 @@ from app.billing.costs import CostContext
 from app.deals import constants as C
 from app.deals import negotiation as N
 from app.negotiation import context as X
-from app.negotiation import graph as G
 from app.negotiation import write as W
 from app.models.deal import AgentProposal, CreatorDeal, DealEvent
 
@@ -78,88 +77,159 @@ async def _opted_out(db: AsyncSession, d: CreatorDeal, reply: DealEvent, user_id
     return {"action": "lost", "reasons": [reason]}
 
 
-def _held(answers: dict, out: dict) -> Optional[str]:
-    """Why autopilot shouldn't send this reply by itself: terms only the founder decides, or a question the
-    drafted reply doesn't clearly answer."""
-    if float(answers.get("needs_human", 0) or 0) >= HOLD_FROM:
-        return "needs_human"
-    answered = ((out.get("check") or {}).get("answers") or 0) >= 0.7 and out.get("source") == "ai"
-    if float(answers.get("asks_question", 0) or 0) >= HOLD_FROM and not answered:
-        return "question"
-    return None
-
-
 def _name(d: CreatorDeal, lead: dict) -> str:
     return (lead or {}).get("first_name") or N.greeting_name((lead or {}).get("title") or d.creator_name)
 
 
-async def negotiate(db: AsyncSession, d: CreatorDeal, reply: DealEvent, *, lead: dict, details: dict, user_id: str) -> dict:
-    """Runs the agent on the creator's latest message (`reply`), records what they asked for, and adds the
-    suggested next step (replacing an older pending one). The caller commits. → {"action", "reasons"}"""
+async def _context(db: AsyncSession, d: CreatorDeal, lead: dict, details: dict, *, user_id: str, text: str, mode: str):
+    from app.replies import context as RC
+
+    events = list((await db.execute(select(DealEvent).where(DealEvent.deal_id == d.deal_id))).scalars())
+    budget = ((details or {}).get("campaign") or {}).get("budget_total")
+    budget_left = (float(budget) - await _committed_elsewhere(db, d)) if budget else None
+    return await RC.build(db, d, lead, details, user_id=user_id, creator_message=text, events=events,
+                          budget_left=budget_left, mode=mode)
+
+
+# what the reply agent decided → the action shown on their message (the chat and the founder's email read it)
+SHOWN_ACTION = {"opt_out": "lost", "wait": "wait", "new_contact": "new_contact", "ask_founder": "ask_founder"}
+HELD_FOR = {"hold": "check_failed", "ask_founder": "ask_founder"}
+
+
+def _terms(price) -> Optional[dict]:
+    if price is None:
+        return None
+    structure = "fee_plus_commission" if price.fee and price.commission_pct else "commission" if price.commission_pct else "flat"
+    return {"fee": price.fee, "commission_pct": float(price.commission_pct or 0), "structure": structure}
+
+
+def _amounts(price) -> Optional[dict]:
+    if price is None or not price.fee:
+        return None
+    return {"base": price.fee, "commission_pct": price.commission_pct} if price.commission_pct else {"counter": price.fee}
+
+
+async def negotiate(db: AsyncSession, d: CreatorDeal, reply: DealEvent, *, lead: dict, details: dict, user_id: str,
+                    agent=None, send_mail=None) -> dict:
+    """Runs the reply agent (app/replies/agent.py) on the creator's latest message (`reply`), records what they
+    asked for, and adds the next step (replacing an older pending one). The caller commits. → {"action", "reasons"}"""
+    from app.replies import agent as RA
+    from app.replies import ask as ASK
+
     text = (reply.payload or {}).get("text") or ""
-    events, facts, st, fees, pcts = await _inputs(db, d, lead, details, text)
-    current = X.current_offer(d, facts)
-    agreed = current if d.stage in C.COMMITTED_STAGES and d.agreed_rate is not None else None
     try:
-        out = await G.run({"jev_state": st, "fee_options": fees, "pct_options": pcts, "facts": facts, "name": _name(d, lead),
-                           "context": CostContext(user_id=user_id, campaign_id=d.campaign_id),
-                           "current_fee": current.fee if current else None, "agreed": agreed})
+        async with db.begin_nested():  # a failed read here must not abort the transaction that saves their reply
+            ctx = await _context(db, d, lead, details, user_id=user_id, text=text, mode="reply")
+        r = await (agent or RA.reply)(ctx, context=CostContext(user_id=user_id, campaign_id=d.campaign_id))
     except Exception:
-        # Jev or the model is down: the reply is still saved and shown; the founder is told to read it themselves
-        logger.exception("negotiation agent failed for deal %s", d.deal_id)
-        reason = AGENT_DOWN
-        reply.payload = {**(reply.payload or {}), "agent": {"action": "none", "reasons": [reason], "error": True}}
-        await _stale_suggestions(db, d)  # a new reply makes the older suggestion out of date either way
+        logger.exception("reply agent failed for deal %s", d.deal_id)
+        r = None
+    if r is None or (r.outcome == "hold" and r.draft is None):
+        # can't read or write it right now: the reply is still saved and shown; the founder reads it themselves
+        reason = r.reason if r is not None else AGENT_DOWN
+        reply.payload = {**(reply.payload or {}), "agent": {"action": "none", "reasons": [reason], "error": r is None}}
+        await _stale_suggestions(db, d)
         return {"action": "none", "reasons": [reason]}
-    decision, ask = out["decision"], out.get("ask")
-    answers = out.get("answers") or {}
-    if float(answers.get("opt_out", 0) or 0) >= OPT_OUT_FROM:
+    if r.outcome == "opt_out":
         return await _opted_out(db, d, reply, user_id)
 
-    if agreed is not None and ask:
-        # after agreeing, a new ask doesn't change the deal: it's flagged for the founder (hold or accept)
-        reply.payload = {**(reply.payload or {}), "their_ask": {"fee": ask.fee, "commission_pct": ask.commission_pct}}
-        if decision.action == "hold":
-            reply.payload["change"] = {"from": {"fee": agreed.fee, "commission_pct": agreed.commission_pct},
-                                       "to": {"fee": ask.fee, "commission_pct": ask.commission_pct}}
-    elif ask:
-        # what they asked for, as read by Jev from the amounts in their message
-        reply.payload = {**(reply.payload or {}), "their_ask": {"fee": ask.fee, "commission_pct": ask.commission_pct}}
-        if ask.fee is not None and ask.fee != d.quoted_rate:
-            db.add(DealEvent(deal_id=d.deal_id, type="quoted_rate", payload={"from": d.quoted_rate, "to": ask.fee, "commission_pct": ask.commission_pct}))
-            d.quoted_rate = float(ask.fee)
-        d.quoted_commission_pct = ask.commission_pct or None
-        if d.stage == "contacted":
-            db.add(DealEvent(deal_id=d.deal_id, type="stage", payload={"from": "contacted", "to": "negotiating"}))
-            d.stage = "negotiating"
-    reply.payload = {**(reply.payload or {}), "agent": {"action": decision.action, "reasons": decision.reasons}}
+    if r.failed:
+        from app.replies.memory import note_failures
 
+        await note_failures(db, user_id, r.failed)  # a check this founder's drafts keep failing becomes a lesson
+    draft = r.draft
+    agreed = d.stage in C.COMMITTED_STAGES and d.agreed_rate is not None
+    ask = draft.their_ask if draft is not None and "ask_read" not in r.failed else None
+    if ask is not None and (ask.fee is not None or ask.commission_pct):
+        reply.payload = {**(reply.payload or {}), "their_ask": {"fee": ask.fee, "commission_pct": ask.commission_pct}}
+        if agreed:
+            reply.payload["change"] = {"from": {"fee": int(d.agreed_rate), "commission_pct": float(d.commission_pct or 0)},
+                                       "to": {"fee": ask.fee, "commission_pct": float(ask.commission_pct or 0)}}
+        else:
+            if ask.fee is not None and ask.fee != d.quoted_rate:
+                db.add(DealEvent(deal_id=d.deal_id, type="quoted_rate", payload={"from": d.quoted_rate, "to": ask.fee,
+                                                                                 "commission_pct": ask.commission_pct}))
+                d.quoted_rate = float(ask.fee)
+            d.quoted_commission_pct = ask.commission_pct or None
+            if d.stage == "contacted":
+                db.add(DealEvent(deal_id=d.deal_id, type="stage", payload={"from": "contacted", "to": "negotiating"}))
+                d.stage = "negotiating"
+
+    action = SHOWN_ACTION.get(r.outcome) or {"counter": "counter", "accept": "agree", "close": "lost"}.get(draft.action, "reply")
+    reply.payload = {**(reply.payload or {}), "agent": {"action": action, "reasons": [r.reason],
+                                                        **({"failed": r.failed} if r.failed else {})}}
     await _stale_suggestions(db, d)
-    if decision.action not in ("counter", "agree", "lost", "hold"):
-        return {"action": decision.action, "reasons": decision.reasons}
+    name = _name(d, lead)
+    key = f"nego:{reply.event_id}"
 
-    o = decision.offer
-    terms = {"fee": o.fee, "commission_pct": o.commission_pct, "structure": decision.structure} if o else None
-    payload = {"message": out.get("message"), "source": out.get("source", "template"), "terms": terms, "final": decision.final,
-               **({"held": h} if (h := _held(answers, out)) else {}),
-               "amounts": ({"base": o.fee, "commission_pct": o.commission_pct} if o and o.commission_pct and o.fee else
-                           {"counter": o.fee} if o and o.fee else None)}
-    if decision.action == "agree":
-        kind, title = "agree", f"Agree to {o.words()}"
-        payload.update({"stage": "agreed", "agreed_rate": o.fee or 0,
-                        "deal_type": "base_plus_commission" if o.commission_pct and o.fee else "affiliate" if o.commission_pct else "flat",
-                        "commission_pct": o.commission_pct or None})
-    elif decision.action == "hold":
-        kind, title = "hold_terms", f"Keep the agreed {o.words()}"
-        payload["change"] = reply.payload.get("change")
-    elif decision.action == "lost":
-        kind, title = "mark_lost", "Close politely and mark lost"
+    if r.outcome == "wait":
+        db.add(DealEvent(deal_id=d.deal_id, type="paused", payload={"until": r.resume_on.isoformat(), "reason": r.reason}))
+        return {"action": action, "reasons": [r.reason]}
+    if r.outcome == "new_contact":
+        db.add(AgentProposal(campaign_id=d.campaign_id, deal_id=d.deal_id, key=key, kind="new_contact", status="pending",
+                             title=f"Write to {draft.new_contact_email} instead", reason=r.reason,
+                             payload={"email": draft.new_contact_email}))
+        return {"action": action, "reasons": [r.reason]}
+    if r.outcome == "ask_founder":
+        q = await ASK.ask(db, d, user_id=user_id, questions=r.questions, creator_text=text, reply_event_id=reply.event_id,
+                          name=name, send_mail=send_mail)
+        await db.flush()
+        reply.payload["agent"]["question_id"] = q.question_id
+
+    price = draft.price
+    payload = {"message": draft.message, "source": "ai", "terms": _terms(price), "amounts": _amounts(price),
+               "final": False, "strategy": draft.strategy,
+               **({"held": HELD_FOR[r.outcome]} if r.outcome in HELD_FOR else {}),
+               **({"problems": r.failed} if r.failed else {})}
+    if r.outcome == "decide" and draft.action == "accept":
+        deal_price = price or draft.their_ask
+        if deal_price is None:
+            return {"action": action, "reasons": [r.reason]}
+        payload.update({"stage": "agreed", "agreed_rate": deal_price.fee or 0, "terms": _terms(deal_price),
+                        "deal_type": ("base_plus_commission" if deal_price.commission_pct and deal_price.fee else
+                                      "affiliate" if deal_price.commission_pct else "flat"),
+                        "commission_pct": deal_price.commission_pct or None})
+        kind, title = "agree", f"Agree to {deal_price.words()}"
+    elif r.outcome == "decide":
         payload.update({"stage": "lost", "amounts": None, "terms": None})
+        kind, title = "mark_lost", "Close politely and mark lost"
+    elif not draft.message:
+        return {"action": action, "reasons": [r.reason]}
+    elif agreed:
+        kind, title = "hold_terms", "Reply, keeping the agreed price"
+        payload.update({"change": reply.payload.get("change"), "terms": {"fee": d.agreed_rate, "commission_pct": d.commission_pct or 0,
+                                                                          "structure": "flat"}})
+    elif draft.action == "counter" and price is not None:
+        kind, title = "send_counter", f"Offer: {price.words()}"
     else:
-        kind, title = "send_counter", f"{'Final offer' if decision.final else 'Offer'}: {o.words()}"
-    db.add(AgentProposal(campaign_id=d.campaign_id, deal_id=d.deal_id, key=f"nego:{reply.event_id}", kind=kind, status="pending",
-                         title=title, reason=" ".join(decision.reasons), payload=payload))
-    return {"action": decision.action, "reasons": decision.reasons}
+        kind, title = "reply", "Reply"
+    db.add(AgentProposal(campaign_id=d.campaign_id, deal_id=d.deal_id, key=key, kind=kind, status="pending",
+                         title=title, reason=r.reason, payload=payload))
+    return {"action": action, "reasons": [r.reason]}
+
+
+async def compose_follow_up(db: AsyncSession, p: AgentProposal, d: CreatorDeal, *, lead: dict, details: dict, user_id: str,
+                            agent=None) -> bool:
+    """Writes a follow-up from the whole conversation, the founder's voice and the creator's latest posts (the
+    reply agent in follow-up mode). It replaces the code-written fallback only if it passed every check;
+    otherwise the plain fallback stays (it's safe, just generic). → True if the AI wrote it."""
+    from app.replies import agent as RA
+
+    try:
+        async with db.begin_nested():
+            ctx = await _context(db, d, lead, details, user_id=user_id, text="", mode="follow_up")
+        r = await (agent or RA.reply)(ctx, context=CostContext(user_id=user_id, campaign_id=d.campaign_id))
+    except Exception:  # noqa: BLE001
+        logger.exception("follow-up writer failed for deal %s", d.deal_id)
+        r = None
+    pl = dict(p.payload or {})
+    if r is not None and r.outcome == "send" and r.draft is not None and r.draft.message and r.draft.price is None:
+        pl.update({"message": r.draft.message, "source": "ai", "composed": True})
+        p.payload = pl
+        return True
+    pl.update({"composed": True, "source": pl.get("source", "template")})
+    p.payload = pl
+    return False
 
 
 async def reword(db: AsyncSession, p: AgentProposal, d: CreatorDeal, *, lead: dict, details: dict, user_id: str) -> tuple[str, str]:
@@ -179,3 +249,18 @@ async def reword(db: AsyncSession, p: AgentProposal, d: CreatorDeal, *, lead: di
         p.payload = pl
         return text, "ai"
     return pl.get("message") or "", "template"
+
+
+async def rerun_after_answer(db: AsyncSession, q) -> None:
+    """The founder answered by email: write the creator's reply again with the new fact."""
+    from app.models.campaign import Campaign
+
+    if not q.reply_event_id:
+        return
+    reply = await db.get(DealEvent, q.reply_event_id)
+    d = await db.get(CreatorDeal, q.deal_id)
+    if reply is None or d is None:
+        return
+    camp = await db.get(Campaign, d.campaign_id)
+    lead = next((l for l in (camp.campaign_leads or []) if isinstance(l, dict) and str(l.get("id")) == d.creator_id), {}) if camp else {}
+    await negotiate(db, d, reply, lead=lead, details=(camp.campaign_details if camp else None) or {}, user_id=q.user_id)

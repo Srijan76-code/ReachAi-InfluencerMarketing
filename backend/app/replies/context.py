@@ -28,6 +28,7 @@ class Limits:
     ceiling: Optional[int]  # never offer more than this fee
     floor: Optional[int]  # never offer less than our last offer (we don't go back down)
     max_commission: float = R.MAX_COMMISSION_PCT
+    agreed: Optional[tuple] = None  # (fee, commission_pct) once a price is agreed: never changed by the agent
 
 
 @dataclass
@@ -144,3 +145,26 @@ def deal_facts(d, f, *, budget_left: Optional[float]) -> tuple[dict, Limits]:
         "usual_views": int(d.typical_views) if d.typical_views else None,
     }
     return info, Limits(ceiling=ceiling, floor=floor)
+
+
+async def build(db: AsyncSession, d, lead: dict, details: dict, *, user_id: str, creator_message: str, events: list,
+                budget_left: Optional[float], mode: str = "reply") -> ReplyContext:
+    """Gathers everything for one conversation: brief + remembered facts, the founder's voice, the whole
+    conversation, the creator and their latest posts, and the deal's numbers and hard limits."""
+    from app.deals import constants as DC
+    from app.negotiation import context as X
+    from app.replies import memory as M
+
+    mem = await M.load(db, user_id, d.campaign_id)
+    f = X.facts(d, events, budget_left=budget_left)
+    info, limits = deal_facts(d, f, budget_left=budget_left)
+    if d.stage in DC.COMMITTED_STAGES and d.agreed_rate is not None:
+        limits.agreed = (int(d.agreed_rate), float(d.commission_pct or 0))
+    lead = lead or {}
+    creator = {"name": lead.get("title") or d.creator_name, "first_name": lead.get("first_name"),
+               "platform": d.platform}
+    return ReplyContext(
+        facts=brief_facts(details) + mem.facts,
+        founder_voice=await founder_voice(db, user_id, mem.style_rules),
+        conversation=conversation(events), creator_message=_clip(creator_message, R.MAX_TURN_CHARS),
+        creator=creator, latest_posts=latest_posts(lead), deal=info, lessons=mem.lessons, limits=limits, mode=mode)

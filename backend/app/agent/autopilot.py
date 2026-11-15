@@ -86,7 +86,7 @@ def hold_reason(p, d, lead: Optional[dict], s: Settings, *, email_route: bool) -
             return "needs_review"
         if ((lead or {}).get("contact") or {}).get("contacted_before"):
             return "contacted_before"
-    if pl.get("held") in ("question", "needs_human"):
+    if pl.get("held") in A.HELD:
         return pl["held"]
     if not email_route:
         return "no_email"
@@ -216,6 +216,14 @@ async def send_next(db: AsyncSession, user_id: str, *, now: Optional[datetime] =
     pid, kind = p.proposal_id, p.kind
     subject = None if d.gmail_thread_id else ((p.payload or {}).get("subject")
                                               or ((c.campaign_details or {}).get("brand") or {}).get("name") or "Working together")
+    if kind == "follow_up" and not (p.payload or {}).get("composed"):
+        # written now, from the whole conversation, the founder's voice and their latest posts (falls back to the
+        # plain code-written text if the AI's draft doesn't pass every check)
+        from app.negotiation.run import compose_follow_up
+
+        lead = next((l for l in c.campaign_leads or [] if isinstance(l, dict) and str(l.get("id")) == d.creator_id), {})
+        await compose_follow_up(db, p, d, lead=lead, details=c.campaign_details or {}, user_id=user_id)
+        await db.commit()
     if not await Q.claim(db, p):
         return {"sent": None, "wait": 1, "why": "taken"}  # the founder sent it from the chat meanwhile
 

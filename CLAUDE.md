@@ -56,9 +56,9 @@ frontend/content/docs/   Public user docs (MDX, served at /docs)
 
 ## Architecture rules (do not break these)
 1. **Cheap first, expensive last.** Code/API → statistics/ML → Jev → code scoring → LLM. The LLM only sees the final shortlist.
-2. **Numbers live in code, never in an LLM or Jev.** Metrics, scoring, money and dates are all computed in code.
+2. **Numbers live in code, never in an LLM or Jev.** Metrics, scoring, money and dates are all computed in code. One exception (decided Nov 15): the reply agent's AI chooses its offer price, and code enforces the hard limits on it (`app/replies/judge.hard_limits`).
 3. **Judgments go to Jev** (TypeSafe AI): yes/no, labels, scales. One request per item with all its questions. Questions, thresholds and weights live in `app/judge/constants.py` and `questions.py` only.
-4. **LLMs only write text people read** (strategy, briefs, pitches, replies), and only through `app/llm/client.py` with a named route. Never import a provider SDK in a node.
+4. **LLMs only write text people read** (strategy, briefs, pitches, replies), and only through `app/llm/client.py` with a named route. Never import a provider SDK in a node. Anything an LLM writes for a person is checked by Jev through the shared checked writer (`app/agents/checked_writer.py`).
 5. **Every platform plugs in through the adapter interface** (`app/platforms/base.py`) and returns `CreatorProfile`. Shared nodes never contain platform-specific code.
 6. **Every paid external call logs a `cost_events` row.** A run never exceeds its credit reservation.
 7. **Untrusted text** (bios, posts, replies) goes in its own state field; nothing a model says can trigger a send or a payment on its own.
