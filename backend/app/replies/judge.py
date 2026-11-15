@@ -101,7 +101,7 @@ def questions(ctx: ReplyContext, draft: Draft, n_sent: int, asks_question: bool 
         q[f"unsupported_{i}"] = Noul(instructions=(
             f"Is `draft.sentences[{i}]` a claim about the brand, its product, its users, its past work, payment, dates or plans "
             "that goes beyond what `sources` says?"))
-    if ctx.creator_message and asks_question:
+    if ctx.creator_message and asks_question and draft.action != "ask_founder":  # asking the founder: theirs to answer
         q["answers"] = Noul(instructions="Does `draft.text` answer each question in `creator_message`, or say the founder will get back on it?")
     if draft.their_ask is not None and ctx.creator_message:
         q["ask_read"] = Noul(instructions="Is `draft.their_ask` what `creator_message` says they want to be paid?")

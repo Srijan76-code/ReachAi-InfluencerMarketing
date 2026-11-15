@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date
 from typing import Optional
 
 from sqlalchemy import select
@@ -48,7 +49,7 @@ class ReplyContext:
     def for_writer(self) -> dict:
         return {"facts": self.facts, "founder_voice": self.founder_voice, "conversation": self.conversation,
                 "creator_message": self.creator_message, "creator": self.creator, "latest_posts": self.latest_posts,
-                "deal": self.deal, "lessons": self.lessons, "mode": self.mode}
+                "deal": self.deal, "lessons": self.lessons, "mode": self.mode, "today": date.today().isoformat()}
 
     def sources(self) -> dict:
         """What a draft may draw on (for Jev's grounding check)."""
