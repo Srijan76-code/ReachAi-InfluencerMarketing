@@ -58,7 +58,7 @@ async def test_full_run_produces_ranked_leads_in_the_legacy_shape(sf, monkeypatc
     # reasons only for the top N
     n = parse_brief(BRIEF).creator_count
     assert sum(1 for l in leads if l["llm_reasoning"]) == min(n, len(leads))
-    assert counters["llm:brief"] == min(n, len(leads)) and counters["llm:strategy"] == 1
+    assert counters["llm:reasons"] == min(n, len(leads)) and counters["llm:strategy"] == 1
     # streamed live leads and stage notes
     assert any(e.get("type") == "leads" for e in events) and any(e.get("type") == "stage" for e in events)
 
@@ -146,21 +146,24 @@ async def test_jev_down_for_platform_check_falls_back_to_preset(sf, monkeypatch,
 
 
 @pytest.mark.asyncio
-async def test_reason_failure_leaves_an_empty_reason_not_a_failed_run(sf, monkeypatch, cost_log):
+async def test_reason_failure_shows_the_facts_not_a_failed_run(sf, monkeypatch, cost_log):
+    """The AI is down: the run still finishes, and each creator's bullets are the facts themselves."""
     use_recorded_limits(monkeypatch)
     deps, _ = make_deps(sf)
     calls = {"n": 0}
     real = deps.llm
 
     async def flaky(route, prompt, schema):
-        if route == "brief":
+        if route == "reasons":
             calls["n"] += 1
             raise RuntimeError("llm down")
         return await real(route, prompt, schema)
 
     deps.llm = flaky
     _, _, state, _ = await run(sf, deps)
-    assert state["final_leads"] and all(l["llm_reasoning"] == "" for l in state["final_leads"])
+    reasoned = [l for l in state["final_leads"] if l["reason_points"]]
+    assert state["final_leads"] and reasoned and calls["n"] >= 1
+    assert all(len(l["reason_points"]) == 3 and l["reason_points"][2].endswith(".") for l in reasoned)
 
 
 @pytest.mark.asyncio
@@ -355,15 +358,15 @@ async def test_reason_prompt_gets_our_verdict(sf, monkeypatch, cost_log):
     real = deps.llm
 
     async def spy(route, prompt, schema):
-        if route == "brief":
+        if route == "reasons":
             prompts.append(prompt)
         return await real(route, prompt, schema)
 
     deps.llm = spy
     _, _, state, _ = await run(sf, deps)
     labels = {l["deal_status"] for l in state["final_leads"] if l["llm_reasoning"]}
-    assert prompts and all("Our verdict:" in p for p in prompts)
-    assert any(f"Our verdict: {lab}." in p for p in prompts for lab in labels)
+    assert prompts and all("Verdict:" in p and "WHY:" in p and "WATCH (" in p and "CHOOSE:" in p for p in prompts)
+    assert any(f"Verdict: {lab}." in p for p in prompts for lab in labels)
 
 
 @pytest.mark.asyncio

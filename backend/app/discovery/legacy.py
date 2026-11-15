@@ -72,7 +72,9 @@ def to_legacy_lead(profile: dict, metrics: dict, record: dict, reason: Optional[
         "rich_context": "",
         "semantic_score": record.get("similarity", 0),
         "relevance_score": round((record.get("fit") or 0) * 100),
-        "llm_reasoning": reason or "",
+        # the "Why this creator" bullets (why · watch out · when to choose); llm_reasoning keeps one line for exports
+        "reason_points": [l[2:].strip() for l in (reason or "").splitlines() if l.startswith("- ")],
+        "llm_reasoning": " ".join(l[2:].strip() for l in (reason or "").splitlines() if l.startswith("- ")) or reason or "",
         "final_score": record.get("final_score") or 0,
         "deal_status": record.get("deal_status") or "Avoid",
         "score_breakdown": {

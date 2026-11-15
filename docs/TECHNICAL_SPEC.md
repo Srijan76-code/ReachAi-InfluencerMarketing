@@ -126,6 +126,11 @@ async def achat(route: str, messages, schema=None, **kw)
 - Escape hatch: `LLM_BACKEND=gateway|openrouter|direct` env var.
 
 ### 3.2 Model routing (one place: `app/llm/routes.py`)
+
+**As decided Nov 15** (tests and numbers in `docs/MODEL_BENCHMARKS.md`): Claude Haiku 5.5 and GPT-5 mini through
+Vercel AI Gateway (no markup), then Gemini 3.5 Flash (Google key) and gpt-oss-120b (Groq key) directly, so one
+provider's outage never stops a route. "Why this creator" (`reasons` route): Claude Haiku 5.5 with thinking off.
+Gemini 3.8 Flash removed (0/5 calls succeeded on Nov 15). The table below is the original plan.
 | Task | Route name | Primary | Fallbacks | Why |
 |---|---|---|---|---|
 | Campaign strategy + keywords (merged, 1 call per run) | `strategy` | Frontier model (chosen by eval) | 2nd frontier → gpt-oss-120b | Everything downstream depends on it; 1 call, so cost is irrelevant |

@@ -74,6 +74,7 @@ export interface Influencer {
   final_score: number;
 
   llm_reasoning: string;
+  reason_points?: string[]; // why · watch out · when to choose (newer results)
 
   deal_status: "Strong Buy" | "Consider" | "Avoid";
 

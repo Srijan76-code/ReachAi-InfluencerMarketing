@@ -29,7 +29,7 @@ from app.discovery.prompts import (
     STRATEGY_PROMPT_VERSION,
     ReasonOut,
     StrategyOut,
-    reason_prompt,
+    reason_prompt, reason_bullets,
     strategy_prompt,
 )
 from app.discovery.state import BranchState, Deps, DiscoveryState, ReasonState
@@ -599,11 +599,42 @@ async def reason(state: ReasonState, runtime: Runtime[Deps]) -> dict:
     profiles = await repo.get_creators([c["creator_id"]], session_factory=runtime.context.session_factory)
     p = profiles.get(c["creator_id"]) or {}
     titles = [x.get("text", "") for x in (p.get("recent_posts") or [])]
-    prompt = reason_prompt(brief, c.get("display_name", ""), titles, c.get("signals") or {}, c.get("deal_status"))
+    from app.discovery import reason_points as RP
+    from app.discovery.reason_check import write_checked
+    from app.judge.questions import reason_pick_questions
+
+    strategy = state.get("strategy") or {}
+    verdict, flags, ctx = c.get("deal_status"), c.get("flags") or [], _ctx(runtime, state)
+    titles = [t for t in titles if t][:8]
+    f = RP.facts(c.get("signals") or {}, flags, metrics=p.get("metrics") or {}, competitor_promos=c.get("competitor_promos"),
+                 competitor_mode=brief.competitor_mode, persona=brief.persona)
+    fallback = RP.pick(c.get("signals") or {}, flags, verdict, metrics=p.get("metrics") or {}, goal=brief.goal,
+                       competitor_promos=c.get("competitor_promos"), competitor_mode=brief.competitor_mode, titles=titles,
+                       topics=list(strategy.get("topics") or []), persona=brief.persona)
+
+    async def judge(st, qs):
+        return await _judge(runtime, st, qs, ctx)
 
     async def compute():
-        out = await _llm(runtime, "brief", prompt, ReasonOut, _ctx(runtime, state))
-        return out.reasoning if hasattr(out, "reasoning") else str(out)
+        # 1-2. code listed the true facts; Jev picks the ones that matter for this brief
+        points = fallback
+        qs = reason_pick_questions(f, titles)
+        if qs:
+            try:
+                j = await judge({"brief": {"product": brief.product, "who_buys": brief.persona, "goal": brief.goal},
+                                 "facts": f, "titles": titles}, qs)
+                points = RP.from_jev({k: j.choice(k) for k in qs}, f, titles, verdict, flags, brief.goal, fallback)
+            except Exception as exc:  # noqa: BLE001 - the code pick is always true, just less tailored
+                logger.warning("reason pick failed for %s: %s", c["creator_id"], exc)
+
+        # 3-4. the LLM words them; Jev checks; a critical miss goes back with feedback
+        async def write(prompt_text):
+            out = await _llm(runtime, "reasons", prompt_text, None, ctx)
+            return out.reasoning if hasattr(out, "reasoning") else str(out)
+
+        res = await write_checked(reason_prompt(brief, c.get("display_name", ""), verdict, points), points, verdict,
+                                  write=write, judge=judge, parse=reason_bullets)
+        return "\n".join(f"- {x}" for x in res.bullets)
 
     try:
         from app.discovery.cache import cached
