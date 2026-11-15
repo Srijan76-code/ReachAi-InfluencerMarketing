@@ -66,6 +66,17 @@ def make_deps(session_factory, *, counters=None, fail_judge_times=0, jev_down=Fa
             if jev_down:
                 raise RuntimeError("jev down")
             return Judgment({q: Answer("noul", 0.9 if q.removeprefix("platform_") in yes_platforms else 0.2) for q in questions}, "fake", "jev")
+        if "facts" in st:  # the "Why this creator" pick and check
+            counters.bump("reason_judge")
+            answers = {}
+            for q, spec in questions.items():
+                if getattr(spec, "type", None) == "choice":
+                    answers[q] = Answer("choice", next(iter(spec.criteria)), 0.9)
+                elif q == "is_weakness":
+                    answers[q] = Answer("noul", 0.9 if st["facts"]["watch"]["kind"] == "weakness" else 0.1)
+                else:
+                    answers[q] = Answer("noul", {"injection": 0.0, "agrees": 0.9}.get(q, 0.9 if q.startswith("grounded") else 0.1))
+            return Judgment(answers, "fake-jev", "jev", input_tokens=50)
         counters.bump("creator_judge")
         if state["judge_failures_left"] > 0:
             state["judge_failures_left"] -= 1
@@ -90,6 +101,10 @@ def make_deps(session_factory, *, counters=None, fail_judge_times=0, jev_down=Fa
             raise RuntimeError("llm down")
         if schema is StrategyOut:
             return STRATEGY
+        if route == "reasons":  # words the facts in the prompt, like the real model
+            lines = {k: prompt.split(k, 1)[1].split("\n", 1)[0].strip(" .:") for k in ("WHY:", "CHOOSE:")}
+            watch = prompt.split("WATCH (", 1)[1].split("\n", 1)[0].split("): ", 1)
+            return f"- {lines['WHY:']}.\n- {'Watch out: ' if watch[0] == 'weakness' else ''}{watch[1]}\n- {lines['CHOOSE:']}."
         return ReasonOut(reasoning="Their audience of new ML learners fits DataLaunch's job-guarantee bootcamp well.")
 
     async def embed(texts, task):

@@ -7,6 +7,7 @@ ReachAI is an end-to-end creator marketing app for startup and solo founders. It
 2. **`docs/TECHNICAL_SPEC.md`**: the full design. Each roadmap item links to its section (§).
 3. `backend/OUTREACH_EVALUATION.md`: how the outreach eval suite works.
 4. **`docs/UI_GUIDE.md`** before any frontend work: every page uses the same look and the shared controls.
+5. **`docs/MODEL_BENCHMARKS.md`** before changing a model or a prompt: how each was chosen, with the tests to rerun (`backend/scripts/benchmarks/`).
 
 ## Keep the user docs true (required)
 The public docs live in `frontend/content/docs/*.mdx` (Fumadocs, served at `/docs`, linked from the in-app navbar).

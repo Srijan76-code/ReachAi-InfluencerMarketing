@@ -54,9 +54,15 @@ CEREBRAS_GPT_OSS = ModelSpec(provider="openai_compat", model="gpt-oss-120b", ven
 # Every route: the gateway's two models first, then two other companies straight (an outage anywhere in one
 # provider never stops ReachAI). Same order everywhere, so behaviour is predictable.
 WRITING = [CLAUDE_HAIKU, GPT5_MINI, GEMINI_FLASH, GROQ_GPT_OSS]
+# "Why this creator" bullets: rewording facts code picked, so no thinking needed (Nov 15 test: Haiku 5.5 was the
+# most faithful of 7 models; with thinking off it answers in ~1 s and never cuts off).
+CLAUDE_HAIKU_FAST = ModelSpec(provider="openai_compat", model="anthropic/claude-haiku-5.5", vendor="vercel_gateway",
+                              api_key_env=GATEWAY_KEY, base_url=VERCEL_GATEWAY, price_in=0.10, price_out=0.50,
+                              temperature=False, max_tokens=600, reasoning_effort="none")
 ROUTES: dict[str, list[ModelSpec]] = {
     "strategy": WRITING,
     "brief": WRITING,
+    "reasons": [CLAUDE_HAIKU_FAST, GEMINI_FLASH_LITE, GROQ_GPT_OSS],
     "pitch": WRITING,
     "reply": WRITING,
     "counter": WRITING,
