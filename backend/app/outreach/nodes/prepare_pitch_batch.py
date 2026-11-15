@@ -42,7 +42,7 @@ async def prepare_pitch_batch(state: OutreachState) -> OutreachState:
             creator_input=creator_input,
             collaboration=creator_input["collaboration"],
             deliverables=creator_input["deliverables"],
-            model_name=state.get("model_name", "gemini-3.8-flash"),
+            model_name=state.get("model_name", "route:pitch"),
         )
         work_items.append(creator_input)
 
