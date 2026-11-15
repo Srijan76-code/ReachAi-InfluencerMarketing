@@ -13,3 +13,4 @@ from .deal import AgentProposal, ConnectedAccount, CreatorDeal, DealEvent
 from .agent_run import AgentRun
 from .billing import BillingEvent, CreditEntry, CreditReservation, Payment, Referral, ReferralCode, Subscription
 from .contact import ContactHistory, Suppression
+from .agent_memory import AgentMemory, FounderQuestion
