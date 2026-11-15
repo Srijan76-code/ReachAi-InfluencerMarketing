@@ -8,6 +8,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useApi } from "@/lib/api";
 import { useInbox } from "@/lib/inbox";
 import { AddCreatorsDialog } from "@/components/deals/AddCreatorsDialog";
+import { Autopilot } from "@/components/deals/Autopilot";
 import { DealChat, askWords } from "@/components/deals/DealChat";
 import { CreatorAvatar } from "@/components/CreatorAvatar";
 import { GmailConnect, useGmail } from "@/components/GmailConnect";
@@ -25,6 +26,8 @@ function ListItem({ d, active, draft, compact, onOpen }: { d: Deal; active: bool
   const last = d.last_message;
   const unread = d.unread ?? 0;
   const sub = d.writing && !draft ? "Writing a first message…"
+    : draft?.auto && !unread ? "Autopilot is sending a message"
+    : draft?.held && !unread ? draft.held
     : draft && !unread ? (draft.kind === "pitch" ? "First message ready to check" : draft.kind === "confirm_terms" ? "Confirmation ready to send" : "ReachAI drafted a reply")
     : last ? `${last.who === "you" ? "You: " : ""}${last.text}`
     : d.quoted_rate != null ? `Asked ${askWords(d.quoted_rate, d.quoted_commission_pct)}` : "No messages yet";
@@ -175,7 +178,8 @@ export default function DealsBoard({ campaignId, apiOverride }: {
   const all = (deals ?? []).filter((d) => !q || d.name.toLowerCase().includes(q));
   const talking = all.filter((d) => TALKING.includes(d.stage));
   const byLatest = (a: Deal, b: Deal) => (b.last_message?.at ?? b.updated_at ?? "").localeCompare(a.last_message?.at ?? a.updated_at ?? "");
-  const yourTurn = (d: Deal) => drafts.has(d.id) || (d.unread ?? 0) > 0 || !!d.writing;
+  // a draft autopilot will send isn't your turn; one it left for you is
+  const yourTurn = (d: Deal) => (drafts.has(d.id) && !draftOf.get(d.id)?.auto) || (d.unread ?? 0) > 0 || !!d.writing;
   const groups: Group[] = [
     { key: "turn", label: "Your turn", items: all.filter((d) => d.stage !== "lost" && yourTurn(d)).sort(byLatest) },
     { key: "waiting", label: "Waiting for them", items: talking.filter((d) => !yourTurn(d)).sort(byLatest) },
@@ -207,6 +211,7 @@ export default function DealsBoard({ campaignId, apiOverride }: {
                 {bulk === "busy" ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />} Send {reviewed.length} checked
               </button>
             )}
+            <Autopilot campaignId={campaignId} api={api} gmailReady={gmail.ready} onChange={() => load()} />
             <GmailConnect gmail={gmail} />
             <AddCreatorsDialog campaignId={campaignId} api={api} existing={existing} onAdded={() => load()} />
           </div>

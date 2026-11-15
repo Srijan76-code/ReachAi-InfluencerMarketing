@@ -18,6 +18,8 @@ from app.negotiation import write as W
 from app.models.deal import AgentProposal, CreatorDeal, DealEvent
 
 MARKET_MIN_DEALS = 5
+OPT_OUT_FROM = 0.8  # "please stop emailing me": never contacted again (by anyone on ReachAI)
+HOLD_FROM = 0.5  # a question or terms only the founder can answer: autopilot waits for them
 AGENT_DOWN = "ReachAI couldn't read this reply right now. Read it yourself, or press Suggest again in a minute."
 logger = logging.getLogger(__name__)
 
@@ -57,6 +59,36 @@ async def _stale_suggestions(db: AsyncSession, d: CreatorDeal) -> None:
         p.status = "stale"
 
 
+async def _opted_out(db: AsyncSession, d: CreatorDeal, reply: DealEvent, user_id: str) -> dict:
+    """They asked not to be contacted: suppress the address, stop every pending message, ask the founder to close."""
+    from app.contacts.ledger import record_contact, suppress
+
+    reason = "They asked not to be contacted again. ReachAI won't email them."
+    reply.payload = {**(reply.payload or {}), "agent": {"action": "lost", "reasons": [reason]}, "opt_out": True}
+    await _stale_suggestions(db, d)
+    for p in (await db.execute(select(AgentProposal).where(AgentProposal.deal_id == d.deal_id,
+                                                           AgentProposal.status == "pending"))).scalars():
+        p.status = "stale"  # no follow-up, no counter: nothing more goes to them
+    if d.contact_email:
+        await suppress(db, d.contact_email, "opt_out")
+        await record_contact(db, user_id, d.contact_email, d.campaign_id, outcome="opted_out")
+    db.add(DealEvent(deal_id=d.deal_id, type="opted_out", payload={}))
+    db.add(AgentProposal(campaign_id=d.campaign_id, deal_id=d.deal_id, key=f"nego:{reply.event_id}", kind="mark_lost",
+                         status="pending", title="Mark lost", reason=reason, payload={"stage": "lost", "opt_out": True}))
+    return {"action": "lost", "reasons": [reason]}
+
+
+def _held(answers: dict, out: dict) -> Optional[str]:
+    """Why autopilot shouldn't send this reply by itself: terms only the founder decides, or a question the
+    drafted reply doesn't clearly answer."""
+    if float(answers.get("needs_human", 0) or 0) >= HOLD_FROM:
+        return "needs_human"
+    answered = ((out.get("check") or {}).get("answers") or 0) >= 0.7 and out.get("source") == "ai"
+    if float(answers.get("asks_question", 0) or 0) >= HOLD_FROM and not answered:
+        return "question"
+    return None
+
+
 def _name(d: CreatorDeal, lead: dict) -> str:
     return (lead or {}).get("first_name") or N.greeting_name((lead or {}).get("title") or d.creator_name)
 
@@ -80,6 +112,9 @@ async def negotiate(db: AsyncSession, d: CreatorDeal, reply: DealEvent, *, lead:
         await _stale_suggestions(db, d)  # a new reply makes the older suggestion out of date either way
         return {"action": "none", "reasons": [reason]}
     decision, ask = out["decision"], out.get("ask")
+    answers = out.get("answers") or {}
+    if float(answers.get("opt_out", 0) or 0) >= OPT_OUT_FROM:
+        return await _opted_out(db, d, reply, user_id)
 
     if agreed is not None and ask:
         # after agreeing, a new ask doesn't change the deal: it's flagged for the founder (hold or accept)
@@ -106,6 +141,7 @@ async def negotiate(db: AsyncSession, d: CreatorDeal, reply: DealEvent, *, lead:
     o = decision.offer
     terms = {"fee": o.fee, "commission_pct": o.commission_pct, "structure": decision.structure} if o else None
     payload = {"message": out.get("message"), "source": out.get("source", "template"), "terms": terms, "final": decision.final,
+               **({"held": h} if (h := _held(answers, out)) else {}),
                "amounts": ({"base": o.fee, "commission_pct": o.commission_pct} if o and o.commission_pct and o.fee else
                            {"counter": o.fee} if o and o.fee else None)}
     if decision.action == "agree":

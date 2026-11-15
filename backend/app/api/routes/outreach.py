@@ -71,6 +71,16 @@ async def create_outreach_job(
         await db.flush()
         db.add(DealEvent(deal_id=d.deal_id, type="created", payload={"stage": "contacted", "from": "pitch"}))
 
+    # starting outreach switches autopilot on for this campaign (the founder can turn it off in Outreach)
+    from app.agent.autopilot import settings_of, turned_on
+
+    current = settings_of(campaign.outreach_settings)
+    if campaign.outreach_settings is None or payload.autopilot is not None or payload.review_first is not None:
+        campaign.outreach_settings = turned_on(
+            campaign.outreach_settings,
+            autopilot=True if payload.autopilot is None else payload.autopilot,
+            review_first=current.review_first if payload.review_first is None else payload.review_first)
+
     outreach_job_id = str(uuid.uuid4())
     job = OutreachJob(
         outreach_job_id=outreach_job_id,

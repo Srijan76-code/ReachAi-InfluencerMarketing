@@ -33,6 +33,9 @@ class OutreachJobCreate(BaseModel):
     deliverables: List[str] = Field(default_factory=list)
     creator_overrides: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
     auto_start: Optional[bool] = False
+    # autopilot (app/agent/autopilot.py): starting outreach turns it on unless these say otherwise
+    autopilot: Optional[bool] = None
+    review_first: Optional[bool] = None
 
 
 class OutreachJobResponse(BaseModel):

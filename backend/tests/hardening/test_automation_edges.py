@@ -19,7 +19,7 @@ pytestmark = [needs_pg, pytest.mark.asyncio]
 TABLES = ["users", "campaigns", "saved_leads", "run_candidates", "share_links", "share_feedback", "creator_deals",
           "deal_events", "share_events", "agent_proposals", "connected_accounts", "deal_posts", "tracking_links",
           "link_clicks", "outreach_jobs", "outreach_pitches", "post_stats", "conversions", "credit_ledger",
-          "credit_reservations", "subscriptions", "payments", "billing_events"]
+          "credit_reservations", "subscriptions", "payments", "billing_events", "contact_history", "suppression_list"]
 LEADS = [{"id": f"UC{i}", "title": f"Creator {i}", "socials": {"email": f"c{i}@example.com"}} for i in range(4)]
 PITCH = "Hi Creator,\n\nLoved your recent video.\n\nWould you be open to a collaboration with Lumen?"
 
@@ -29,7 +29,7 @@ async def env(tmp_path, monkeypatch):
     from app.auth import user as auth
     from app.db import database
     from app.main import app
-    from app.models import discovery_run, outreach, saved_lead, share_link  # noqa: F401  (register tables)
+    from app.models import contact, discovery_run, outreach, saved_lead, share_link  # noqa: F401  (register tables)
     from app.models.campaign import Campaign, CampaignStatus
     from app.models.deal import AgentProposal, ConnectedAccount, CreatorDeal
     from app.models.user import User
@@ -269,3 +269,67 @@ async def test_slim_loaders_keep_every_field_the_pages_use(env):
     assert r.status_code == 200
     names = {i["deal_id"]: i["name"] for i in r.json()["items"]}
     assert names["d0"] == "Creator 0" and names["d1"] == "Creator 1"
+
+
+async def test_opting_out_stops_everything(env, monkeypatch):
+    """"Please stop emailing me": no counter, no follow-up, the address is never emailed again by anyone."""
+    from app.contacts.ledger import suppressed
+    from app.models.deal import AgentProposal
+    from app.negotiation.decide import Decision
+
+    async def agent(state):
+        return {"decision": Decision("counter", reasons=["x"]), "ask": None, "message": "Offer $150", "source": "ai",
+                "answers": {"opt_out": 0.97}}
+
+    monkeypatch.setattr("app.negotiation.graph.run", agent)
+    r = await env.post("/api/deals/d0/reply", json={"text": "Please remove me from your list and stop emailing me."})
+    assert r.status_code == 200, r.text
+    assert r.json()["agent"]["action"] == "lost"
+    async with env.sf() as s:
+        props = list((await s.execute(select(AgentProposal).where(AgentProposal.deal_id == "d0"))).scalars())
+        assert {p.status for p in props if p.kind == "pitch"} == {"stale"}
+        [close] = [p for p in props if p.status == "pending"]
+        assert close.kind == "mark_lost" and close.payload["opt_out"] and "message" not in close.payload
+        assert await suppressed(s, "C0@example.com") == "opt_out"
+
+
+async def test_a_bounce_is_not_a_reply(env, monkeypatch):
+    from app.contacts.ledger import suppressed
+    from app.gmail import client as GC
+    from app.gmail import service as GS
+    from app.models.deal import AgentProposal, ConnectedAccount, CreatorDeal
+
+    async with env.sf() as s:
+        (await s.get(CreatorDeal, "d1")).gmail_thread_id = "t1"
+        await s.commit()
+
+    async def token(refresh):
+        return "tok"
+
+    async def thread(tok, tid):
+        return {"messages": [{"id": "b1", "labelIds": ["INBOX"], "snippet": "Address not found", "payload": {"headers": [
+            {"name": "From", "value": "Mail Delivery Subsystem <mailer-daemon@googlemail.com>"},
+            {"name": "Subject", "value": "Delivery Status Notification (Failure)"}]}}]}
+
+    calls = []
+
+    async def fake_negotiate(db, d, reply, **k):
+        calls.append(d.deal_id)
+        return {"action": "none", "reasons": []}
+
+    monkeypatch.setattr(GC, "access_token", token)
+    monkeypatch.setattr(GC, "thread", thread)
+    monkeypatch.setattr("app.gmail.mail.reply_text", lambda m: m.get("snippet"))
+    monkeypatch.setattr("app.negotiation.run.negotiate", fake_negotiate)
+    monkeypatch.setattr("app.gmail.crypto.decrypt", lambda v: "refresh")
+    async with env.sf() as s:
+        account = (await s.execute(select(ConnectedAccount))).scalar_one()
+        deals = list((await s.execute(select(CreatorDeal).where(CreatorDeal.deal_id == "d1"))).scalars())
+        assert await GS.sync_deals(s, account, deals, user_id="u1", force=True) == 0
+    assert calls == [] and await _events(env.sf, "d1", "creator_reply") == []
+    assert len(await _events(env.sf, "d1", "bounced")) == 1
+    async with env.sf() as s:
+        assert await suppressed(s, "c1@example.com") == "bounce"
+        pending = list((await s.execute(select(AgentProposal).where(AgentProposal.deal_id == "d1",
+                                                                     AgentProposal.status == "pending"))).scalars())
+        assert [p.kind for p in pending] == ["mark_lost"] and pending[0].payload["bounced"]
