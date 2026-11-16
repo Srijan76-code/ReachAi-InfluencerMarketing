@@ -19,7 +19,8 @@ from sqlalchemy import func, select
 from app.api.campaign_names import DEFAULT_NAME, name_from_brief
 from app.api.campaign_runs import EnqueueError, quote_for, start_run
 from app.billing import ledger
-from app.discovery.brief import ISO_COUNTRIES
+from app.discovery import agent_ai
+from app.discovery.brief import ISO_COUNTRIES, parse_brief
 from app.mcp import config, format as fmt
 from app.mcp.auth import current_user_id
 from app.mcp.db import session_scope
@@ -59,6 +60,41 @@ async def _runs_today(db, user_id: str) -> int:
             select(func.count()).select_from(AgentRun).where(AgentRun.user_id == user_id, AgentRun.created_at >= _start_of_today())
         )
     ) or 0
+
+
+async def _strategy_gate(db, campaign, details: dict, strategy: dict | None, user_id: str):
+    """(review, details). review is None when the agent hasn't written a strategy yet. A strategy Jev already passed
+    (same content, saved in the campaign) isn't checked twice. Jev checks per campaign per day are capped."""
+    from app.billing.costs import CostContext
+    from app.discovery import agent_ai
+    from app.discovery.brief import parse_brief
+    from app.judge import client as jev
+    from app.judge import constants as K
+
+    if strategy is None:
+        return None, details
+    brief = parse_brief(details)
+    digest = agent_ai.strategy_hash(strategy)
+    prev = details.get("agent_review") or {}
+    today = _start_of_today().date().isoformat()
+    if prev.get("hash") == digest and prev.get("passed"):
+        cleaned, problems = agent_ai.clean(strategy, brief)
+        return {"passed": not problems, "strategy": cleaned, "fix_these": problems, "what_was_right": {}}, details
+    used = int(prev.get("n") or 0) if prev.get("day") == today else 0
+    if used >= K.AGENT_STRATEGY_CHECKS_PER_DAY:
+        raise ToolError(f"This campaign's strategy was checked {used} times today. Start it from the ReachAI app, or try again tomorrow.")
+
+    async def judge(state, questions):
+        return await jev.judge(state, questions, context=CostContext(user_id=user_id, campaign_id=campaign.campaign_id))
+
+    try:
+        review = await agent_ai.review(brief, strategy, judge)
+    except jev.JudgeUnavailableError:
+        review = await agent_ai.review(brief, strategy, None)
+    details = {**details, "agent_review": {"hash": digest, "passed": review["passed"], "day": today,
+                                           "n": used + (1 if review.get("jev_checked") else 0)}}
+    campaign.campaign_details = details
+    return review, details
 
 
 def _fair_high(deal: CreatorDeal | None, lead: dict[str, Any]) -> float | None:
@@ -189,14 +225,17 @@ def register_write_tools(server: MCPServer) -> None:
             "Start the creator search for a campaign. It costs the founder ReachAI credits (shown before "
             "starting) and is limited per day, so FIRST call it with confirm=false to see the cost and balance, "
             "tell the founder, and only call again with confirm=true after they agree. If the search finds "
-            "fewer than 10 creators the credits come back automatically. Searches take a few minutes: then "
-            "poll campaign_status about every 30 seconds."
+            "fewer than 10 creators the credits come back automatically. YOU write the search strategy (ReachAI "
+            "uses none of its own AI here): the confirm=false reply contains the task (`strategy_task`); send your "
+            "strategy as `strategy`, ReachAI checks it and tells you what to fix, and only a checked strategy can "
+            "start with confirm=true. Searches take a few minutes: then poll campaign_status about every 30 seconds."
         ),
         annotations=SPENDS,
     )
     async def start_search(
         campaign_id: CampaignId,
         confirm: Annotated[bool, Field(description="Set true only after the founder has agreed to start the search.")] = False,
+        strategy: Annotated[dict | None, Field(description="The search strategy you wrote, as the JSON fields in `strategy_task.fields` (topics, pain_points, formats, youtube_queries, x_queries, instagram_queries, linkedin_queries, trend_topics, competitors, safety_level, primary_metric).")] = None,
     ) -> CallToolResult:
         user_id = current_user_id()
         cap = config.agent_runs_per_day()
@@ -226,15 +265,36 @@ def register_write_tools(server: MCPServer) -> None:
                     f"Not enough credits: this search costs {cost} and the founder has {balance}. "
                     f"Credits reset on {account['resets_at'][:10]}. More credits: {fmt.app_link('/pricing')}"
                 )
+            if strategy is None and confirm:
+                raise ToolError("Write the search strategy first: call start_search with confirm=false to get `strategy_task`, "
+                                "write the strategy, and send it as `strategy`. ReachAI checks it before anything starts.")
+            review, details = await _strategy_gate(db, campaign, details, strategy, user_id)
+            await db.commit()
+            if review is None or not review["passed"]:
+                kind = "Find more (re-run)" if q.find_more else "Search"
+                lines = [f"Not started. {kind} on {', '.join(q.platforms)} costs **{cost}**; the founder has {balance}."]
+                payload = {**data, "started": False}
+                if review is None:
+                    brief = parse_brief(details)
+                    payload["strategy_task"] = agent_ai.task(brief)
+                    lines += ["", "Next: write the search strategy yourself (see `strategy_task`: the prompt, the fields and the rules) "
+                                  "and call start_search again with `strategy`. ReachAI checks it and starts nothing yet."]
+                else:
+                    payload["strategy_review"] = {k: review[k] for k in ("passed", "fix_these", "what_was_right")}
+                    fixes = "; ".join(str(f.get("check")) for f in review["fix_these"])
+                    lines += ["", f"Your strategy needs changes: {fixes}. Fix them and call start_search again with the new `strategy`."]
+                return fmt.result("\n".join(lines), payload)
             if not confirm:
                 kind = "Find more (re-run)" if q.find_more else "Search"
                 text = (
                     f"Not started. {kind} on {', '.join(q.platforms)} costs **{cost}**; the founder has {balance}. "
+                    f"Your strategy passed ReachAI's checks. "
                     f"Credits come back if it finds fewer than 10 creators. "
                     f"({used} of {cap} agent-started searches used today.)\n\n"
-                    "Tell the founder, and if they agree call start_search again with confirm=true."
+                    "Tell the founder, and if they agree call start_search again with confirm=true and the same strategy."
                 )
-                return fmt.result(text, {**data, "started": False})
+                return fmt.result(text, {**data, "started": False, "strategy_review": {"passed": True}})
+            details = {**details, "campaign": {**(details.get("campaign") or {}), "ai_mode": "agent", "agent_strategy": review["strategy"]}}
 
             clerk_id = await db.scalar(select(User.clerk_id).where(User.user_id == user_id))
             db.add(AgentRun(user_id=user_id, campaign_id=campaign_id))

@@ -23,9 +23,12 @@ def register_prompts(server: MCPServer) -> None:
             "   If they give a website instead, call read_website and fill the brief from what the page clearly says.\n"
             "2. Call create_campaign. Read the brief back to them.\n"
             "3. Searching uses their YouTube quota and AI credits and is limited per day. Call start_search with "
-            "confirm=false, tell them, and call it with confirm=true only after they agree.\n"
+            "confirm=false: it returns the cost and strategy_task. Write the search strategy yourself, send it as "
+            "`strategy` (ReachAI checks it and tells you what to fix), tell the founder the cost, and call it with "
+            "confirm=true and the same strategy only after they agree.\n"
             "4. Poll campaign_status about every 30 seconds. When it is done call list_creators and show the table "
-            "exactly as returned, then offer get_creator for the top few and save_creator for the ones they like."
+            "exactly as returned, then offer get_creator for the top few and save_creator for the ones they like. "
+            "get_creator gives you `write_why`: write the three 'why they fit' bullets and send them to submit_reasons."
         )
 
     @server.prompt(

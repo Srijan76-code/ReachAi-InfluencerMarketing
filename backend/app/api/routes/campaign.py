@@ -213,7 +213,9 @@ async def generate_campaign(
     if not campaign:
         raise HTTPException(404, "Campaign not found")
 
-    details = campaign_details if campaign_details is not None else (campaign.campaign_details or {})
+    from app.discovery.brief import without_agent_mode
+
+    details = without_agent_mode(campaign_details if campaign_details is not None else (campaign.campaign_details or {}))
     try:
         return await start_run(db, campaign, details, user.clerk_id)
     except ledger.NotEnoughCredits as err:

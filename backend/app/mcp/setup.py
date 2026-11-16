@@ -99,10 +99,13 @@ ReachAI is connected as the MCP server `reachai` ({MCP_URL}). Its tools read and
 
 ## The order of steps
 
+Errors from these tools say what to do next. Read them and follow them (for example: wait while a search is running, tell the user when credits or a daily limit run out) instead of retrying blindly.
+
 1. `list_campaigns` to see what exists. New work: `create_campaign` (ask for what you don't know; if the founder gives a website, `read_website` first and fill the brief from it), then `start_search`.
-2. `start_search` costs the user ReachAI credits (shown before it starts) and is capped per day. Call it with `confirm=false`, tell the user, and only call it with `confirm=true` after they agree. Never start a search on your own.
+2. `start_search` costs the user ReachAI credits (shown before it starts) and is capped per day. Call it with `confirm=false`: the reply has the cost and `strategy_task`. **You write the search strategy** (ReachAI uses none of its own AI for it) and send it as `strategy`; ReachAI checks it and replies with `fix_these` if it needs changes, so rewrite and send again. Tell the user the cost, and only call it with `confirm=true` and the same `strategy` after they agree. Never start a search on your own.
 3. Searches take minutes. Poll `campaign_status` about every 30 seconds. Do not loop faster.
 4. `list_creators` for the ranked table. `get_creator` for one creator in detail. `save_creator` for the shortlist.
+   After a search you started, each creator's "Why they fit" shows plain checked facts. To improve them: `get_creator` returns `write_why` (the facts and the prompt); write 3 bullets and send up to 10 creators at a time to `submit_reasons`. ReachAI checks them and says what to fix; after 3 tries the plain facts stay. Don't loop on a creator that is `facts_kept`.
 5. First messages: `pitch_context`, write the message, `save_draft`. The draft lands in the creator's chat in ReachAI and **nothing is sent**: the founder reviews and sends it in the app.
 6. Later: `inbox` (who replied), `list_deals` (where each deal stands), `track_summary` (spend, views, results, late posts, who to pay).
 

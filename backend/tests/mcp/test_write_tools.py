@@ -10,6 +10,14 @@ pytestmark = pytest.mark.asyncio
 
 GOOD = ("Hi Krish, your LangChain Crash Course was the clearest walkthrough I've seen. We run DataLaunch, "
         "a 12-week bootcamp, and would love to work together. Open to a quick chat?")
+STRATEGY = {
+    "topics": ["freelance business", "invoicing and getting paid", "small business finance", "design careers"],
+    "pain_points": ["clients pay late", "chasing invoices"], "formats": ["tutorial", "case study"],
+    "youtube_queries": ["freelance invoicing tips", "freelance business", "get paid faster", "freelance designer income",
+                        "small business accounting", "client payment follow up"],
+    "x_queries": ["freelance", "invoicing"], "instagram_queries": [], "linkedin_queries": [],
+    "trend_topics": ["ai bookkeeping"], "competitors": [], "safety_level": "low", "primary_metric": "views_volume",
+}
 BRIEF_ARGS = dict(brand_name="Acme", what_you_sell="Invoicing software that gets freelancers paid faster.",
                   target_audience="Freelance designers in India", audience_country="in")
 
@@ -75,21 +83,21 @@ async def test_read_website_reports_unreadable_sites(client, db, monkeypatch):
     assert bad["isError"] is True and "couldn't read" in bad["content"][0]["text"]
 
 
-async def test_start_search_needs_confirmation_first(client, db, queued):
+async def test_start_search_needs_confirmation_first(client, db, queued, jev):
     token = await make_key(db)
     preview = (await call_tool(client, token, "start_search", campaign_id="c3"))
     assert preview["structuredContent"]["started"] is False and preview["structuredContent"]["confirm_required"] is True
-    assert "confirm=true" in preview["content"][0]["text"]
+    assert "strategy_task" in preview["structuredContent"] and "write the search strategy" in preview["content"][0]["text"]
     assert preview["structuredContent"]["credits"] == 1 and preview["structuredContent"]["balance"] == 8
     assert "1 credit" in preview["content"][0]["text"]
     assert queued == [] and await rows(db, AgentRun) == []
 
 
-async def test_search_spends_credits_and_is_refused_without_them(client, db, queued):
+async def test_search_spends_credits_and_is_refused_without_them(client, db, queued, jev):
     from app.billing import ledger
 
     token = await make_key(db)
-    result = await call_tool(client, token, "start_search", campaign_id="c3", confirm=True)
+    result = await call_tool(client, token, "start_search", campaign_id="c3", confirm=True, strategy=STRATEGY)
     assert result["structuredContent"]["started"] is True and "1 credit used" in result["content"][0]["text"]
     credits = await call_tool(client, token, "credits")
     assert credits["structuredContent"]["balance"] == 7 and "7 credits" in credits["content"][0]["text"]
@@ -103,9 +111,9 @@ async def test_search_spends_credits_and_is_refused_without_them(client, db, que
     assert len(queued) == 1
 
 
-async def test_confirmed_search_is_queued_counted_and_marks_the_campaign_running(client, db, queued):
+async def test_confirmed_search_is_queued_counted_and_marks_the_campaign_running(client, db, queued, jev):
     token = await make_key(db)
-    result = await call_tool(client, token, "start_search", campaign_id="c3", confirm=True)
+    result = await call_tool(client, token, "start_search", campaign_id="c3", confirm=True, strategy=STRATEGY)
     assert result["structuredContent"]["started"] is True and result["structuredContent"]["used_today"] == 1
     assert len(queued) == 1 and queued[0].name == "campaign/run"
     assert queued[0].data["campaign_id"] == "c3" and queued[0].data["user_id"] == "clerk_1"
@@ -113,32 +121,32 @@ async def test_confirmed_search_is_queued_counted_and_marks_the_campaign_running
     async with db() as s:
         camp = (await s.execute(select(Campaign).where(Campaign.campaign_id == "c3"))).scalar_one()
     assert camp.status.value == "PENDING" and camp.workflow_status["status"] == "running"
-    again = await call_tool(client, token, "start_search", campaign_id="c3", confirm=True)
+    again = await call_tool(client, token, "start_search", campaign_id="c3", confirm=True, strategy=STRATEGY)
     assert again["isError"] is True and "already running" in again["content"][0]["text"]
     assert len(queued) == 1
 
 
-async def test_daily_cap_blocks_further_agent_searches(client, db, queued, monkeypatch):
+async def test_daily_cap_blocks_further_agent_searches(client, db, queued, monkeypatch, jev):
     monkeypatch.setenv("MCP_RUNS_PER_DAY", "1")
     token = await make_key(db)
-    assert (await call_tool(client, token, "start_search", campaign_id="c3", confirm=True))["structuredContent"]["started"]
-    blocked = await call_tool(client, token, "start_search", campaign_id="c1", confirm=True)
+    assert (await call_tool(client, token, "start_search", campaign_id="c3", confirm=True, strategy=STRATEGY))["structuredContent"]["started"]
+    blocked = await call_tool(client, token, "start_search", campaign_id="c1", confirm=True, strategy=STRATEGY)
     assert blocked["isError"] is True and "limit" in blocked["content"][0]["text"]
     assert len(queued) == 1
 
 
-async def test_start_search_guards(client, db, queued):
+async def test_start_search_guards(client, db, queued, jev):
     token = await make_key(db)
-    no_brief = await call_tool(client, token, "start_search", campaign_id="c4", confirm=True)
+    no_brief = await call_tool(client, token, "start_search", campaign_id="c4", confirm=True, strategy=STRATEGY)
     assert no_brief["isError"] is True and "no brief" in no_brief["content"][0]["text"]
-    running = await call_tool(client, token, "start_search", campaign_id="c2", confirm=True)
+    running = await call_tool(client, token, "start_search", campaign_id="c2", confirm=True, strategy=STRATEGY)
     assert running["isError"] is True and "already running" in running["content"][0]["text"]
-    foreign = await call_tool(client, token, "start_search", campaign_id="other", confirm=True)
+    foreign = await call_tool(client, token, "start_search", campaign_id="other", confirm=True, strategy=STRATEGY)
     assert foreign["isError"] is True and "not found" in foreign["content"][0]["text"].lower()
     assert queued == []
 
 
-async def test_a_failed_queue_is_reported_without_leaking_details(client, db, monkeypatch):
+async def test_a_failed_queue_is_reported_without_leaking_details(client, db, monkeypatch, jev):
     from app.api import campaign_runs
 
     async def boom(event):
@@ -146,7 +154,7 @@ async def test_a_failed_queue_is_reported_without_leaking_details(client, db, mo
 
     monkeypatch.setattr(campaign_runs.inngest_client, "send", boom)
     token = await make_key(db)
-    result = await call_tool(client, token, "start_search", campaign_id="c3", confirm=True)
+    result = await call_tool(client, token, "start_search", campaign_id="c3", confirm=True, strategy=STRATEGY)
     assert result["isError"] is True and "secret" not in result["content"][0]["text"]
 
 
@@ -228,3 +236,66 @@ async def test_drafts_cannot_be_saved_for_another_users_campaign(client, db):
     token = await make_key(db)
     result = await call_tool(client, token, "save_draft", campaign_id="other", creator_id="UC_a", message=GOOD)
     assert result["isError"] is True and await rows(db, AgentProposal) == []
+
+
+# --- the founder's own agent writes the strategy (F9.6) ---------------------------------------------------------
+
+async def test_confirming_without_a_strategy_teaches_the_agent_what_to_do(client, db, queued, jev):
+    token = await make_key(db)
+    out = await call_tool(client, token, "start_search", campaign_id="c3", confirm=True)
+    assert out["isError"] is True and "strategy_task" in out["content"][0]["text"] and queued == [] and jev.calls == []
+
+
+async def test_the_preview_hands_over_the_task_the_agent_writes_from(client, db, queued, jev):
+    token = await make_key(db)
+    task = (await call_tool(client, token, "start_search", campaign_id="c3"))["structuredContent"]["strategy_task"]
+    assert "youtube_queries" in task["fields"] and any("brand" in r for r in task["rules"]) and "creator-marketing" in task["prompt"]
+    assert jev.calls == []  # no Jev, no AI of ours
+
+
+async def test_a_strategy_that_breaks_a_code_rule_is_sent_back_without_a_jev_call(client, db, queued, jev):
+    token = await make_key(db)
+    bad = {**STRATEGY, "youtube_queries": ["acme", "a very long search phrase that is far too long to be useful here"] }
+    out = await call_tool(client, token, "start_search", campaign_id="c3", strategy=bad)
+    review = out["structuredContent"]["strategy_review"]
+    assert out["structuredContent"]["started"] is False and review["passed"] is False
+    assert any("needs 6-12" in f["check"] for f in review["fix_these"]) and any("2-5 words" in f["check"] for f in review["fix_these"])
+    assert jev.calls == [] and queued == []
+
+
+async def test_jev_sends_back_a_generic_strategy_and_nothing_starts(client, db, queued, jev):
+    jev.scores = {"specific": 0.2}
+    token = await make_key(db)
+    out = await call_tool(client, token, "start_search", campaign_id="c3", confirm=True, strategy=STRATEGY)
+    review = out["structuredContent"]["strategy_review"]
+    assert out["structuredContent"]["started"] is False and review["passed"] is False
+    assert review["fix_these"][0]["check"].startswith("the searches are too generic") and "on_topic" in review["what_was_right"]
+    assert queued == []
+
+
+async def test_a_checked_strategy_starts_with_the_agents_mode_and_is_not_checked_twice(client, db, queued, jev):
+    token = await make_key(db)
+    preview = await call_tool(client, token, "start_search", campaign_id="c3", strategy=STRATEGY)
+    assert preview["structuredContent"]["strategy_review"] == {"passed": True} and len(jev.calls) == 1
+    started = await call_tool(client, token, "start_search", campaign_id="c3", confirm=True, strategy=STRATEGY)
+    assert started["structuredContent"]["started"] is True and len(jev.calls) == 1  # the same strategy isn't paid for twice
+    sent = queued[0].data["campaign_details"]["campaign"]
+    assert sent["ai_mode"] == "agent" and sent["agent_strategy"]["youtube_queries"][0] == "freelance invoicing tips"
+
+
+async def test_strategy_checks_are_capped_per_campaign_per_day(client, db, queued, jev):
+    from app.judge import constants as K
+
+    jev.scores = {"specific": 0.2}
+    token = await make_key(db)
+    for i in range(K.AGENT_STRATEGY_CHECKS_PER_DAY):
+        await call_tool(client, token, "start_search", campaign_id="c3", strategy={**STRATEGY, "topics": [*STRATEGY["topics"], f"extra {i}"]})
+    out = await call_tool(client, token, "start_search", campaign_id="c3", strategy={**STRATEGY, "topics": [*STRATEGY["topics"], "one more"]})
+    assert out["isError"] is True and "checked" in out["content"][0]["text"] and len(jev.calls) == K.AGENT_STRATEGY_CHECKS_PER_DAY
+
+
+async def test_when_jev_is_down_the_code_rules_still_decide(client, db, queued, jev):
+    jev.down = True
+    token = await make_key(db)
+    out = await call_tool(client, token, "start_search", campaign_id="c3", confirm=True, strategy=STRATEGY)
+    assert out["structuredContent"]["started"] is True and len(queued) == 1

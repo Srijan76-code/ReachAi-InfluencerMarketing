@@ -25,6 +25,7 @@ from app.mcp.prompts import register_prompts
 from app.mcp.setup import setup_routes
 from app.mcp.tools import register_tools
 from app.mcp.tools_outreach import register_outreach_tools
+from app.mcp.tools_reasons import register_reason_tools
 from app.mcp.tools_write import register_write_tools
 
 logger = logging.getLogger(__name__)
@@ -75,6 +76,7 @@ def create_server(verifier: ReachAITokenVerifier | None = None) -> MCPServer:
     register_tools(server)
     register_write_tools(server)
     register_outreach_tools(server)
+    register_reason_tools(server)
     register_prompts(server)
     return server
 
