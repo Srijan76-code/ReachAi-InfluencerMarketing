@@ -99,7 +99,7 @@ ReachAI is connected as the MCP server `reachai` ({MCP_URL}). Its tools read and
 
 ## The order of steps
 
-1. `list_campaigns` to see what exists. New work: `create_campaign` (ask for what you don't know), then `start_search`.
+1. `list_campaigns` to see what exists. New work: `create_campaign` (ask for what you don't know; if the founder gives a website, `read_website` first and fill the brief from it), then `start_search`.
 2. `start_search` costs the user ReachAI credits (shown before it starts) and is capped per day. Call it with `confirm=false`, tell the user, and only call it with `confirm=true` after they agree. Never start a search on your own.
 3. Searches take minutes. Poll `campaign_status` about every 30 seconds. Do not loop faster.
 4. `list_creators` for the ranked table. `get_creator` for one creator in detail. `save_creator` for the shortlist.

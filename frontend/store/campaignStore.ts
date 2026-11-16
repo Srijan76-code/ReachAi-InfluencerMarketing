@@ -14,7 +14,18 @@ export interface CachedCampaign {
   outreachJob?: any;
 }
 
+/** What reading the founder's website gave (F1.24). `confirmed` fields are hidden from the form; the rest are asked. */
+export interface SiteBriefInfo {
+  url: string;
+  confirmed: string[];
+  unchecked: string[]; // Jev was down: filled but not double-checked
+  missing: string[];
+  checked: boolean;
+}
+
 export interface CampaignState {
+  site: SiteBriefInfo | null;
+  showAllFields: boolean;
   // Active Form Fields
   brandName: string;
   industry: string;
@@ -55,6 +66,7 @@ export interface CampaignState {
   setCurrentCampaignId: (id: string) => void;
   setCampaignCache: (id: string, data: Partial<CachedCampaign>) => void;
   hydrateFormFromDetails: (details: any) => void;
+  applySiteBrief: (details: any) => void;
   loadCampaignFromCacheOrFetch: (id: string, api: any) => Promise<void>;
   toggleSaveLead: (campaignId: string, lead: any, api: any) => Promise<void>;
   fetchSavedLeads: (campaignId: string, api: any) => Promise<void>;
@@ -68,6 +80,8 @@ const authorityReverseMap: Record<string, string> = { peer: "1", mentor: "2", ex
 const savesInFlight = new Set<string>();
 
 export const useCampaignStore = create<CampaignState>((set, get) => ({
+  site: null,
+  showAllFields: false,
   brandName: "",
   industry: "",
   businessModel: "1",
@@ -144,8 +158,25 @@ export const useCampaignStore = create<CampaignState>((set, get) => ({
     });
   },
 
+  // Fill only what the website gave (F1.24): fields it left empty keep what the founder already typed.
+  applySiteBrief: (details: any) => {
+    const brand = details?.brand || {};
+    const audience = details?.audience || {};
+    const campaign = details?.campaign || {};
+    const patch: Partial<CampaignState> = {};
+    if (brand.name) patch.brandName = brand.name;
+    if (brand.industry) patch.industry = brand.industry;
+    if (businessModelReverseMap[brand.business_model]) patch.businessModel = businessModelReverseMap[brand.business_model];
+    if (priceRangeReverseMap[brand.product_price_range]) patch.productPriceRange = priceRangeReverseMap[brand.product_price_range];
+    if (brand.core_outcome) patch.pitch = brand.core_outcome;
+    if (audience.target_persona) patch.targetAudience = audience.target_persona;
+    if (Array.isArray(campaign.competitors) && campaign.competitors.length) patch.competitors = campaign.competitors;
+    set(patch);
+  },
+
   loadCampaignFromCacheOrFetch: async (id: string, api: any) => {
     const state = get();
+    if (state.currentCampaignId !== id) set({ site: null, showAllFields: false }); // another campaign: forget the last site read
     set({ currentCampaignId: id });
 
     // Check if in cache first for instant UI response

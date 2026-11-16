@@ -14,6 +14,13 @@ MAX_BIO_CHARS = 600
 # Number of levels in each Score question (must match questions.py; a test checks this).
 SCORE_LEVELS = {"topic_fit": 5, "audience_stage": 4, "safety_risk": 4}
 
+# --- Brief from a website (F1.24): a filled field is kept only when Jev finds the page clearly says it ---------
+SITE_FIELD_MIN = 0.7  # Jev's P(yes) that the page clearly supports a field; lower = cleared, the founder fills it
+SITE_LABEL_FIELDS = ("industry", "business_model")  # labels the AI infers; pages rarely state them in words
+SITE_LABEL_FIELD_MIN = 0.6  # ...so they only need to be a reasonable reading of the page
+SITE_INJECTION_ABOVE = 0.5  # page text aimed at an AI: nothing is filled from it
+SITE_PAGE_CHARS = 6000  # how much of the page Jev reads
+
 # --- Fit (spec §4.7) -------------------------------------------------------------------
 FIT_WEIGHTS = {"topic_fit": 0.5, "audience_stage": 0.3, "pain_point": 0.2}
 

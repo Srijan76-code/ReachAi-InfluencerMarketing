@@ -17,6 +17,7 @@ from app.auth.user import get_db_user
 from app.inngest.client import inngest_client
 from app.api.campaign_runs import EnqueueError, start_run
 from app.billing import ledger
+from app.billing.costs import CostContext
 from app.api.campaign_names import EMPTY_DRAFT_HIDDEN_AFTER_DAYS, DEFAULT_NAME, clean_name, is_default, name_from_brief
 from pydantic import BaseModel
 import inngest
@@ -67,6 +68,30 @@ async def get_campaigns(
 
 
 # POST /api/campaigns/create
+class BriefFromUrlBody(BaseModel):
+    url: str
+
+
+# POST /api/campaigns/brief-from-url: read the founder's website into brief fields (F1.24). Creates nothing.
+@router.post("/brief-from-url")
+async def brief_from_url_route(body: BriefFromUrlBody, user: User = Depends(get_db_user), db: AsyncSession = Depends(get_db)):
+    from app.discovery import site_brief
+
+    async def under_the_daily_cap():
+        if await site_brief.reads_today(db, user.user_id) >= site_brief.DAILY_READS:
+            raise site_brief.SiteReadError(
+                f"You've read {site_brief.DAILY_READS} websites today. Fill the brief in by hand, or try again tomorrow.")
+
+    try:
+        r = await site_brief.brief_from_url(body.url, context=CostContext(user_id=user.user_id), guard=under_the_daily_cap)
+    except site_brief.SiteReadError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    # confirmed: Jev found the page clearly says it. unchecked: Jev was down, so every filled field needs a look.
+    # missing: the page didn't clearly say it (or Jev wasn't sure), so the founder fills it in.
+    return {"url": r.url, "details": site_brief.to_details(r.brief), "confirmed": r.confirmed,
+            "unchecked": r.unchecked, "missing": r.missing, "checked": r.checked}
+
+
 @router.post("/create")
 async def create_campaign(
     user: User = Depends(get_db_user),

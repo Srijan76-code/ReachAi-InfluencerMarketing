@@ -44,6 +44,37 @@ async def test_create_campaign_rejects_bad_input(client, db):
     assert bad["isError"] is True
 
 
+async def test_read_website_gives_the_agent_the_page_and_uses_no_ai(client, db, queued, monkeypatch):
+    from app.discovery import site_brief as sb
+
+    async def no_ai(*a, **k):
+        raise AssertionError("the MCP path must not call our AI")
+
+    async def fake_read(raw, client=None):
+        return "# Acme\nInvoices for freelancers.", "https://acme.com"
+
+    monkeypatch.setattr(sb, "achat", no_ai)
+    monkeypatch.setattr(sb, "read_for_agent", fake_read)
+    token = await make_key(db)
+    result = await call_tool(client, token, "read_website", website="acme.com")
+    data = result["structuredContent"]
+    assert data["url"] == "https://acme.com" and data["untrusted"]["page"].startswith("# Acme")
+    assert queued == []
+    assert "untrusted" in result["content"][0]["text"]
+
+
+async def test_read_website_reports_unreadable_sites(client, db, monkeypatch):
+    from app.discovery import site_brief as sb
+
+    async def unreadable(raw, client=None):
+        raise sb.SiteReadError("We couldn't read that site. Fill the brief in by hand.")
+
+    monkeypatch.setattr(sb, "read_for_agent", unreadable)
+    token = await make_key(db)
+    bad = await call_tool(client, token, "read_website", website="acme.com")
+    assert bad["isError"] is True and "couldn't read" in bad["content"][0]["text"]
+
+
 async def test_start_search_needs_confirmation_first(client, db, queued):
     token = await make_key(db)
     preview = (await call_tool(client, token, "start_search", campaign_id="c3"))

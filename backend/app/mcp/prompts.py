@@ -20,6 +20,7 @@ def register_prompts(server: MCPServer) -> None:
             "1. Ask for anything you don't know instead of guessing: the brand name, what the product does for the "
             "customer, who it is for, and the audience's country. Offer sensible defaults for the rest (goal, budget, "
             "how many creators, channel size) and let them change them.\n"
+            "   If they give a website instead, call read_website and fill the brief from what the page clearly says.\n"
             "2. Call create_campaign. Read the brief back to them.\n"
             "3. Searching uses their YouTube quota and AI credits and is limited per day. Call start_search with "
             "confirm=false, tell them, and call it with confirm=true only after they agree.\n"
