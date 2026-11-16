@@ -26,6 +26,7 @@ that first try is done safely.
 | `INNGEST_SIGNING_KEY`, `INNGEST_EVENT_KEY` | Background runs and the hourly `expire_agent_grants` | Already set |
 
 ## 2. Migrations (apply BEFORE deploying; they only add tables)
+**Done on Nov 16:** both were applied to production (project `reach-ai`, branch `production`) as one transaction and checked: version `17a2c5c4c86d`, `device_codes` (12 columns) and `agent_grants` (15 columns) with their indexes and foreign keys, no rows changed. The steps below are kept for the next migration and for a rollback.
 Vercel deploys don't run migrations (roadmap K8). Two new ones, in order:
 1. `17d3bde3df1f` adds `device_codes` (device login).
 2. `17a2c5c4c86d` adds `agent_grants` (permissions).
