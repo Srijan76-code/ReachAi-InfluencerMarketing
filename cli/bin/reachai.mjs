@@ -3,6 +3,7 @@
 import { spawn } from "node:child_process";
 import { unlinkSync } from "node:fs";
 import { deviceLogin } from "../src/device.mjs";
+import { runDoctor } from "../src/doctor.mjs";
 import { credentialsPath, detect, loadCredentials, printInstructions, saveCredentials, setupClaudeCode, setupCodex, setupCursor, mcpUrl } from "../src/clients.mjs";
 
 const DEFAULT_URL = process.env.REACHAI_URL || "https://reach-ai-influencer-marketing.vercel.app";
@@ -11,6 +12,7 @@ const HELP = `reachai: connect your AI agent to ReachAI
   reachai login [--client claude-code|codex|cursor|all|none] [--name "My agent"] [--url ${DEFAULT_URL}] [--no-open]
       Shows a code, you approve it in the browser, and your agent apps are set up. Without --client it sets up the ones it finds.
   reachai status      What's set up on your account (credits, Gmail, payments).
+  reachai doctor [--grant]   Check a live ReachAI with your saved key (tools, sign-in, what a key may not do). Never sends or spends.
   reachai connect     Print how to add ReachAI to any agent app by hand.
   reachai logout      Forget the saved key on this computer (remove it for good on the Agents page).
 `;
@@ -65,11 +67,24 @@ async function status() {
   console.log(`ReachAI at ${c.appUrl}\nCredits: ${b ? b.balance ?? JSON.stringify(b) : "unknown"}\nGmail: ${g ? (g.connected ? `connected as ${g.email}${g.needs_reconnect ? " (needs reconnecting)" : ""}` : "not connected") : "unknown"}\nMCP server: ${mcpUrl(c.appUrl)}`);
 }
 
+async function doctor(f) {
+  const c = loadCredentials();
+  if (!c) throw new Error("Not logged in. Run: reachai login");
+  const appUrl = String(f.url || c.appUrl).replace(/\/$/, "");
+  const icon = { pass: "PASS", fail: "FAIL", skip: "skip", info: "    " };
+  console.log(`Checking ${appUrl}\n`);
+  const results = await runDoctor({ appUrl, apiKey: c.apiKey, grant: !!f.grant, log: (r) => console.log(`${icon[r.status]}  ${r.name}${r.detail ? `: ${r.detail}` : ""}`) });
+  const failed = results.filter((r) => r.status === "fail");
+  console.log(failed.length ? `\n${failed.length} check${failed.length > 1 ? "s" : ""} failed.` : "\nAll checks passed.");
+  if (failed.length) process.exit(1);
+}
+
 const [cmd, ...rest] = process.argv.slice(2);
 const f = flags(rest);
 try {
   if (cmd === "login") await login(f);
   else if (cmd === "status") await status();
+  else if (cmd === "doctor") await doctor(f);
   else if (cmd === "connect") console.log(printInstructions(String(f.url || (loadCredentials() || {}).appUrl || DEFAULT_URL)));
   else if (cmd === "logout") {
     try { unlinkSync(credentialsPath()); console.log("Forgot the saved key. Remove it for good on the Agents page of ReachAI."); } catch { console.log("Nothing was saved."); }
