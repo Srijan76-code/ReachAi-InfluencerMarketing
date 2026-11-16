@@ -28,10 +28,15 @@ async def env(tmp_path, monkeypatch):
     from app.main import app
 
     engine, is_pg = make_engine(tmp_path)
-    await create_tables(engine, is_pg, ["users", "api_keys", "device_codes", "connected_accounts"])
+    await create_tables(engine, is_pg, ["users", "api_keys", "device_codes", "connected_accounts", "campaigns", "agent_grants"])
     sf = sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
     async with sf() as s:
-        s.add(User(user_id="u1", clerk_id="clerk-1"))
+        from app.models.campaign import Campaign, CampaignStatus
+
+        s.add_all([User(user_id="u1", clerk_id="clerk-1"), User(user_id="u2", clerk_id="clerk-2")])
+        await s.flush()
+        s.add_all([Campaign(campaign_id="c1", user_id="u1", name="Mine", status=CampaignStatus.CREATED),
+                   Campaign(campaign_id="cx", user_id="u2", name="Theirs", status=CampaignStatus.CREATED)])
         await s.commit()
 
     async def get_db():

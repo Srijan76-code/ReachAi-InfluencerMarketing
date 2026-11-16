@@ -1,0 +1,49 @@
+---
+title: Quickstart for agents
+description: Connect your AI agent to ReachAI in two minutes and run a campaign from it, with you approving only what matters.
+---
+
+You can run ReachAI from an agent (Claude Code, Codex, Cursor and others) after you make an account. You do three things once, and your agent does the rest.
+
+## 1. Make an account and connect
+
+Press **Sign up** on the [home page](/), then connect your agent. Paste the line from the [Agents](/agents) page into it (Claude Code, Codex, Cursor, VS Code and others). If it can run commands, it asks ReachAI for a sign-in code, shows you a short code and a link, you open the link, check the code and press **Approve**, and it receives its own key and finishes the setup.
+
+<Callout type="info" title="Coming soon">
+  A one-command setup, `npx reachai login`, that does the same and also configures Claude Code, Codex and Cursor for you. It is built but not published yet.
+</Callout>
+
+No key to copy: the agent gets its own, and you can remove it on the [Agents](/agents) page.
+
+## 2. Do the two things only you can
+
+Your agent will give you a link for each, when it needs them:
+
+- **Connect Gmail** (Google asks you to agree). ReachAI then sends and reads mail from your own address.
+- **Get credits** (a payment page). Only searches use credits; everything else is free.
+
+Ask your agent "what's set up on my ReachAI account?" to see what is still missing.
+
+## 3. Say what you sell
+
+Give your agent your website. It reads the page, fills in the brief, asks you for what the page doesn't say (like the country you sell to), shows you the cost, and starts the search after you agree. No credits are used until you do.
+
+## What your agent can do without asking you again
+
+It can read your campaigns and results, find creators (after you agree to the cost), and write drafts that wait for you. For anything more it asks for a permission, one campaign at a time:
+
+| It asks to | What that allows |
+|---|---|
+| Write replies and follow-ups | Its own AI writes them; ReachAI checks each one. Nothing is sent |
+| Send replies and follow-ups | Send what it wrote from your Gmail |
+| Send first emails | Send first messages it wrote from your Gmail |
+| Manage the campaign | Add creators to your deals; set up your Track goal and signup snippet |
+| Control autopilot | Turn ReachAI's autopilot on or off |
+
+Your agent gives you a link and a code. You open it, read what it allows in plain words, can make it shorter or stricter, and approve. You can remove any permission at any time on the [Agents](/agents) page, and they end by themselves on the date you chose.
+
+For sending you choose how: **you say yes each time** in your chat with the agent (the default), or **by itself within limits** (a daily maximum), for a scheduled run. Either way ReachAI checks every message first, you get an email for each message sent, and your agent can never agree a price, close a deal or take a payment. Those stay with you in ReachAI.
+
+## Run it every day
+
+Most agents can run a prompt on a schedule. Paste the **ReachAI routine** (the `reachai-run-routine` prompt) into your agent's scheduler: each run checks your inbox, writes the replies and follow-ups that need writing, and, only if you allowed unattended sending, sends them within your limits. See [Use ReachAI from your agent](/docs/mcp) for the details.

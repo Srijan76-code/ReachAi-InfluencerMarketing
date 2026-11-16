@@ -50,6 +50,9 @@ class Settings:
     since: Optional[datetime] = None
     writer: str = "reachai"  # who writes replies and follow-ups: reachai (our AI) | agent (the founder's own agent over MCP)
     agent_send: bool = False  # the founder's agent may send drafts it wrote, one at a time, after the founder's yes in chat
+    agent_send_mode: str = "ask"  # ask | unattended (pre-approved by a grant, within its limits)
+    agent_send_per_day: Optional[int] = None  # the grant's own limit (never above the global one)
+    agent_send_grant: Optional[str] = None  # the grant that switched sending on; sending stops when it ends
 
 
 def settings_of(raw: Optional[dict]) -> Settings:
@@ -62,7 +65,10 @@ def settings_of(raw: Optional[dict]) -> Settings:
             since = None
     return Settings(bool(raw.get("autopilot")), bool(raw.get("review_first")), since,
                     raw.get("writer") if raw.get("writer") in A.WRITERS else "reachai",
-                    bool(raw.get("agent_send")) and raw.get("writer") == "agent")
+                    bool(raw.get("agent_send")) and raw.get("writer") == "agent",
+                    "unattended" if raw.get("agent_send_mode") == "unattended" else "ask",
+                    raw.get("agent_send_per_day") if isinstance(raw.get("agent_send_per_day"), int) else None,
+                    raw.get("agent_send_grant") or None)
 
 
 def turned_on(raw: Optional[dict], *, autopilot: bool, review_first: bool, now: Optional[datetime] = None) -> dict:

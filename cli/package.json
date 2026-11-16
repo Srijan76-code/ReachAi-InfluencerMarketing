@@ -1,0 +1,12 @@
+{
+  "name": "reachai",
+  "version": "0.1.0",
+  "description": "Connect your AI agent (Claude Code, Codex, Cursor) to your ReachAI account with one approval in the browser.",
+  "type": "module",
+  "bin": { "reachai": "bin/reachai.mjs" },
+  "files": ["bin", "src", "README.md"],
+  "engines": { "node": ">=18" },
+  "scripts": { "test": "node --test" },
+  "license": "UNLICENSED",
+  "private": false
+}

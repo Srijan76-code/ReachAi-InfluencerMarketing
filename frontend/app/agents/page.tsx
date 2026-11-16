@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useApi } from "@/lib/api";
 import { OnboardAgent } from "@/components/OnboardAgent";
+import { AgentPermissions } from "@/components/AgentPermissions";
 
 type ApiKey = {
   key_id: string;
@@ -221,6 +222,7 @@ export default function AgentsPage() {
           </ul>
         )}
       </section>
+      <AgentPermissions />
     </main>
   );
 }

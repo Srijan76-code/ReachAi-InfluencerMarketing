@@ -37,6 +37,7 @@ backend/                 FastAPI + LangGraph + Inngest (Python)
   app/inngest/           Inngest client + functions (campaign/run, outreach/run, nightly refresh)
   app/models/            SQLAlchemy models; migrations in alembic/versions/
   tests/evals/           Outreach tests (deterministic) + LangSmith eval runner
+cli/                     `reachai` command (Node, no dependencies): device login + agent app setup. `cd cli && npm test`
 frontend/                Next.js (App Router) + Clerk + Zustand + Inngest Realtime
   app/campaign/[id]/     details, leads, saved, outreach pages
   app/ListOfInfluencer/  results table + detail sheet

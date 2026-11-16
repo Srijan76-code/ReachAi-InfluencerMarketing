@@ -117,11 +117,16 @@ async def test_agreeing_and_closing_always_need_the_founder_in_the_app(client, d
     assert out["isError"] is True and "need the founder in ReachAI" in out["content"][0]["text"] and gmail.sent == []
 
 
-@pytest.mark.parametrize("kind", ["pitch", "confirm_terms"])
-async def test_first_emails_and_confirmations_are_not_sent_from_here(client, db, gmail, kind):
-    await seed(db, kind=kind)
+async def test_confirmations_are_never_sent_from_here_and_first_emails_need_their_own_permission(client, db, gmail):
+    await seed(db, kind="confirm_terms")
     out = await preview(client, await make_key(db))
     assert out["isError"] is True and "no draft to send" in out["content"][0]["text"]
+    async with db() as s:
+        p = (await s.execute(select(AgentProposal))).scalar_one()
+        p.kind = "pitch"
+        await s.commit()
+    out = await preview(client, await make_key(db))
+    assert out["isError"] is True and "send_first_emails" in out["content"][0]["text"] and gmail.sent == []
 
 
 async def test_it_needs_gmail_and_an_email_address(client, db, gmail):

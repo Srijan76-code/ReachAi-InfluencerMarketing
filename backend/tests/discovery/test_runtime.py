@@ -208,3 +208,15 @@ def test_every_inngest_function_fits_the_plan_limits():
     for f in fns:
         for c in f.get_config("http://x/api/inngest").main.concurrency or []:
             assert c.limit <= L.INNGEST_PLAN_MAX_CONCURRENCY, (f.id, c)
+
+
+def test_every_inngest_function_is_served():
+    """A function that is written but not passed to serve() never runs (the grant expiry nearly shipped that way)."""
+    import inngest
+
+    import app.main as main_module
+    from app.inngest import functions as F
+
+    served = open(main_module.__file__).read().split("inngest.fast_api.serve(", 1)[1]
+    written = [name for name, v in vars(F).items() if isinstance(v, inngest.Function)]
+    assert written and all(name in served for name in written), [n for n in written if n not in served]

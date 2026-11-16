@@ -28,6 +28,7 @@ from pydantic import Field
 from sqlalchemy import select
 
 from app.agent import constants as A
+from app.agent import grants
 from app.agent import queue as Q
 from app.agent.autopilot import notify_agent_send, settings_of
 from app.mcp import format as fmt
@@ -83,15 +84,19 @@ def _brand(campaign: Campaign) -> str:
     return (((campaign.campaign_details or {}).get("brand") or {}).get("name")) or "Working together"
 
 
-async def _sent_by_agent_today(db, user_id: str) -> int:
+async def _sent_by_agent_today(db, user_id: str, *, first_emails: bool, campaign_id: Optional[str] = None) -> int:
+    """Messages the founder's agent sent today (UTC) of one class (first emails, or replies and follow-ups), across the
+    founder's campaigns or in one."""
     start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-    ids = (await db.execute(select(CreatorDeal.deal_id).join(Campaign, Campaign.campaign_id == CreatorDeal.campaign_id)
-                            .where(Campaign.user_id == user_id))).scalars().all()
+    q = select(CreatorDeal.deal_id).join(Campaign, Campaign.campaign_id == CreatorDeal.campaign_id).where(Campaign.user_id == user_id)
+    if campaign_id:
+        q = q.where(CreatorDeal.campaign_id == campaign_id)
+    ids = (await db.execute(q)).scalars().all()
     if not ids:
         return 0
-    rows = (await db.execute(select(DealEvent.payload, DealEvent.created_at).where(
-        DealEvent.deal_id.in_(ids), DealEvent.type == "message_sent", DealEvent.created_at >= start))).all()
-    return sum(1 for payload, _ in rows if (payload or {}).get("agent"))
+    rows = (await db.execute(select(DealEvent.payload).where(
+        DealEvent.deal_id.in_(ids), DealEvent.type == "message_sent", DealEvent.created_at >= start))).scalars().all()
+    return sum(1 for payload in rows if (payload or {}).get("agent") and ((payload or {}).get("kind") == "pitch") == first_emails)
 
 
 async def _find(db, campaign: Campaign, deal_id: str):
@@ -103,7 +108,7 @@ async def _find(db, campaign: Campaign, deal_id: str):
     lead = next((l for l in (campaign.campaign_leads or []) if isinstance(l, dict) and str(l.get("id")) == deal.creator_id), {})
     pending = list((await db.execute(select(AgentProposal).where(AgentProposal.deal_id == deal.deal_id, AgentProposal.status == "pending")
                                      .order_by(AgentProposal.created_at.desc()))).scalars())
-    sendable = [p for p in pending if p.kind in A.AGENT_SEND_KINDS and (p.payload or {}).get("message")]
+    sendable = [p for p in pending if p.kind in (*A.AGENT_SEND_KINDS, "pitch") and (p.payload or {}).get("message")]
     if not sendable:
         if any(p.kind in A.DECISION_KINDS for p in pending):
             raise ToolError("Agreeing a price and closing a deal always need the founder in ReachAI. Tell them it is waiting there.")
@@ -126,7 +131,7 @@ def register_send_tools(server: MCPServer) -> None:
             "SHOW THAT TO THE FOUNDER AND ASK. Only after they clearly say yes call again with confirm=true and the "
             "token. Never confirm on your own, and never in an unattended or scheduled run. Works only if the founder "
             "turned on 'Allow my agent to send' for the campaign; at most 10 sends a day. Agreeing a price, closing a "
-            "deal and first emails are not sent from here."
+            "deal are never sent from here. First emails need their own permission (send_first_emails)."
         ),
         annotations=SENDS_EMAIL,
     )
@@ -143,30 +148,58 @@ def register_send_tools(server: MCPServer) -> None:
         async with session_scope() as db:
             campaign = await _owned_campaign(db, campaign_id, user_id)
             s = settings_of(campaign.outreach_settings)
-            if s.writer != "agent" or not s.agent_send:
-                raise ToolError("Sending by your agent is off for this campaign. The founder turns it on in ReachAI: Outreach > "
-                                "Autopilot > 'My agent writes replies', then 'Allow my agent to send'.")
             deal, lead, p = await _find(db, campaign, deal_id)
+            first = p.kind == "pitch"
+            if first:  # a first email: needs its own permission from the founder
+                g = await grants.active(db, user_id, "send_first_emails", campaign_id)
+                if g is None:
+                    raise ToolError("Sending first emails needs the founder's permission. Call request_permission with ability "
+                                    "'send_first_emails' for this campaign and give them the link.")
+                mode, per_day, ends = g.mode, g.per_day or 10, g.valid_until
+                cap = min(per_day, 20)
+            else:
+                if s.writer != "agent" or not s.agent_send:
+                    raise ToolError("Sending by your agent is off for this campaign. The founder turns it on in ReachAI (Outreach > "
+                                    "Autopilot > 'My agent writes replies', then 'Allow my agent to send'), or approves it for you: call "
+                                    "request_permission with ability 'send_replies' and give them the link.")
+                ends = None
+                if s.agent_send_grant:
+                    from app.models.agent_grant import AgentGrant
+
+                    g = await db.get(AgentGrant, s.agent_send_grant)
+                    if not grants.is_active(g):
+                        raise ToolError("The permission to send ended. Ask for a new one with request_permission (ability 'send_replies').")
+                    ends = g.valid_until
+                mode, per_day = s.agent_send_mode, s.agent_send_per_day
+                cap = min(per_day or A.AGENT_SENDS_PER_DAY, A.AGENT_SENDS_PER_DAY)
             account = await GS.account_for(db, user_id)
             if not GS.usable(account):
-                raise ToolError("The founder's Gmail isn't connected (or needs reconnecting). Tell them to connect it in ReachAI.")
+                raise ToolError("The founder's Gmail isn't connected (or needs reconnecting). Tell them to connect it in ReachAI: use connect_gmail.")
             if not deal.contact_email or auto_channel(deal, lead) != "email":
                 raise ToolError("This creator has no email route, so it can't be sent from here. The founder sends it as a DM in ReachAI.")
-            used = await _sent_by_agent_today(db, user_id)
-            if used >= A.AGENT_SENDS_PER_DAY:
-                raise ToolError(f"Today's limit for messages sent by your agent is reached ({used} of {A.AGENT_SENDS_PER_DAY}). "
-                                "The founder can send in ReachAI, or try tomorrow.")
-            subject = None if deal.gmail_thread_id else _brand(campaign)
-            name = (lead.get("title") or deal.creator_name or "the creator")
             pl = p.payload or {}
+            if first and ((lead.get("contact") or {}).get("contacted_before")):
+                raise ToolError("The founder wrote to this address recently in another campaign, so they decide in ReachAI.")
+            used = await _sent_by_agent_today(db, user_id, first_emails=first)
+            used_here = await _sent_by_agent_today(db, user_id, first_emails=first, campaign_id=campaign_id)
+            if used >= (20 if first else A.AGENT_SENDS_PER_DAY) or used_here >= cap:
+                raise ToolError(f"Today's limit for messages sent by your agent here is reached ({used_here} of {cap}). "
+                                "The founder can send in ReachAI, or try tomorrow.")
+            subject = None if deal.gmail_thread_id else ((pl.get("subject") or "").strip() or _brand(campaign))
+            name = (lead.get("title") or deal.creator_name or "the creator")
             preview = {"to": deal.contact_email, "creator": name, "subject": subject or "(reply in the same thread)",
-                       "text": pl["message"].strip(), "kind": p.kind, "terms": pl.get("terms"), "sent_today_by_agent": used,
-                       "daily_limit": A.AGENT_SENDS_PER_DAY}
+                       "text": pl["message"].strip(), "kind": p.kind, "terms": pl.get("terms"), "sent_today_by_agent": used_here,
+                       "daily_limit": cap, "mode": mode, "permission_ends": ends.isoformat() if ends else None}
             if not confirm:
                 token = make_token(p, deal, subject)
+                if mode == "unattended":
+                    how = (f"The founder allowed sending without asking each time (up to {cap} a day), so you may confirm now if it "
+                           "looks right. Don't confirm anything that is odd or off-brief.")
+                else:
+                    how = ("Show it to the founder and ask if you should send it. Only after a clear yes, call send_message again "
+                           "with confirm=true and preview_token.")
                 text = (f"NOT SENT. This is exactly what would go to {name} ({deal.contact_email}):\n\n{pl['message'].strip()}\n\n"
-                        f"Show it to the founder and ask if you should send it. Only after a clear yes, call send_message again with "
-                        f"confirm=true and preview_token. The token is valid for {A.SEND_PREVIEW_MINUTES} minutes and only for this text.")
+                        f"{how} The token is valid for {A.SEND_PREVIEW_MINUTES} minutes and only for this text.")
                 return fmt.result(text, {**preview, "sent": False, "preview_token": token})
 
             check_token(preview_token, p, deal, subject)
@@ -191,4 +224,4 @@ def register_send_tools(server: MCPServer) -> None:
                 raise ToolError("Sending failed and nothing was sent. Try again in a minute.")
             await notify_agent_send(db, account, name=name, text=pl["message"].strip(), campaign_id=campaign_id)
         return fmt.result(f"Sent to {name}. It is in their chat in ReachAI, marked as sent by your agent, and the founder was emailed.",
-                          {**preview, "sent": True, "sent_today_by_agent": used + 1})
+                          {**preview, "sent": True, "sent_today_by_agent": used_here + 1})

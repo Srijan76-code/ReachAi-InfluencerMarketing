@@ -66,11 +66,25 @@ If your agent can run commands (Claude Code, Codex and similar), it can connect 
 2. You open the link, sign up or in, check the code matches, and press **Approve**.
 3. Your agent receives its own key and finishes the setup. You can remove it any time on the **Agents** page.
 
-You approve it yourself: an agent can't approve its own request. A key also works on a short list of read-only ReachAI web endpoints (your campaigns, credits and Gmail status); everything else, such as changing a plan, agreeing a price or sending, is refused for keys.
+See the [quickstart](/docs/quickstart) for the whole path. You approve it yourself: an agent can't approve its own request. A key also works on a short list of read-only ReachAI web endpoints (your campaigns, credits and Gmail status); everything else, such as changing a plan, agreeing a price or sending, is refused for keys.
+
+## Permissions
+
+Beyond reading and drafting, your agent asks for what it needs, one campaign at a time. It gives you a link and a short code; you open it, read what it allows in plain words, and approve. You can shorten it or make it stricter (never wider), and an agent can't approve its own request.
+
+| Ability | What it allows |
+|---|---|
+| Write replies and follow-ups | Same as the **My agent writes replies** switch in the Autopilot menu |
+| Send replies and follow-ups | Same as **Allow my agent to send**, with an end date and your own daily limit |
+| Send first emails | Send first messages it wrote, one at a time, up to a daily limit |
+| Manage the campaign | Add creators to your deals; set your Track goal; get the signup snippet |
+| Control autopilot | Turn autopilot on or off |
+
+Every permission ends on its date and can be removed any time on the [Agents](/agents) page; removing one switches off what it switched on. Your own switches in the Autopilot menu keep working exactly as before.
 
 ## Letting your agent send
 
-By default your agent only saves drafts. If you want it to send too, turn on **Allow my agent to send** in the Autopilot menu of that campaign (it works once **My agent writes replies** is on). Then, for a reply or follow-up it wrote:
+By default your agent only saves drafts. If you want it to send too, approve a send permission, or turn on **Allow my agent to send** in the Autopilot menu of that campaign (it works once **My agent writes replies** is on). Then, for a reply or follow-up it wrote:
 
 1. Your agent asks ReachAI for a preview and shows you exactly what would go out: who it goes to, the subject and the full text.
 2. You say yes in your chat with the agent.

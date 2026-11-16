@@ -212,6 +212,22 @@ async def release_stale_credits(ctx: inngest.Context):
 
 
 @inngest_client.create_function(
+    fn_id="expire_agent_grants",
+    trigger=inngest.TriggerCron(cron="7 * * * *"),
+    concurrency=[inngest.Concurrency(limit=1)],
+    retries=1,
+)
+async def expire_agent_grants(ctx: inngest.Context):
+    """Hourly: end the permissions the founder gave their agent that ran out, and switch off what they switched on (F9.8)."""
+    from app.agent import grants
+    from app.db.database import AsyncSessionLocal
+
+    async with AsyncSessionLocal() as db:
+        ended = await grants.expire_due(db)
+    return {"ended": ended}
+
+
+@inngest_client.create_function(
     fn_id="refresh_track",
     trigger=inngest.TriggerCron(cron=TRACK.TRACK_CRON),
     concurrency=[inngest.Concurrency(limit=1)],
