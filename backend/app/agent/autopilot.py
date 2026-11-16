@@ -48,6 +48,7 @@ class Settings:
     autopilot: bool = False
     review_first: bool = False
     since: Optional[datetime] = None
+    writer: str = "reachai"  # who writes replies and follow-ups: reachai (our AI) | agent (the founder's own agent over MCP)
 
 
 def settings_of(raw: Optional[dict]) -> Settings:
@@ -58,14 +59,20 @@ def settings_of(raw: Optional[dict]) -> Settings:
             since = _aware(datetime.fromisoformat(raw["since"]))
         except ValueError:
             since = None
-    return Settings(bool(raw.get("autopilot")), bool(raw.get("review_first")), since)
+    return Settings(bool(raw.get("autopilot")), bool(raw.get("review_first")), since,
+                    raw.get("writer") if raw.get("writer") in A.WRITERS else "reachai")
 
 
 def turned_on(raw: Optional[dict], *, autopilot: bool, review_first: bool, now: Optional[datetime] = None) -> dict:
     """New settings. Switching autopilot on (again) moves `since` to now: drafts written before stay manual."""
     old = settings_of(raw)
     since = old.since if (old.autopilot and autopilot and old.since) else (now or _now())
-    return {"autopilot": autopilot, "review_first": review_first, "since": since.isoformat()}
+    return {"autopilot": autopilot, "review_first": review_first, "since": since.isoformat(), "writer": old.writer}
+
+
+def with_writer(raw: Optional[dict], writer: str) -> dict:
+    """The same settings with who writes replies and follow-ups changed (reachai | agent)."""
+    return {**(raw or {}), "writer": writer if writer in A.WRITERS else "reachai"}
 
 
 def hold_reason(p, d, lead: Optional[dict], s: Settings, *, email_route: bool) -> Optional[str]:
@@ -74,6 +81,8 @@ def hold_reason(p, d, lead: Optional[dict], s: Settings, *, email_route: bool) -
     pl = p.payload or {}
     if not s.autopilot or p.kind not in A.AUTO_KINDS or not pl.get("message"):
         return "manual"
+    if s.writer == "agent" and p.kind in A.AGENT_KINDS:
+        return "manual"  # the founder's own agent writes these: never sent by ReachAI's autopilot
     created = _aware(p.created_at)
     if s.since and created and created < s.since:
         return "manual"

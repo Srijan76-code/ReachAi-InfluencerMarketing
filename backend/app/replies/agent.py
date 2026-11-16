@@ -33,7 +33,7 @@ MAX_WAIT_DAYS = 60  # "away until ..." further out than this is held for the fou
 
 @dataclass
 class ReplyResult:
-    outcome: str  # send | decide | ask_founder | wait | new_contact | opt_out | hold
+    outcome: str  # send | decide | ask_founder | wait | new_contact | opt_out | hold | agent_task (the founder's agent writes it)
     draft: Optional[Draft] = None
     reason: str = ""
     questions: list[str] = field(default_factory=list)  # ask_founder: in plain words the founder can answer
@@ -90,9 +90,11 @@ def outcome(ctx: ReplyContext, out: Outcome, signals: dict, *, today: date) -> R
     return ReplyResult("hold", d, "The reply passed the checks, but ReachAI isn't sure it can go as is. Check it first.", **base)
 
 
-async def reply(ctx: ReplyContext, *, context: CostContext, judge=None, write=None, today: Optional[date] = None) -> ReplyResult:
+async def reply(ctx: ReplyContext, *, context: CostContext, judge=None, write=None, today: Optional[date] = None,
+                read_only: bool = False) -> ReplyResult:
     """Runs the whole agent on one conversation. `judge(state, questions)` and `write(ctx, context, note)` default to
-    Jev and the reply route (tests pass fakes)."""
+    Jev and the reply route (tests pass fakes). `read_only`: only Jev's reading of their message (opt-out, instructions
+    to an AI), no writing: the founder's own agent writes the reply (outcome "agent_task")."""
     if judge is None:
         from app.judge.client import judge as jev
 
@@ -109,6 +111,9 @@ async def reply(ctx: ReplyContext, *, context: CostContext, judge=None, write=No
         return ReplyResult("opt_out", None, "They asked not to be contacted again. ReachAI won't email them.", signals=signals)
     if signals["injection"] > R.INJECTION_ABOVE:
         return ReplyResult("hold", None, "Their message contains instructions aimed at an AI. Read it yourself.", signals=signals)
+
+    if read_only:
+        return ReplyResult("agent_task", None, "Your agent writes the reply on its schedule.", signals=signals)
 
     last: dict = {}
 
@@ -128,3 +133,27 @@ async def reply(ctx: ReplyContext, *, context: CostContext, judge=None, write=No
                                 # held for the founder: the last draft still helps (shown with what failed)
                                 fallback=lambda history, why: last.get("draft")))
     return outcome(ctx, out, signals, today=today)
+
+
+async def review_draft(ctx: ReplyContext, draft: Draft, signals: dict, *, judge, tries: int, max_tries: int, today: Optional[date] = None) -> tuple[Optional[ReplyResult], list[dict], dict]:
+    """One review of a draft the founder's own agent wrote: the same hard limits (code) and Jev rubric our own writer's
+    drafts get. → (result when it passed, or when the tries are used up and the founder gets the last draft;
+    problems to send back; what was right). `tries` counts this one."""
+    from app.agents.checked_writer import Review
+
+    today = today or date.today()
+    problems = J.limits(ctx, draft)
+    review = Review()
+    if not problems:
+        review = await J.rubric(ctx, draft, judge, asks_question=signals.get("asks_question", 1.0) >= R.ASKS_QUESTION_FROM)
+        problems = list(review.critical)
+    if review.stop:
+        problems = problems or [{"check": review.stop}]
+    if not problems:
+        out = Outcome(output=draft, source="ai", rounds=tries, history=[], review=review)
+        return outcome(ctx, out, signals, today=today), [], review.right
+    if tries >= max_tries:  # the founder gets the last draft, held, with what failed (like our own writer's fallback)
+        out = Outcome(output=draft, source="fallback", rounds=tries, why="failed", review=review,
+                      history=[{"draft": _show(draft), "critical": problems, "minor": review.minor}])
+        return outcome(ctx, out, signals, today=today), problems, review.right
+    return None, problems, review.right

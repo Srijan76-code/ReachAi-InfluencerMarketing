@@ -672,7 +672,7 @@ export function DealChat({ deal, api, proposals, gmailReady, website, onReconnec
                         <TooltipTrigger asChild>
                           <button type="button" aria-label="Why this reply" className="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 shrink-0"><Info size={12} /></button>
                         </TooltipTrigger>
-                        <TooltipContent className="max-w-xs text-xs">{draft.reason}{draft.source === "ai" ? " Worded by AI, numbers checked." : ""}</TooltipContent>
+                        <TooltipContent className="max-w-xs text-xs">{draft.reason}{draft.source === "ai" ? " Worded by AI, numbers checked." : draft.source === "agent" ? " Written by your agent, checked by ReachAI." : ""}</TooltipContent>
                       </Tooltip>
                     )}
                   </motion.span>

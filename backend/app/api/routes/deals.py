@@ -220,6 +220,7 @@ async def _proposals(db: AsyncSession, deals: list[CreatorDeal], camp, user: Use
     lead = {d.deal_id: leads.get(d.creator_id) or {} for d in deals}
     names = {i: l.get("title") for i, l in lead.items()}
     pending = await Q.refresh(db, deals, names=names, goal=_goal(camp.campaign_details), rows=rows)
+    pending = [p for p in pending if p.kind != "agent_task"]  # a task for the founder's agent, not something to act on here
     by_id = {d.deal_id: d for d in deals}
     from app.gmail.service import account_for, usable
 
@@ -342,13 +343,15 @@ async def inbox(user: User = Depends(get_db_user), db: AsyncSession = Depends(ge
     from app.agent.autopilot import settings_of
 
     piloted = {cid: s.since for cid, c in camps.items() if (s := settings_of(c.outreach_settings)).autopilot} if GS.usable(account) else {}
+    agent_writes = {cid for cid, c in camps.items() if settings_of(c.outreach_settings).writer == "agent"}  # their agent writes: nothing is auto-sent
     drafts = set()
     for p in (await db.execute(select(AgentProposal.deal_id, AgentProposal.campaign_id, AgentProposal.kind,
                                       AgentProposal.payload["held"].astext.label("held"), AgentProposal.created_at).where(
             AgentProposal.deal_id.in_(ids), AgentProposal.status == "pending", AgentProposal.kind.in_(A.CHAT_KINDS)))).all():
         since = piloted.get(p.campaign_id)
         at = p.created_at.replace(tzinfo=timezone.utc) if p.created_at and p.created_at.tzinfo is None else p.created_at
-        if p.campaign_id in piloted and p.kind in A.AUTO_KINDS and not p.held and (since is None or (at and at >= since)):
+        if (p.campaign_id in piloted and p.kind in A.AUTO_KINDS and not p.held and (since is None or (at and at >= since))
+                and not (p.campaign_id in agent_writes and p.kind in A.AGENT_KINDS)):
             continue  # autopilot sends it: nothing for the founder to do
         drafts.add(p.deal_id)
     news: dict = {}
@@ -723,6 +726,7 @@ async def proposal_seen(proposal_id: str, user: User = Depends(get_db_user), db:
 class AutopilotIn(BaseModel):
     autopilot: bool
     review_first: bool = False
+    writer: Optional[str] = None  # who writes replies and follow-ups: "reachai" (our AI) or "agent" (the founder's own agent over MCP)
 
 
 @router.get("/api/campaigns/{campaign_id}/autopilot")
@@ -731,25 +735,32 @@ async def get_autopilot(campaign_id: str, user: User = Depends(get_db_user), db:
 
     s = settings_of((await db.execute(select(Campaign.outreach_settings).where(
         Campaign.campaign_id == campaign_id, Campaign.user_id == user.user_id))).scalar_one_or_none())
-    return {"autopilot": s.autopilot, "review_first": s.review_first}
+    return {"autopilot": s.autopilot, "review_first": s.review_first, "writer": s.writer}
 
 
 @router.put("/api/campaigns/{campaign_id}/autopilot")
 async def set_autopilot(campaign_id: str, body: AutopilotIn, user: User = Depends(get_db_user), db: AsyncSession = Depends(get_db)):
     """Autopilot on or off for this campaign, and whether first emails wait for the founder's check. Turning it
     on only covers messages drafted from now on; older drafts stay for the founder."""
-    from app.agent.autopilot import turned_on
+    from app.agent import constants as AC
+    from app.agent.autopilot import turned_on, with_writer
     from app.inngest.functions import start_autopilot
+
+    if body.writer is not None and body.writer not in AC.WRITERS:
+        raise HTTPException(422, "writer must be 'reachai' or 'agent'")
 
     camp = (await db.execute(select(Campaign).where(Campaign.campaign_id == campaign_id,
                                                     Campaign.user_id == user.user_id))).scalar_one_or_none()
     if camp is None:
         raise HTTPException(404, "Campaign not found")
     camp.outreach_settings = turned_on(camp.outreach_settings, autopilot=body.autopilot, review_first=body.review_first)
+    if body.writer is not None:
+        camp.outreach_settings = with_writer(camp.outreach_settings, body.writer)
+    writer = (camp.outreach_settings or {}).get("writer", "reachai")
     await db.commit()
     if body.autopilot:
         await start_autopilot([user.user_id])
-    return {"autopilot": body.autopilot, "review_first": body.review_first}
+    return {"autopilot": body.autopilot, "review_first": body.review_first, "writer": writer}
 
 
 class SendAll(BaseModel):

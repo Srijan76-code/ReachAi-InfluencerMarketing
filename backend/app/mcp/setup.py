@@ -106,8 +106,9 @@ Errors from these tools say what to do next. Read them and follow them (for exam
 3. Searches take minutes. Poll `campaign_status` about every 30 seconds. Do not loop faster.
 4. `list_creators` for the ranked table. `get_creator` for one creator in detail. `save_creator` for the shortlist.
    After a search you started, each creator's "Why they fit" shows plain checked facts. To improve them: `get_creator` returns `write_why` (the facts and the prompt); write 3 bullets and send up to 10 creators at a time to `submit_reasons`. ReachAI checks them and says what to fix; after 3 tries the plain facts stay. Don't loop on a creator that is `facts_kept`.
-5. First messages: `pitch_context`, write the message, `save_draft`. The draft lands in the creator's chat in ReachAI and **nothing is sent**: the founder reviews and sends it in the app.
-6. Later: `inbox` (who replied), `list_deals` (where each deal stands), `track_summary` (spend, views, results, late posts, who to pay).
+5. Replies and follow-ups (only in campaigns where the founder switched on "My agent writes replies"): `inbox` lists them under `writes_for_you`. For each: `reply_context`, write the draft, `submit_reply`, and fix what it says (3 tries). Nothing is sent: the founder sends in ReachAI. For a scheduled run use the `reachai-run-routine` prompt; an unattended run only writes drafts.
+6. First messages: `pitch_context`, write the message, `save_draft`. The draft lands in the creator's chat in ReachAI and **nothing is sent**: the founder reviews and sends it in the app.
+7. Later: `inbox` (who replied), `list_deals` (where each deal stands), `track_summary` (spend, views, results, late posts, who to pay).
 
 ## Showing results
 

@@ -13,10 +13,11 @@ KINDS = (
     "confirm_terms",  # after agreeing: what was agreed, their link and code (written by code)
     "reply",  # the reply agent's answer that isn't a new offer (questions, thanks, details)
     "new_contact",  # they asked us to write to someone else: the founder confirms the address
+    "agent_task",  # the founder's own agent writes the reply (campaign setting "My agent"); becomes `reply` etc. once it passes
 )
 MESSAGE_KINDS = ("reply", "send_counter", "agree", "follow_up", "chase_post", "mark_lost", "hold_terms", "pitch", "confirm_terms")  # approving one sends it
 CHAT_KINDS = ("reply", "send_counter", "agree", "mark_lost", "follow_up", "hold_terms", "pitch", "confirm_terms", "chase_post")  # drafts shown in the chat's message box
-OWN_KEYS = ("nego:", "pitch:", "confirm:", "bounce:")  # suggestions made outside the time-based generator: refresh leaves them alone
+OWN_KEYS = ("nego:", "pitch:", "confirm:", "bounce:", "agent:")  # suggestions made outside the time-based generator: refresh leaves them alone
 
 FOLLOW_UP_AFTER_DAYS = 4  # no answer this long after our last message → suggest a follow-up
 MAX_FOLLOW_UPS = 2  # then stop (the second is a polite close)
@@ -28,6 +29,11 @@ MAX_REPLY_EVENT_CHARS = 3000  # pasted reply kept on the timeline (untrusted, ne
 # Sent without asking: first emails (unless the founder checks them first), follow-ups, late-post nudges, the
 # agent's counter-offers and replies that keep agreed terms, and the confirmation after the founder agrees.
 AUTO_KINDS = ("pitch", "follow_up", "chase_post", "reply", "send_counter", "hold_terms", "confirm_terms")
+# The kinds our AI would write. In a campaign where the founder's own agent writes (outreach_settings.writer == "agent")
+# autopilot never sends these: the agent writes them (replies, counters, follow-ups) and the founder sends.
+AGENT_KINDS = ("reply", "send_counter", "hold_terms", "follow_up", "chase_post")
+WRITERS = ("reachai", "agent")
+AGENT_REPLY_TRIES = 3  # the first try plus two rewrites, like our own writer; then the founder gets the last draft
 # Always the founder's call, with a notification: they accepted (Agree), they declined or opted out (mark lost).
 DECISION_KINDS = ("agree", "mark_lost")
 REPLY_DELAY_MINUTES = 10  # answer a creator ~10 minutes after they write, not in the same second

@@ -8,10 +8,12 @@ pytestmark = pytest.mark.asyncio
 async def test_prompts_are_listed_and_walk_through_the_tools(client, db):
     token = await make_key(db)
     listed = (await rpc(client, token, "prompts/list")).json()["result"]["prompts"]
-    assert {p["name"] for p in listed} == {"reachai-new-campaign", "reachai-draft-pitches", "reachai-check-inbox"}
+    assert {p["name"] for p in listed} == {"reachai-new-campaign", "reachai-draft-pitches", "reachai-check-inbox", "reachai-run-routine"}
     got = (await rpc(client, token, "prompts/get", {"name": "reachai-new-campaign", "arguments": {"product": "Invoicing app"}})).json()["result"]
     text = got["messages"][0]["content"]["text"]
     assert "Invoicing app" in text and "create_campaign" in text and "confirm=false" in text and "confirm=true" in text
+    routine = (await rpc(client, token, "prompts/get", {"name": "reachai-run-routine"})).json()["result"]["messages"][0]["content"]["text"]
+    assert "reply_context" in routine and "submit_reply" in routine and "never send anything" in routine and "untrusted" in routine
     draft = (await rpc(client, token, "prompts/get", {"name": "reachai-draft-pitches", "arguments": {"campaign_id": "c1", "how_many": "3"}})).json()["result"]
     body = draft["messages"][0]["content"]["text"]
     assert "campaign c1" in body and "pitch_context" in body and "save_draft" in body and "Nothing is sent" in body

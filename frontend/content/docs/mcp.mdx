@@ -43,6 +43,7 @@ Then run `/mcp` in Claude Code, choose **reachai** and sign in.
 | One creator | Full numbers, score breakdown, recent videos and why they fit. For searches your agent started, your agent can also word the "why they fit" points itself: ReachAI checks each one against the facts and sends it back to fix if something isn't supported. After three tries the plain checked facts stay |
 | Saved creators | Lists, saves or removes creators on the campaign's shortlist (the same list as the Saved tab) |
 | A first message | Your agent writes it in your voice; ReachAI checks it (no price above the creator's fair range, no placeholders, no internal terms) and saves it as a **draft in that creator's chat**. You review and send it in ReachAI |
+| Replies and follow-ups | If you switch on **My agent writes replies** in the Autopilot menu, your agent writes the replies and follow-ups with its own AI. It gets the conversation, your voice and the deal's limits, and ReachAI checks each draft (prices only from the deal, never above your limit; nothing invented) and tells your agent what to fix. A passing draft appears in the creator's chat for you to review and send |
 | What needs you | Who replied, which drafts are waiting, where each deal stands, and the Track results: spend, views, signups or sales, late posts and who is due payment |
 
 Scores, audience sizes, prices and results are calculated by ReachAI, not by your agent, so they match what you see in the app. The agent only lays them out.
@@ -53,7 +54,13 @@ If your agent's client supports slash commands, you also get `/reachai-new-campa
 
 - Send anything. Drafts are saved for you to send, and nothing your agent does can send a message or move money.
 - Agree terms, set prices or mark a creator paid. Those stay in the app.
-- Reply to a creator. When a creator writes back, the chat in ReachAI suggests the next reply.
+- Send a reply. Your agent can write replies and follow-ups (when you switch it on for a campaign), but they are saved as drafts in the chat: you send them in ReachAI.
+
+## Run it on a schedule
+
+Most agents can run a prompt on a schedule. Paste the `reachai-run-routine` prompt (or ask your agent to use the ReachAI routine) into your agent's scheduler. Each run reads your inbox, writes a draft for every conversation waiting for your agent, and finishes with a short summary. A scheduled run never sends anything and never asks questions: it only writes drafts. How you set up a schedule depends on your agent, so follow its own instructions.
+
+If a tool answers with an error, the message says what to do next (for example, wait while a search is running, or reconnect Gmail). Your agent can follow it without you.
 
 ## A note on safety
 
