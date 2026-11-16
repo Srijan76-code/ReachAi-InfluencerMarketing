@@ -27,7 +27,8 @@ export function missingFields(store: CampaignState): string[] {
   return missing;
 }
 
-export function transformPayload(store: CampaignState) {
+/** `withChosenStrategy`: include the founder's edit of the strategy preview (the preview itself is asked for without it). */
+export function transformPayload(store: CampaignState, withChosenStrategy = false) {
   const country = countryCode(store.audienceLocation);
   const countries = country ? [country] : [];
   return {
@@ -51,6 +52,7 @@ export function transformPayload(store: CampaignState) {
       competitor_mode: store.competitorMode,
       budget_total: parseInt(store.totalBudget) || 5000,
       creator_count: store.numberOfCreators[0] || 5,
+      ...(withChosenStrategy && store.chosenStrategy ? { chosen_strategy: store.chosenStrategy } : {}),
     },
     constraints: {
       min_subscribers: stepToSubscribers(store.creatorSize[0], 10000),
@@ -84,7 +86,7 @@ export default function SubmitCampaignButton({ id }: { id: string }) {
       return;
     }
     setError(null);
-    const finalPayload = transformPayload(store);
+    const finalPayload = transformPayload(store, true);
     setIsSubmitting(true);
 
     try {
@@ -104,7 +106,8 @@ export default function SubmitCampaignButton({ id }: { id: string }) {
         const body = await response.json().catch(() => null);
         const credit = creditErrorText(body?.detail);
         setIsSubmitting(false);
-        setError(credit ?? "Couldn't start the search. Please try again.");
+        const edit = response.status === 422 && typeof body?.detail === "string" ? body.detail : null; // a problem with the edited search
+        setError(credit ?? edit ?? "Couldn't start the search. Please try again.");
         return;
       }
       creditsStore.refresh();

@@ -45,3 +45,10 @@ def test_the_website_never_inherits_agent_mode():
     assert "agent_review" not in clean and "ai_mode" not in clean["campaign"] and "agent_strategy" not in clean["campaign"]
     assert clean["campaign"]["goal"] == BRIEF["campaign"]["goal"] and parse_brief(clean).ai_mode == "ours"
     assert parse_brief(saved).ai_mode == "agent"  # the saved details themselves are untouched
+
+
+def test_the_founders_edited_strategy_survives_a_website_run_but_an_agents_does_not():
+    chosen = {**BRIEF, "campaign": {**BRIEF["campaign"], "chosen_strategy": GOOD, "agent_strategy": GOOD, "ai_mode": "agent"}}
+    clean = without_agent_mode(chosen)
+    assert clean["campaign"]["chosen_strategy"] == GOOD and "agent_strategy" not in clean["campaign"]
+    assert parse_brief(clean).chosen_strategy == GOOD and parse_brief(clean).agent_strategy is None

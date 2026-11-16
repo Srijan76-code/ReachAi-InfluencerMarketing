@@ -444,3 +444,32 @@ async def test_our_own_mode_is_unchanged(sf, monkeypatch, cost_log):
     _, _, state, _ = await run(sf, deps)
     assert counters["llm:strategy"] == 1 and counters["llm:reasons"] >= 1
     assert not any("reason_facts" in l for l in state["final_leads"])
+
+
+@pytest.mark.asyncio
+async def test_a_search_after_a_preview_makes_no_second_strategy_call(sf, monkeypatch, cost_log):
+    """The strategy preview stores the strategy under the brief's key; the search finds it and spends nothing more on it."""
+    from app.discovery.strategy_preview import brief_key
+    from tests.discovery.fakes import STRATEGY
+
+    use_recorded_limits(monkeypatch)
+    brief = parse_brief(BRIEF)
+    async with sf() as s:
+        s.add(RunStrategy(run_id="preview-1", campaign_id=None, brief_hash=brief_key(brief), strategy=STRATEGY.model_dump()))
+        await s.commit()
+    deps, counters = make_deps(sf)
+    _, _, state, _ = await run(sf, deps)
+    assert counters.get("llm:strategy", 0) == 0 and state["strategy"]["youtube_queries"] == ["machine learning roadmap for freshers"]
+
+
+@pytest.mark.asyncio
+async def test_a_strategy_the_founder_edited_is_used_and_no_ai_writes_one(sf, monkeypatch, cost_log):
+    from tests.discovery.fakes import STRATEGY
+
+    use_recorded_limits(monkeypatch)
+    edited = {**STRATEGY.model_dump(), "topics": ["my own topic", "another topic", "a third"]}
+    details = {**BRIEF, "campaign": {**BRIEF["campaign"], "chosen_strategy": edited}}
+    deps, counters = make_deps(sf)
+    _, _, state, _ = await run(sf, deps, input_={"run_id": "run-c", "campaign_id": "camp-c", "brief": parse_brief(details).to_dict()})
+    assert counters.get("llm:strategy", 0) == 0 and state["strategy"]["topics"] == ["my own topic", "another topic", "a third"]
+    assert state["final_leads"]  # and the search still found creators with it

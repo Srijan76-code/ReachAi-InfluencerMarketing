@@ -28,7 +28,7 @@ async def env(tmp_path, monkeypatch):
     from app.main import app
 
     engine, is_pg = make_engine(tmp_path)
-    await create_tables(engine, is_pg, ["users", "api_keys", "device_codes", "connected_accounts", "campaigns", "agent_grants"])
+    await create_tables(engine, is_pg, ["users", "api_keys", "device_codes", "connected_accounts", "campaigns", "agent_grants", "run_strategy", "cost_events"])
     sf = sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
     async with sf() as s:
         from app.models.campaign import Campaign, CampaignStatus

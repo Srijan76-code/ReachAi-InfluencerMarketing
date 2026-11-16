@@ -49,6 +49,7 @@ class Brief:
     competitor_mode: str = "show"  # show | prefer | avoid: what promoting a competitor does to a creator
     ai_mode: str = "ours"  # ours (website: our AI writes) | agent (MCP: the founder's own agent writes the text)
     agent_strategy: Optional[dict] = None  # the agent's own search strategy (already checked); None = our AI writes it
+    chosen_strategy: Optional[dict] = None  # the founder's edit of the strategy preview on the website (checked by code); None = ours
 
     @property
     def founder_type(self) -> str:
@@ -158,4 +159,5 @@ def parse_brief(details: dict) -> Brief:
         competitor_mode=campaign.get("competitor_mode") if campaign.get("competitor_mode") in COMPETITOR_MODES else "show",
         ai_mode="agent" if campaign.get("ai_mode") == "agent" else "ours",
         agent_strategy=campaign.get("agent_strategy") if isinstance(campaign.get("agent_strategy"), dict) else None,
+        chosen_strategy=campaign.get("chosen_strategy") if isinstance(campaign.get("chosen_strategy"), dict) else None,
     )

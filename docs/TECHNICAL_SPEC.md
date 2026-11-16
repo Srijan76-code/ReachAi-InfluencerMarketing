@@ -419,6 +419,8 @@ Each source becomes an extra **rung-0 input**. Its candidates go through the sam
 - UI: show a "More creators arriving…" bar. Rows don't reshuffle while the user is reading; new rows are inserted below with a "New" chip. A final **"Re-rank"** happens when `is_final` arrives (one animation, with a toggle to keep the order).
 - Credits are committed at the end, per §5.3.
 
+**Strategy preview (F1.24b, Nov 16).** On the brief page the founder can preview the search before spending credits: `POST /api/campaigns/strategy-preview` makes the strategy with the search's own prompt (`strategy_prompt`) and route, and stores it as a `run_strategy` row under the same key the search node looks up (`STRATEGY_PROMPT_VERSION:brief.hash()`), so an unchanged brief reuses it at no extra cost. An edit (topics and YouTube searches) travels as `campaign.chosen_strategy`; `/generate` checks it with `agent_ai.clean` (6-12 searches of 2-5 words, no brand name, 3-8 topics) and the strategy node uses it instead of writing one. 30 fresh previews a founder a day (`cost_events`, route `strategy`, no run id). A website run strips what an agent saved (`ai_mode`, `agent_strategy`) but keeps the founder's own edit.
+
 ### 4.14 Run execution model (decided, revised Nov 3)
 **Decisions:** LangGraph runs the pipeline and makes it durable inside a run; Inngest starts, retries, limits and cancels runs. Platforms run as parallel LangGraph branches in one run. Re-running a campaign cancels the previous run. Limits: 2 runs per user, 5 at once overall (Inngest free-plan maximum; changed from 10 on Nov 4 because syncs failed). Backend stays on Vercel; caches in Postgres.
 

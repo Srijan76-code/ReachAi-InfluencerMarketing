@@ -92,6 +92,23 @@ async def brief_from_url_route(body: BriefFromUrlBody, user: User = Depends(get_
             "unchecked": r.unchecked, "missing": r.missing, "checked": r.checked}
 
 
+class StrategyPreviewBody(BaseModel):
+    details: dict
+
+
+# POST /api/campaigns/strategy-preview: what ReachAI will search for, before spending credits (F1.24b). Creates no campaign.
+@router.post("/strategy-preview")
+async def strategy_preview_route(body: StrategyPreviewBody, user: User = Depends(get_db_user), db: AsyncSession = Depends(get_db)):
+    from app.discovery import strategy_preview
+    from app.discovery.brief import parse_brief, without_agent_mode
+
+    brief = parse_brief(without_agent_mode({**body.details, "campaign": {k: v for k, v in (body.details.get("campaign") or {}).items() if k != "chosen_strategy"}}))
+    if not brief.brand_name or brief.brand_name == "the brand" or not brief.product or not brief.persona:
+        raise HTTPException(422, "Fill in your brand, what you sell and who buys first.")
+    strategy, cached = await strategy_preview.preview(db, brief, user.user_id)
+    return {"strategy": strategy, "cached": cached}
+
+
 @router.post("/create")
 async def create_campaign(
     user: User = Depends(get_db_user),
@@ -216,6 +233,12 @@ async def generate_campaign(
     from app.discovery.brief import without_agent_mode
 
     details = without_agent_mode(campaign_details if campaign_details is not None else (campaign.campaign_details or {}))
+    from app.discovery import strategy_preview
+    from app.discovery.brief import parse_brief
+
+    cleaned = strategy_preview.check_chosen(parse_brief(details))  # the founder's edit of the preview: checked before anything starts
+    if cleaned is not None:
+        details = {**details, "campaign": {**(details.get("campaign") or {}), "chosen_strategy": cleaned}}
     try:
         return await start_run(db, campaign, details, user.clerk_id)
     except ledger.NotEnoughCredits as err:

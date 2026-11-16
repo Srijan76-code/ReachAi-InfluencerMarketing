@@ -152,7 +152,7 @@ async def strategy(state: DiscoveryState, runtime: Runtime[Deps]) -> dict:
     try:
         from app.db.database import AsyncSessionLocal
 
-        if brief.agent_strategy:  # the founder's own agent wrote it over MCP and ReachAI checked it: no AI call of ours
+        if brief.agent_strategy or brief.chosen_strategy:  # the founder's agent (MCP) or the founder (preview) gave it: no AI call of ours
             raise LookupError
         async with (sf or AsyncSessionLocal)() as session:
             reused = (
@@ -167,8 +167,8 @@ async def strategy(state: DiscoveryState, runtime: Runtime[Deps]) -> dict:
         pass
     except Exception:
         logger.exception("strategy reuse lookup failed")
-    if brief.agent_strategy:
-        out = StrategyOut.model_validate(brief.agent_strategy).model_dump()
+    if brief.agent_strategy or brief.chosen_strategy:
+        out = StrategyOut.model_validate(brief.agent_strategy or brief.chosen_strategy).model_dump()
     elif reused is not None:
         out = reused.strategy
     else:

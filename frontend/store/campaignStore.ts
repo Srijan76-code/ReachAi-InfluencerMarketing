@@ -26,6 +26,7 @@ export interface SiteBriefInfo {
 export interface CampaignState {
   site: SiteBriefInfo | null;
   showAllFields: boolean;
+  chosenStrategy: Record<string, unknown> | null; // the founder's edit of the strategy preview (null = use ReachAI's)
   // Active Form Fields
   brandName: string;
   industry: string;
@@ -82,6 +83,7 @@ const savesInFlight = new Set<string>();
 export const useCampaignStore = create<CampaignState>((set, get) => ({
   site: null,
   showAllFields: false,
+  chosenStrategy: null,
   brandName: "",
   industry: "",
   businessModel: "1",
@@ -176,7 +178,7 @@ export const useCampaignStore = create<CampaignState>((set, get) => ({
 
   loadCampaignFromCacheOrFetch: async (id: string, api: any) => {
     const state = get();
-    if (state.currentCampaignId !== id) set({ site: null, showAllFields: false }); // another campaign: forget the last site read
+    if (state.currentCampaignId !== id) set({ site: null, showAllFields: false, chosenStrategy: null }); // another campaign: forget the last site read and preview edit
     set({ currentCampaignId: id });
 
     // Check if in cache first for instant UI response

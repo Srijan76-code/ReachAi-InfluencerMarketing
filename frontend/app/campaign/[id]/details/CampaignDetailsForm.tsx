@@ -8,6 +8,7 @@ import CampaignDetails from "@/app/_components/CampaignDetails";
 import AudienceDetails from "@/app/_components/AudienceDetails";
 import Constraints from "@/app/_components/Constraints";
 import SubmitCampaignButton from "@/app/campaign/[id]/details/SubmitCampaignButton";
+import StrategyPreview from "@/components/StrategyPreview";
 import { useCampaignStore } from "@/store/campaignStore";
 import { useApi } from "@/lib/api";
 
@@ -54,6 +55,7 @@ export default function CampaignDetailsForm({ id }: { id: string }) {
         <CampaignDetails />
         <AudienceDetails />
         <Constraints />
+        <StrategyPreview />
         <SubmitCampaignButton id={id} />
       </div>
     </div>
