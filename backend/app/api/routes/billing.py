@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.campaign_runs import quote_for
 from app.auth.user import get_db_user
 from app.billing import constants as C
+from app.billing import checkout as _checkout
 from app.billing import dodo, ledger, referrals, webhooks
 from app.db.database import get_db
 from app.models.billing import BillingEvent
@@ -61,24 +62,7 @@ class CheckoutIn(BaseModel):
 
 
 async def _clerk_contact(clerk_id: str) -> tuple[str | None, str | None]:
-    """The user's email and name from Clerk, to prefill checkout. Best effort: None if unavailable."""
-    secret = os.getenv("CLERK_SECRET_KEY")
-    if not secret:
-        return None, None
-    try:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(5.0)) as client:
-            resp = await client.get(f"https://api.clerk.com/v1/users/{clerk_id}",
-                                    headers={"Authorization": f"Bearer {secret}"})
-        if resp.status_code != 200:
-            return None, None
-        data = resp.json()
-        primary = data.get("primary_email_address_id")
-        emails = data.get("email_addresses") or []
-        email = next((e.get("email_address") for e in emails if e.get("id") == primary), None)
-        name = " ".join(p for p in (data.get("first_name"), data.get("last_name")) if p) or None
-        return email, name
-    except (httpx.HTTPError, ValueError):
-        return None, None
+    return await _checkout.clerk_contact(clerk_id)
 
 
 def _app_url(request: Request) -> str:
@@ -106,12 +90,8 @@ async def checkout(body: CheckoutIn, request: Request, user: User = Depends(get_
             upgrade = C.PLANS[spec["plan"]]["monthly"] > C.PLANS[sub.plan]["monthly"]
             await dodo.change_plan(sub.provider_subscription_id, product_id, upgrade=upgrade)
             return {"changed": True, "effective": "now" if upgrade else "next_billing_date", "plan": spec["plan"]}
-        email, name = (None, None) if sub.provider_customer_id else await _clerk_contact(user.clerk_id)
-        url = await dodo.create_checkout(
-            product_id, user_id=user.user_id, item=body.item,
-            return_url=f"{_app_url(request)}/pricing?checkout=done",
-            customer_id=sub.provider_customer_id, email=email, name=name,
-        )
+        url = await _checkout.open_checkout(db, user.user_id, user.clerk_id, body.item, product_id,
+                                            f"{_app_url(request)}/pricing?checkout=done", contact=_clerk_contact)
     except dodo.DodoError as err:
         logger.error("Dodo checkout failed for %s: %s", user.user_id, err)
         raise HTTPException(502, "Couldn't open checkout. Try again in a minute.") from err

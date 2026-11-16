@@ -65,6 +65,16 @@ If ChatGPT's sign-in fails, suggest Claude or a local agent instead.
 Server {MCP_URL}, transport Streamable HTTP. Use OAuth if the client supports it (discovery:
 {ORIGIN}/.well-known/oauth-protected-resource/api/mcp). Otherwise send the header "Authorization: Bearer <key>".
 
+### Sign in without copying a key (device login, for an agent that can run shell commands)
+1. `curl -s -X POST {APP_URL}/api/device/start -H 'content-type: application/json' -d '{{"client_name": "<what you are, e.g. Claude Code>"}}'`
+   It returns `device_code` (a secret: keep it, never print it to the human), `user_code`, `verification_url`, `interval`.
+2. Tell the human: "Open {APP_URL}/device (or the verification_url), sign up or in, check the code is <user_code>, and press
+   Approve." They approve it themselves; you never can.
+3. Every `interval` seconds: `curl -s -X POST {APP_URL}/api/device/poll -H 'content-type: application/json' -d '{{"device_code": "<device_code>"}}'`.
+   `pending` or `slow_down`: wait. `approved`: the reply holds `api_key`, shown once: put it into the config or environment
+   variable (never print it back or store it anywhere else), then continue with the steps above. `denied` or `expired`: stop and
+   tell the human; start again only if they ask.
+
 ### API key (fallback)
 Ask the human to create one at {APP_URL}/agents (shown once) and put it into the config or environment variable
 themselves. Never invent a key, never print it back, never paste it into a chat, a commit or a shared file.

@@ -36,6 +36,7 @@ Then run `/mcp` in Claude Code, choose **reachai** and sign in.
 | Your campaigns | Lists them with status and number of creators found |
 | A campaign's details | Shows the brief and where the search is up to |
 | A new campaign | Creates one from a short brief. It does **not** start the search |
+| What's set up | Your credits and plan, whether Gmail is connected, whether payments are open, and what to do next. Your agent can also hand you the link to connect Gmail or to buy credits: you open it and finish on Google's or the payment page, your agent never pays or agrees for you |
 | Your website | Reads your public page as text. Your own agent (not ReachAI's AI) uses it to fill in the brief, asks you for what the page doesn't say (such as the audience country), then creates the campaign. It does **not** start the search |
 | A creator search | Your agent writes the search strategy itself, ReachAI checks it (and tells the agent what to fix), then it starts only after your agent has told you the cost in credits and you agreed. Agents can start 3 a day. Your agent can also check your credits |
 | Search progress | Tells you whether the search has finished |
@@ -56,6 +57,16 @@ If your agent's client supports slash commands, you also get `/reachai-new-campa
 - Send anything on its own. First messages are saved as drafts for you to send. A reply or follow-up your agent wrote can be sent by your agent only if you turned on **Allow my agent to send** for that campaign, and only after you say yes in your chat with it.
 - Agree terms, set prices or mark a creator paid. Those stay in the app.
 - Send a reply. Your agent can write replies and follow-ups (when you switch it on for a campaign), but they are saved as drafts in the chat: you send them in ReachAI.
+
+## Connecting without copying a key
+
+If your agent can run commands (Claude Code, Codex and similar), it can connect itself with a one-time approval from you:
+
+1. Your agent asks ReachAI for a sign-in code and shows you a short code like `BCDF-GHJK` and a link.
+2. You open the link, sign up or in, check the code matches, and press **Approve**.
+3. Your agent receives its own key and finishes the setup. You can remove it any time on the **Agents** page.
+
+You approve it yourself: an agent can't approve its own request. A key also works on a short list of read-only ReachAI web endpoints (your campaigns, credits and Gmail status); everything else, such as changing a plan, agreeing a price or sending, is refused for keys.
 
 ## Letting your agent send
 

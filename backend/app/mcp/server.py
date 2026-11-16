@@ -24,6 +24,7 @@ from app.mcp.auth import ReachAITokenVerifier
 from app.mcp.prompts import register_prompts
 from app.mcp.setup import setup_routes
 from app.mcp.tools import register_tools
+from app.mcp.tools_account import register_account_tools
 from app.mcp.tools_outreach import register_outreach_tools
 from app.mcp.tools_reasons import register_reason_tools
 from app.mcp.tools_replies import register_reply_tools
@@ -83,6 +84,7 @@ def create_server(verifier: ReachAITokenVerifier | None = None) -> MCPServer:
     register_reason_tools(server)
     register_reply_tools(server)
     register_send_tools(server)
+    register_account_tools(server)
     register_prompts(server)
     return server
 

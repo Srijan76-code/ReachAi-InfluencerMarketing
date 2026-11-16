@@ -1136,6 +1136,10 @@ Phases 3 and 6 can run in parallel after 1 and 2.
 - **Personal API keys** (`rai_...`) for agents that cannot do OAuth. Created in the app, shown once, stored as SHA-256 only (`api_keys`: prefix, hash, name, last_used_at, revoked_at). Revocable.
 - Every tool runs as that user and only touches that user's rows.
 
+- **Device login (F9.8 8a, Nov 16):** `POST /api/device/start` (public; IP-limited to 10 an hour) gives the agent a secret `device_code` and the founder a vowel-free `user_code` (`BCDF-GHJK`, 10 minutes). The founder opens `/device`, signed in, checks who is asking and approves or denies once (`lookup`, `decision`: website sign-in only; a key is refused there, so an agent cannot approve itself). `POST /api/device/poll` hands over a new personal key exactly once (an atomic claim on `device_codes.key_id`), named "<client> (device login)", counted in the 10-active-keys limit. Only the hash of the device code is stored (`device_codes`, migration `17d3bde3df1f`).
+- **Keys on REST (8a):** `rai_` keys are accepted on the REST API only in the Authorization header (never in a URL) and only on a default-deny allowlist (`app/auth/api_key_access.py`): reads of campaigns, status, leads, skipped, deals, track, autopilot, inbox, credits and Gmail status, plus creating an empty campaign and reading a website into a brief. Everything else is 403 for keys, including key and device endpoints, billing, agreeing, paying, sending and starting a search.
+- **Person-only steps as links (8a):** `account_status`, `connect_gmail` (the signed Google link, tied to the founder, 10 minutes) and `buy_credits` (a checkout link for a pack or a first plan; an existing paid plan is changed by the founder in the app). The agent never pays or consents for anyone.
+
 ### 15.3 Tools (v1, read-mostly)
 `list_campaigns`, `get_campaign`, `campaign_status`, `list_creators`, `get_creator`, `list_saved`, `save_creator`, `unsave_creator`. Annotations mark read-only vs. writing tools. Creator text (names, bios, descriptions) is returned inside a field named `untrusted` and never mixed into instructions (architecture rule 7).
 

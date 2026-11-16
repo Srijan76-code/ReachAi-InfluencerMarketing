@@ -39,6 +39,16 @@ async def get_current_user(request: Request):
     if not token:
         raise HTTPException(status_code=401, detail="Missing or malformed Authorization token")
 
+    # a personal API key (rai_...): only from the Authorization header, and only on the allowlisted routes
+    from app.auth import api_key_access as keys
+    from app.mcp.auth import API_KEY_PREFIX
+
+    if token.startswith(API_KEY_PREFIX):
+        key = keys.bearer_key(auth_header)
+        if key is None:
+            raise HTTPException(status_code=401, detail="Send API keys in the Authorization header, never in the URL.")
+        return await keys.user_for_key(AsyncSessionLocal, key, request.method, request.url.path)
+
     try:
         signing_key = jwks_client.get_signing_key_from_jwt(token)
 
