@@ -301,3 +301,50 @@ async def test_industry_and_business_model_only_need_a_reasonable_reading(monkey
     brief, confirmed, _ = await sb.verify(PAGE, FILLED)
     assert confirmed == ["industry", "business_model"]  # 0.6 is enough for labels, 0.7 is needed for the rest
     assert "reasonable reading" in seen["supported_industry"].instructions and "clearly say" in seen["supported_core_outcome"].instructions
+
+
+# --- what Jina really sends back (live check on 10 real sites, Nov 16) ---------------------------------
+
+REAL = "Title: Cal.com | Scheduling Software\n\nURL Source: https://cal.com/\n\nMarkdown Content:\n" + ("Book meetings without email back and forth. " * 12)
+TRACKER = ("Title: https://match.adsrvr.org/track/cmf/google\n\nURL Source: https://superhuman.com/\n\n"
+           "Final URL: https://match.adsrvr.org/track/cmf/google?g_uuid=&gdpr=0\n\nMarkdown Content:\nA 1x1 image, likely be a tacker probe")
+
+
+def test_the_reader_header_is_split_from_the_page():
+    title, final, body = sb.split_reader_text(REAL)
+    assert title == "Cal.com | Scheduling Software" and final == "" and body.startswith("Book meetings")
+    assert sb.split_reader_text(TRACKER)[1].startswith("https://match.adsrvr.org/")
+    assert sb.split_reader_text("plain text, no header") == ("", "", "plain text, no header")
+
+
+@pytest.mark.asyncio
+async def test_the_title_is_kept_and_the_header_is_not_counted_as_page_text(monkeypatch):
+    monkeypatch.setattr(sb.config, "JINA_API_KEY", None)
+    client, _ = client_returning(text=REAL)
+    text = await sb.read_page("https://cal.com", client)
+    assert text.startswith("Title: Cal.com | Scheduling Software") and "URL Source" not in text and "Markdown Content" not in text
+
+
+@pytest.mark.asyncio
+async def test_a_page_that_sent_us_to_a_tracker_is_explained_not_read_as_empty():
+    client, _ = client_returning(text=TRACKER)
+    with pytest.raises(sb.SiteReadError, match=r"different site \(match.adsrvr.org\)"):
+        await sb.read_page("https://superhuman.com", client)
+
+
+@pytest.mark.asyncio
+async def test_a_header_with_no_page_behind_it_is_too_little_text_not_a_page():
+    client, _ = client_returning(text="Title: Login\n\nURL Source: https://acme.com/\n\nMarkdown Content:\nPlease log in " * 1)
+    with pytest.raises(sb.SiteReadError, match="too little text"):
+        await sb.read_page("https://acme.com", client)
+
+
+@pytest.mark.asyncio
+async def test_a_normal_move_to_www_is_not_a_different_site():
+    moved = "Title: x\n\nURL Source: https://acme.com/\n\nFinal URL: https://www.acme.com/\n\nMarkdown Content:\n" + ("Real page text. " * 30)
+    client, _ = client_returning(text=moved)
+    assert "Real page text." in await sb.read_page("https://acme.com", client)
+
+
+def test_an_outcome_is_asked_for_in_words_never_as_a_slogan():
+    assert "Never a slogan" in sb.SiteBrief.model_fields["core_outcome"].description and "slogan" in sb.SYSTEM

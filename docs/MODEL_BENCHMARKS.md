@@ -175,8 +175,29 @@ Script: `reply_agent.py`.
 
 ---
 
+## Lead generation: brief from a website (Nov 16)
+
+**Task:** `read_page` (Jina Reader) → `extract` (route `brief_from_site`) → `verify` (Jev asks, per filled field, whether the page
+supports it; unsupported fields are cleared). Ten real sites: cal.com, plausible.io, scrimba.com, huel.com, glossier.com,
+strava.com, mercury.com, gumroad.com, superhuman.com, beehiiv.com. Script: `site_brief.py`. **The fill step ran on the backup
+models (Gemini 3.5 Flash, then gpt-oss on Groq), not Claude Haiku 5.5**: the OpenRouter key was out of credit (402) and there is
+no gateway key on the test machine. Jev was the real one (`typesafe/jev-1.14`).
+
+| Run | Sites that gave a brief | Fields filled → kept after Jev | Notes |
+|---|---|---|---|
+| 1: before the fixes | 9 of 10 | 42 → 37 (5 cleared) | superhuman.com came back **empty with no error**: Jina followed a tracking redirect and returned "a 1x1 tracker pixel", which passed the 200-character check because the header lines counted. glossier's "what you sell" was a slogan ("You look good.") and Jev kept it |
+| 2: after the fixes | 8 of 10, plus a clear message for superhuman.com | 37 → 31 (6 cleared) | Page body only is measured; a redirect to another site with nothing to read says so. The prompt asks for what the product does, never a slogan: glossier now reads "Sells beauty, skincare, makeup and fragrance products…". gumroad.com failed: both backup models were rate-limited (Gemini's free quota) |
+
+- **Jev's speed and strictness:** 0.4–0.7 s per site. It cleared 5 of 42 and 6 of 37 fields. Its scores for correct but reworded
+  descriptions are 0.59–0.64 (cal.com, glossier), just under the 0.7 line for "what you sell"; a well-supported one scores 0.84
+  (mercury) and a price the page never shows scores 0.26. **Decision: keep 0.7.** The founder asked for strict (when unsure, they fill
+  it in), and a wrong description hidden under "what we filled" costs more than typing one.
+- **Speed:** Jina read 0.3–1 s; the fill took 1.6 s to 41 s on the backup models (the slow ones were rate-limit retries).
+- **Left:** rerun with Haiku 5.5 (needs the gateway key or OpenRouter credit), and try real founder sites that are not famous.
+
 ## Still to test
 
 - **Search strategy** (`strategy`): judgment matters more than price there, and it's one call per search.
   Compare Claude Haiku 5.5 and GPT-5 mini on the queries they produce.
+- **The brief from a website with Claude Haiku 5.5** (`brief_from_site`, see above).
 - **The reply agent with Claude Haiku 5.5** through the gateway (the Nov 15 runs used the backup models).
