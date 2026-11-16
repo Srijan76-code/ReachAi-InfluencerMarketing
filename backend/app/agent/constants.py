@@ -33,6 +33,9 @@ AUTO_KINDS = ("pitch", "follow_up", "chase_post", "reply", "send_counter", "hold
 # autopilot never sends these: the agent writes them (replies, counters, follow-ups) and the founder sends.
 AGENT_KINDS = ("reply", "send_counter", "hold_terms", "follow_up", "chase_post")
 WRITERS = ("reachai", "agent")
+AGENT_SEND_KINDS = AGENT_KINDS  # what the founder's agent may send after a chat yes: never agree, close, first emails or confirm_terms
+AGENT_SENDS_PER_DAY = 10  # sends by the founder's agent across all their campaigns, per UTC day
+SEND_PREVIEW_MINUTES = 30  # a send_message preview token works this long, and only for the exact text it showed
 AGENT_REPLY_TRIES = 3  # the first try plus two rewrites, like our own writer; then the founder gets the last draft
 # Always the founder's call, with a notification: they accepted (Agree), they declined or opted out (mark lost).
 DECISION_KINDS = ("agree", "mark_lost")

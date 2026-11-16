@@ -6,7 +6,7 @@ import { AgentMemory } from "@/components/deals/AgentMemory";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 type Api = (url: string, options?: Record<string, unknown>) => Promise<{ data: unknown }>;
-type State = { autopilot: boolean; review_first: boolean; writer?: "reachai" | "agent" };
+type State = { autopilot: boolean; review_first: boolean; writer?: "reachai" | "agent"; agent_send?: boolean };
 
 /** Autopilot for this campaign: ReachAI sends first emails, follow-ups and replies by itself, and stops for you
  * when a creator accepts, declines or asks something only you can answer. Needs Gmail. */
@@ -75,6 +75,13 @@ export function Autopilot({ campaignId, api, gmailReady, onChange }: { campaignI
           <span className="flex-1">
             <span className="block">My agent writes replies</span>
             <span className="block text-[10px] text-zinc-500">Your own AI agent writes replies and follow-ups through ReachAI&apos;s connection. You review and send them here</span>
+          </span>
+        </DropdownMenuItem>
+        <DropdownMenuItem disabled={s.writer !== "agent"} className="text-xs cursor-pointer flex items-start gap-2" onSelect={() => save({ ...s, agent_send: !s.agent_send })}>
+          <span className="w-[13px] mt-0.5 shrink-0">{s.agent_send && s.writer === "agent" && <Check size={13} />}</span>
+          <span className="flex-1">
+            <span className="block">Allow my agent to send</span>
+            <span className="block text-[10px] text-zinc-500">Only drafts it wrote, one at a time, after you say yes in your chat with it. Up to 10 a day. You get an email for each</span>
           </span>
         </DropdownMenuItem>
         <DropdownMenuSeparator />

@@ -52,9 +52,20 @@ If your agent's client supports slash commands, you also get `/reachai-new-campa
 
 ## What it can't do
 
-- Send anything. Drafts are saved for you to send, and nothing your agent does can send a message or move money.
+- Move money, agree a price, close a deal or send a first email. Those stay in ReachAI.
+- Send anything on its own. First messages are saved as drafts for you to send. A reply or follow-up your agent wrote can be sent by your agent only if you turned on **Allow my agent to send** for that campaign, and only after you say yes in your chat with it.
 - Agree terms, set prices or mark a creator paid. Those stay in the app.
 - Send a reply. Your agent can write replies and follow-ups (when you switch it on for a campaign), but they are saved as drafts in the chat: you send them in ReachAI.
+
+## Letting your agent send
+
+By default your agent only saves drafts. If you want it to send too, turn on **Allow my agent to send** in the Autopilot menu of that campaign (it works once **My agent writes replies** is on). Then, for a reply or follow-up it wrote:
+
+1. Your agent asks ReachAI for a preview and shows you exactly what would go out: who it goes to, the subject and the full text.
+2. You say yes in your chat with the agent.
+3. Your agent confirms, and ReachAI sends it from your Gmail the same way the Send button does. The preview is only good for 30 minutes and only for that exact text: if you edit the draft in between, the agent has to ask you again.
+
+Limits: 10 messages a day sent by your agent, only drafts it wrote and ReachAI checked, never a price agreement or a closing (those wait for you in ReachAI), and you get an email and a line in the bell for every message it sends. ReachAI can't see what you tell your agent, so only turn this on for an agent you trust, and keep it out of unattended runs: the scheduled routine never sends.
 
 ## Run it on a schedule
 

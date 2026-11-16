@@ -14,6 +14,7 @@ export type InboxItem = {
   at: string | null;
   event_id: string | null;
   draft: boolean;
+  agent_sent?: number; // messages the founder's own agent sent since they last opened the chat
 };
 export type Inbox = { items: InboxItem[]; unread: number; waiting: number; by_campaign: Record<string, { unread: number; waiting: number }> };
 

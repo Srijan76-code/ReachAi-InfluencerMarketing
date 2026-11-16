@@ -3,7 +3,7 @@ contact to paid, with the agreed terms, a negotiation helper and a timeline. Own
 
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
 from typing import Optional
 
@@ -359,7 +359,17 @@ async def inbox(user: User = Depends(get_db_user), db: AsyncSession = Depends(ge
         n = news.setdefault(r.deal_id, {"count": 0})
         n.update(count=n["count"] + 1, text=" ".join((r.text or "").split())[:PREVIEW_CHARS],
                  at=r.created_at.isoformat() if r.created_at else None, id=r.event_id)
-    shown = [d for d in deals if d.deal_id in news or d.deal_id in drafts]
+    sent_by_agent: dict = {}  # deal_id -> how many messages the founder's agent sent since they last opened the chat
+    last_read = {d.deal_id: d.last_read_at for d in deals}
+    week = datetime.now(timezone.utc) - timedelta(days=7)
+    for deal_id, payload, at in (await db.execute(select(DealEvent.deal_id, DealEvent.payload, DealEvent.created_at).where(
+            DealEvent.deal_id.in_(ids), DealEvent.type == "message_sent", DealEvent.created_at >= week))).all():
+        seen = last_read.get(deal_id)
+        seen = seen.replace(tzinfo=timezone.utc) if seen is not None and seen.tzinfo is None else seen
+        at = at.replace(tzinfo=timezone.utc) if at is not None and at.tzinfo is None else at
+        if (payload or {}).get("agent") and (seen is None or (at and at > seen)):
+            sent_by_agent[deal_id] = sent_by_agent.get(deal_id, 0) + 1
+    shown = [d for d in deals if d.deal_id in news or d.deal_id in drafts or d.deal_id in sent_by_agent]
     cards = await _lead_cards(db, [(d.campaign_id, d.creator_id) for d in shown])
     items = []
     for d in shown:
@@ -369,7 +379,7 @@ async def inbox(user: User = Depends(get_db_user), db: AsyncSession = Depends(ge
         items.append({"campaign_id": d.campaign_id, "campaign_name": c.name, "deal_id": d.deal_id,
                       "name": lead.get("title") or d.creator_name, "avatar_url": lead.get("avatar_url"),
                       "unread": n.get("count", 0), "text": n.get("text"), "at": n.get("at"), "event_id": n.get("id"),
-                      "draft": d.deal_id in drafts})
+                      "draft": d.deal_id in drafts, "agent_sent": sent_by_agent.get(d.deal_id, 0)})
     items.sort(key=lambda i: i["at"] or "", reverse=True)
     by_campaign: dict = {}
     for i in items:
@@ -727,6 +737,7 @@ class AutopilotIn(BaseModel):
     autopilot: bool
     review_first: bool = False
     writer: Optional[str] = None  # who writes replies and follow-ups: "reachai" (our AI) or "agent" (the founder's own agent over MCP)
+    agent_send: Optional[bool] = None  # the founder's agent may send what it wrote, after their yes in chat (needs writer "agent")
 
 
 @router.get("/api/campaigns/{campaign_id}/autopilot")
@@ -735,7 +746,7 @@ async def get_autopilot(campaign_id: str, user: User = Depends(get_db_user), db:
 
     s = settings_of((await db.execute(select(Campaign.outreach_settings).where(
         Campaign.campaign_id == campaign_id, Campaign.user_id == user.user_id))).scalar_one_or_none())
-    return {"autopilot": s.autopilot, "review_first": s.review_first, "writer": s.writer}
+    return {"autopilot": s.autopilot, "review_first": s.review_first, "writer": s.writer, "agent_send": s.agent_send}
 
 
 @router.put("/api/campaigns/{campaign_id}/autopilot")
@@ -743,7 +754,7 @@ async def set_autopilot(campaign_id: str, body: AutopilotIn, user: User = Depend
     """Autopilot on or off for this campaign, and whether first emails wait for the founder's check. Turning it
     on only covers messages drafted from now on; older drafts stay for the founder."""
     from app.agent import constants as AC
-    from app.agent.autopilot import turned_on, with_writer
+    from app.agent.autopilot import settings_of, turned_on, with_agent_send, with_writer
     from app.inngest.functions import start_autopilot
 
     if body.writer is not None and body.writer not in AC.WRITERS:
@@ -756,11 +767,13 @@ async def set_autopilot(campaign_id: str, body: AutopilotIn, user: User = Depend
     camp.outreach_settings = turned_on(camp.outreach_settings, autopilot=body.autopilot, review_first=body.review_first)
     if body.writer is not None:
         camp.outreach_settings = with_writer(camp.outreach_settings, body.writer)
-    writer = (camp.outreach_settings or {}).get("writer", "reachai")
+    if body.agent_send is not None:
+        camp.outreach_settings = with_agent_send(camp.outreach_settings, body.agent_send)
+    now = settings_of(camp.outreach_settings)
     await db.commit()
     if body.autopilot:
         await start_autopilot([user.user_id])
-    return {"autopilot": body.autopilot, "review_first": body.review_first, "writer": writer}
+    return {"autopilot": body.autopilot, "review_first": body.review_first, "writer": now.writer, "agent_send": now.agent_send}
 
 
 class SendAll(BaseModel):

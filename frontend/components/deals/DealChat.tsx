@@ -24,7 +24,7 @@ type Who = "you" | "them";
 type Op = { kind: "draft"; proposalId: string } | { kind: "own" } | { kind: "paste" };
 type Pending = { key: string; who: Who; text: string; status: "sending" | "failed"; op: Op; error?: Problem };
 type Problem = { text: string; action?: "reconnect" | "retry" };
-type Bubble = { key: string; who: Who; text: string; at: string | null; source?: "gmail" | "pasted" | "copied" | "auto"; pending?: Pending };
+type Bubble = { key: string; who: Who; text: string; at: string | null; source?: "gmail" | "pasted" | "copied" | "auto" | "agent"; pending?: Pending };
 
 export const askWords = (fee: number | null | undefined, pct: number | null | undefined) =>
   fee == null && pct ? `${pct}% commission` : `${money(fee ?? 0)}${pct ? ` + ${pct}%` : ""}`;
@@ -59,7 +59,7 @@ function bubblesFrom(events: DealEvent[]): Bubble[] {
   [...events].reverse().forEach((e, i) => {
     const p = (e.payload || {}) as Record<string, unknown>;
     const key = `${e.type}:${e.at}:${i}`;
-    if (e.type === "message_sent" && p.text) out.push({ key, who: "you", text: String(p.text), at: e.at, source: p.auto ? "auto" : p.via === "gmail" ? "gmail" : "copied" });
+    if (e.type === "message_sent" && p.text) out.push({ key, who: "you", text: String(p.text), at: e.at, source: p.agent ? "agent" : p.auto ? "auto" : p.via === "gmail" ? "gmail" : "copied" });
     else if (e.type === "creator_reply" && p.text) out.push({ key, who: "them", text: String(p.text), at: e.at, source: p.source === "gmail" ? "gmail" : "pasted" });
   });
   return out;
@@ -82,6 +82,7 @@ const PROFILE: Partial<Record<Channel, (d: Deal, text?: string) => string | unde
 const SOURCE: Record<string, { icon: typeof Mail; label: string }> = {
   gmail: { icon: Mail, label: "Email" },
   auto: { icon: Sparkles, label: "Sent by autopilot" },
+  agent: { icon: Sparkles, label: "Sent by your agent" },
   pasted: { icon: Clipboard, label: "Pasted" },
   copied: { icon: Clipboard, label: "Copied to send yourself" },
 };

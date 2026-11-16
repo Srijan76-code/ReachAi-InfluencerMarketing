@@ -126,7 +126,7 @@ export function InboxBell() {
                       {i.unread > 0 && <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />}
                       <span className="ml-auto text-[10px] text-zinc-400 shrink-0">{i.at ? updatedLabel(i.at) : ""}</span>
                     </span>
-                    <span className="block text-[11px] text-zinc-500 truncate">{i.text ?? "ReachAI drafted a reply"}</span>
+                    <span className="block text-[11px] text-zinc-500 truncate">{i.text ?? (i.agent_sent ? `Your agent sent ${i.agent_sent === 1 ? "a message" : `${i.agent_sent} messages`}` : "ReachAI drafted a reply")}</span>
                     {i.campaign_name && <span className="block text-[10px] text-zinc-400 truncate">{i.campaign_name}</span>}
                   </span>
                 </Link>

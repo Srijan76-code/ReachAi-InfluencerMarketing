@@ -49,6 +49,7 @@ class Settings:
     review_first: bool = False
     since: Optional[datetime] = None
     writer: str = "reachai"  # who writes replies and follow-ups: reachai (our AI) | agent (the founder's own agent over MCP)
+    agent_send: bool = False  # the founder's agent may send drafts it wrote, one at a time, after the founder's yes in chat
 
 
 def settings_of(raw: Optional[dict]) -> Settings:
@@ -60,19 +61,27 @@ def settings_of(raw: Optional[dict]) -> Settings:
         except ValueError:
             since = None
     return Settings(bool(raw.get("autopilot")), bool(raw.get("review_first")), since,
-                    raw.get("writer") if raw.get("writer") in A.WRITERS else "reachai")
+                    raw.get("writer") if raw.get("writer") in A.WRITERS else "reachai",
+                    bool(raw.get("agent_send")) and raw.get("writer") == "agent")
 
 
 def turned_on(raw: Optional[dict], *, autopilot: bool, review_first: bool, now: Optional[datetime] = None) -> dict:
     """New settings. Switching autopilot on (again) moves `since` to now: drafts written before stay manual."""
     old = settings_of(raw)
     since = old.since if (old.autopilot and autopilot and old.since) else (now or _now())
-    return {"autopilot": autopilot, "review_first": review_first, "since": since.isoformat(), "writer": old.writer}
+    return {"autopilot": autopilot, "review_first": review_first, "since": since.isoformat(), "writer": old.writer,
+            "agent_send": old.agent_send}
 
 
 def with_writer(raw: Optional[dict], writer: str) -> dict:
     """The same settings with who writes replies and follow-ups changed (reachai | agent)."""
-    return {**(raw or {}), "writer": writer if writer in A.WRITERS else "reachai"}
+    writer = writer if writer in A.WRITERS else "reachai"
+    return {**(raw or {}), "writer": writer, "agent_send": bool((raw or {}).get("agent_send")) and writer == "agent"}
+
+
+def with_agent_send(raw: Optional[dict], allow: bool) -> dict:
+    """The same settings with "my agent may send" on or off. It only works while the agent writes replies."""
+    return {**(raw or {}), "agent_send": bool(allow) and settings_of(raw).writer == "agent"}
 
 
 def hold_reason(p, d, lead: Optional[dict], s: Settings, *, email_route: bool) -> Optional[str]:
@@ -348,3 +357,25 @@ async def notify(db: AsyncSession, user_id: str, *, send_mail=None) -> int:
             logger.warning("autopilot notice email failed: %s", type(e).__name__)
     await db.commit()
     return total
+
+
+async def notify_agent_send(db: AsyncSession, account, *, name: str, text: str, campaign_id: str, send_mail=None) -> None:
+    """Emails the founder (to their own address, from their own Gmail) about a message their agent just sent. Best
+    effort: the message is already sent, and the bell shows it too."""
+    from app.gmail import client as GC
+    from app.gmail import mail
+    from app.gmail import service as GS
+    from app.mcp.config import app_url
+
+    subject = f"ReachAI: your agent sent a message to {name}"
+    body = (f"Your agent sent this to {name} from your Gmail:\n\n{text}\n\n"
+            f"See the chat: {app_url()}/campaign/{campaign_id}/outreach\n"
+            "Turn this off any time: Outreach > Autopilot > Allow my agent to send.")
+    try:
+        if send_mail:
+            await send_mail(account.email, subject, body)
+        else:
+            token = await GS.token_for(account)
+            await GC.send(token, mail.build(sender=account.email, sender_name="ReachAI", to=account.email, subject=subject, body=body))
+    except Exception as e:  # noqa: BLE001
+        logger.warning("agent send notice email failed: %s", type(e).__name__)
