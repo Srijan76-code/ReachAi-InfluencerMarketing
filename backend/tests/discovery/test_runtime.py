@@ -177,6 +177,7 @@ async def test_default_youtube_adapter_caches_in_the_runs_database(sfc, monkeypa
         return await compute(), False
 
     monkeypatch.setattr(C, "cached", fake_cached)
+    monkeypatch.setenv("YOUTUBE_API_KEY", "test-key")  # building the adapter needs one; nothing is sent
     deps = default_deps(CostContext())
     deps.session_factory = sfc  # what run_discovery does
     adapter = deps.adapters["youtube"]()
