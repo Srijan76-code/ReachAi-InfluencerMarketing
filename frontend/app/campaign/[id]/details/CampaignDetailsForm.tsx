@@ -3,10 +3,12 @@
 import React, { useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import BrandDetails from "@/app/_components/BrandDetails";
+import SiteBriefBox from "@/app/_components/SiteBriefBox";
 import CampaignDetails from "@/app/_components/CampaignDetails";
 import AudienceDetails from "@/app/_components/AudienceDetails";
 import Constraints from "@/app/_components/Constraints";
 import SubmitCampaignButton from "@/app/campaign/[id]/details/SubmitCampaignButton";
+import StrategyPreview from "@/components/StrategyPreview";
 import { useCampaignStore } from "@/store/campaignStore";
 import { useApi } from "@/lib/api";
 
@@ -48,10 +50,12 @@ export default function CampaignDetailsForm({ id }: { id: string }) {
           </div>
         </div>
 
+        <SiteBriefBox />
         <BrandDetails />
         <CampaignDetails />
         <AudienceDetails />
         <Constraints />
+        <StrategyPreview />
         <SubmitCampaignButton id={id} />
       </div>
     </div>

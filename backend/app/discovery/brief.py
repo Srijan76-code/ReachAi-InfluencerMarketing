@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import asdict, dataclass, field
-from typing import Any
+from typing import Any, Optional
 
 from app.judge.questions import JudgeBrief
 from app.metrics.compute import BriefContext
@@ -47,6 +47,9 @@ class Brief:
     platforms: list[str] = field(default_factory=list)  # chosen by the user; empty = ReachAI chooses
     competitors: list[str] = field(default_factory=list)  # entered by the user; empty = the strategy's suggestions
     competitor_mode: str = "show"  # show | prefer | avoid: what promoting a competitor does to a creator
+    ai_mode: str = "ours"  # ours (website: our AI writes) | agent (MCP: the founder's own agent writes the text)
+    agent_strategy: Optional[dict] = None  # the agent's own search strategy (already checked); None = our AI writes it
+    chosen_strategy: Optional[dict] = None  # the founder's edit of the strategy preview on the website (checked by code); None = ours
 
     @property
     def founder_type(self) -> str:
@@ -118,6 +121,12 @@ def _clean_platforms(values: Any) -> list[str]:
     return list(dict.fromkeys(n for n in names if n in PLATFORMS))
 
 
+def without_agent_mode(details: dict) -> dict:
+    """A search started from the website always uses ReachAI's own AI: drop what an agent's MCP start saved."""
+    campaign = {k: v for k, v in (details.get("campaign") or {}).items() if k not in ("ai_mode", "agent_strategy")}
+    return {**{k: v for k, v in details.items() if k != "agent_review"}, **({"campaign": campaign} if "campaign" in details else {})}
+
+
 def parse_brief(details: dict) -> Brief:
     details = details or {}
     brand, audience = details.get("brand") or {}, details.get("audience") or {}
@@ -148,4 +157,7 @@ def parse_brief(details: dict) -> Brief:
         platforms=_clean_platforms(campaign.get("platforms")),
         competitors=_clean_competitors(campaign.get("competitors")),
         competitor_mode=campaign.get("competitor_mode") if campaign.get("competitor_mode") in COMPETITOR_MODES else "show",
+        ai_mode="agent" if campaign.get("ai_mode") == "agent" else "ours",
+        agent_strategy=campaign.get("agent_strategy") if isinstance(campaign.get("agent_strategy"), dict) else None,
+        chosen_strategy=campaign.get("chosen_strategy") if isinstance(campaign.get("chosen_strategy"), dict) else None,
     )

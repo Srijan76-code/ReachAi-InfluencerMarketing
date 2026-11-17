@@ -48,6 +48,11 @@ class Settings:
     autopilot: bool = False
     review_first: bool = False
     since: Optional[datetime] = None
+    writer: str = "reachai"  # who writes replies and follow-ups: reachai (our AI) | agent (the founder's own agent over MCP)
+    agent_send: bool = False  # the founder's agent may send drafts it wrote, one at a time, after the founder's yes in chat
+    agent_send_mode: str = "ask"  # ask | unattended (pre-approved by a grant, within its limits)
+    agent_send_per_day: Optional[int] = None  # the grant's own limit (never above the global one)
+    agent_send_grant: Optional[str] = None  # the grant that switched sending on; sending stops when it ends
 
 
 def settings_of(raw: Optional[dict]) -> Settings:
@@ -58,14 +63,31 @@ def settings_of(raw: Optional[dict]) -> Settings:
             since = _aware(datetime.fromisoformat(raw["since"]))
         except ValueError:
             since = None
-    return Settings(bool(raw.get("autopilot")), bool(raw.get("review_first")), since)
+    return Settings(bool(raw.get("autopilot")), bool(raw.get("review_first")), since,
+                    raw.get("writer") if raw.get("writer") in A.WRITERS else "reachai",
+                    bool(raw.get("agent_send")) and raw.get("writer") == "agent",
+                    "unattended" if raw.get("agent_send_mode") == "unattended" else "ask",
+                    raw.get("agent_send_per_day") if isinstance(raw.get("agent_send_per_day"), int) else None,
+                    raw.get("agent_send_grant") or None)
 
 
 def turned_on(raw: Optional[dict], *, autopilot: bool, review_first: bool, now: Optional[datetime] = None) -> dict:
     """New settings. Switching autopilot on (again) moves `since` to now: drafts written before stay manual."""
     old = settings_of(raw)
     since = old.since if (old.autopilot and autopilot and old.since) else (now or _now())
-    return {"autopilot": autopilot, "review_first": review_first, "since": since.isoformat()}
+    return {"autopilot": autopilot, "review_first": review_first, "since": since.isoformat(), "writer": old.writer,
+            "agent_send": old.agent_send}
+
+
+def with_writer(raw: Optional[dict], writer: str) -> dict:
+    """The same settings with who writes replies and follow-ups changed (reachai | agent)."""
+    writer = writer if writer in A.WRITERS else "reachai"
+    return {**(raw or {}), "writer": writer, "agent_send": bool((raw or {}).get("agent_send")) and writer == "agent"}
+
+
+def with_agent_send(raw: Optional[dict], allow: bool) -> dict:
+    """The same settings with "my agent may send" on or off. It only works while the agent writes replies."""
+    return {**(raw or {}), "agent_send": bool(allow) and settings_of(raw).writer == "agent"}
 
 
 def hold_reason(p, d, lead: Optional[dict], s: Settings, *, email_route: bool) -> Optional[str]:
@@ -74,6 +96,8 @@ def hold_reason(p, d, lead: Optional[dict], s: Settings, *, email_route: bool) -
     pl = p.payload or {}
     if not s.autopilot or p.kind not in A.AUTO_KINDS or not pl.get("message"):
         return "manual"
+    if s.writer == "agent" and p.kind in A.AGENT_KINDS:
+        return "manual"  # the founder's own agent writes these: never sent by ReachAI's autopilot
     created = _aware(p.created_at)
     if s.since and created and created < s.since:
         return "manual"
@@ -339,3 +363,25 @@ async def notify(db: AsyncSession, user_id: str, *, send_mail=None) -> int:
             logger.warning("autopilot notice email failed: %s", type(e).__name__)
     await db.commit()
     return total
+
+
+async def notify_agent_send(db: AsyncSession, account, *, name: str, text: str, campaign_id: str, send_mail=None) -> None:
+    """Emails the founder (to their own address, from their own Gmail) about a message their agent just sent. Best
+    effort: the message is already sent, and the bell shows it too."""
+    from app.gmail import client as GC
+    from app.gmail import mail
+    from app.gmail import service as GS
+    from app.mcp.config import app_url
+
+    subject = f"ReachAI: your agent sent a message to {name}"
+    body = (f"Your agent sent this to {name} from your Gmail:\n\n{text}\n\n"
+            f"See the chat: {app_url()}/campaign/{campaign_id}/outreach\n"
+            "Turn this off any time: Outreach > Autopilot > Allow my agent to send.")
+    try:
+        if send_mail:
+            await send_mail(account.email, subject, body)
+        else:
+            token = await GS.token_for(account)
+            await GC.send(token, mail.build(sender=account.email, sender_name="ReachAI", to=account.email, subject=subject, body=body))
+    except Exception as e:  # noqa: BLE001
+        logger.warning("agent send notice email failed: %s", type(e).__name__)

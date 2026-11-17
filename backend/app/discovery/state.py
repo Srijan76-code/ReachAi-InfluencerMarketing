@@ -42,6 +42,7 @@ class DiscoveryState(TypedDict, total=False):
     expanded: Annotated[list, operator.add]  # platforms already expanded after a probe
     top: list[str]  # creator_ids of the final top N
     reasons: Annotated[dict, merge_dicts]  # creator_id -> sentence
+    reason_facts: Annotated[dict, merge_dicts]  # creator_id -> {points, verdict}: kept for the founder's agent to word (F9.6)
     warnings: Annotated[list, operator.add]
     final_leads: list[dict]
     person_of: dict  # creator_id -> person_id: one result per person (the "people" step)

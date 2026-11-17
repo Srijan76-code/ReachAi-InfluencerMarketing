@@ -140,7 +140,7 @@ export type CounterOut = {
   signals: Record<string, number | boolean>;
   amounts: Record<string, number>;
   message: string;
-  source: "ai" | "template";
+  source: "ai" | "template" | "agent";
 };
 
 export const money = (n: number | null | undefined) =>
@@ -154,7 +154,7 @@ export type Proposal = {
   title: string;
   reason: string | null;
   message: string | null;
-  source: "ai" | "template";
+  source: "ai" | "template" | "agent";
   can_reword: boolean;
   is_message: boolean;
   can_send?: boolean; // Gmail connected and we have their email: approving sends it

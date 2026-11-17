@@ -4,6 +4,7 @@ import { SmartAudienceInput } from "./SmartAudienceInput";
 import { SmartAudienceInput2 } from "./SmartAudienceInput2";
 import RangeSlider from "@/components/RangeSlider";
 import { useCampaignStore } from "@/store/campaignStore";
+import { useHiddenBySite } from "@/lib/siteBrief";
 import {
   Status,
   StatusIndicator,
@@ -13,6 +14,8 @@ import {
 const AudienceDetails = () => {
   const creatorSize = useCampaignStore((state) => state.creatorSize);
   const setField = useCampaignStore((state) => state.setField);
+  const hideOutcome = useHiddenBySite("core_outcome");
+  const hidePersona = useHiddenBySite("target_persona");
 
   return (
     <div className="group relative border border-zinc-200 dark:border-zinc-800 p-7 rounded-xl space-y-6 bg-white dark:bg-[#0c0d0e]">
@@ -24,8 +27,8 @@ const AudienceDetails = () => {
           </StatusLabel>
         </Status>
       </div>
-      <SmartAudienceInput />
-      <SmartAudienceInput2 />
+      {!hideOutcome && <SmartAudienceInput />}
+      {!hidePersona && <SmartAudienceInput2 />}
       <RangeSlider
         value={creatorSize}
         onChange={(val) => setField("creatorSize", val)}

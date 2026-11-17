@@ -80,6 +80,7 @@ async def client(tmp_path, monkeypatch):
     event.listen(engine.sync_engine, "before_cursor_execute", lambda conn, cur, statement, *a: stats["sql"].append(statement))
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t") as c:
         c.stats = stats
+        c.sf = sf
         yield c
     app.dependency_overrides.clear()
     auth._USER_CACHE.clear()
@@ -1066,3 +1067,42 @@ async def test_a_question_only_the_founder_knows_is_asked_answered_remembered_an
     assert "Do you pay creators upfront?" in fact["text"] and "Half upfront" in fact["text"]
     assert (await client.delete(f"/api/agent/memory/{fact['id']}")).json() == {"ok": True}
     assert [m for m in (await client.get("/api/agent/memory")).json() if m["kind"] == "fact"] == []
+
+
+@needs_pg
+@pytest.mark.asyncio
+async def test_the_bell_shows_what_the_founders_agent_sent_until_they_open_the_chat(client):
+    from app.models.deal import DealEvent
+
+    await _set_leads(client, DEAL_LEADS)
+    d = (await client.post("/api/campaigns/c1/deals", json={"creator_ids": ["UC1"]})).json()["created"][0]
+    await client.post(f"/api/deals/{d['id']}/read")
+    async with client.sf() as s:
+        s.add(DealEvent(deal_id=d["id"], type="message_sent", payload={"text": "Hi, thanks!", "agent": True}))
+        s.add(DealEvent(deal_id=d["id"], type="message_sent", payload={"text": "A message the founder sent"}))
+        await s.commit()
+    box = (await client.get("/api/inbox")).json()
+    assert box["unread"] == 0 and box["items"][0]["deal_id"] == d["id"] and box["items"][0]["agent_sent"] == 1
+    await client.post(f"/api/deals/{d['id']}/read")
+    assert (await client.get("/api/inbox")).json()["items"] == []
+
+
+@needs_pg
+@pytest.mark.asyncio
+async def test_who_writes_and_whether_the_agent_may_send_are_campaign_settings(client, monkeypatch):
+    async def no_start(user_ids):
+        return None
+
+    monkeypatch.setattr("app.inngest.functions.start_autopilot", no_start)
+    url = "/api/campaigns/c1/autopilot"
+    assert (await client.get(url)).json() == {"autopilot": False, "review_first": False, "writer": "reachai", "agent_send": False}
+    nope = (await client.put(url, json={"autopilot": False, "agent_send": True})).json()
+    assert nope["writer"] == "reachai" and nope["agent_send"] is False  # sending needs "my agent writes" first
+    on = (await client.put(url, json={"autopilot": False, "writer": "agent", "agent_send": True})).json()
+    assert on["writer"] == "agent" and on["agent_send"] is True
+    kept = (await client.put(url, json={"autopilot": True, "review_first": True})).json()
+    assert kept["writer"] == "agent" and kept["agent_send"] is True  # turning autopilot on or off doesn't change them
+    off = (await client.put(url, json={"autopilot": False, "writer": "reachai"})).json()
+    assert off["writer"] == "reachai" and off["agent_send"] is False  # taking the writing back also stops agent sends
+    assert (await client.put(url, json={"autopilot": False, "writer": "robot"})).status_code == 422
+    assert (await client.put("/api/campaigns/c3/autopilot", json={"autopilot": False})).status_code == 404  # not theirs

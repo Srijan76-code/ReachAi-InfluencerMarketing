@@ -91,6 +91,8 @@ async def _context(db: AsyncSession, d: CreatorDeal, lead: dict, details: dict, 
                           budget_left=budget_left, mode=mode)
 
 
+build_context = _context  # the reply agent's context for one deal (also used by the MCP tools for the founder's own agent)
+
 # what the reply agent decided → the action shown on their message (the chat and the founder's email read it)
 SHOWN_ACTION = {"opt_out": "lost", "wait": "wait", "new_contact": "new_contact", "ask_founder": "ask_founder"}
 HELD_FOR = {"hold": "check_failed", "ask_founder": "ask_founder"}
@@ -109,18 +111,51 @@ def _amounts(price) -> Optional[dict]:
     return {"base": price.fee, "commission_pct": price.commission_pct} if price.commission_pct else {"counter": price.fee}
 
 
+async def _writer(db: AsyncSession, d: CreatorDeal) -> str:
+    """Who writes replies and follow-ups for this deal's campaign: "reachai" (our AI) or "agent" (the founder's own agent)."""
+    from app.agent.autopilot import settings_of
+    from app.models.campaign import Campaign
+
+    camp = await db.get(Campaign, d.campaign_id)
+    return settings_of(camp.outreach_settings if camp else None).writer
+
+
+async def _put(db: AsyncSession, d: CreatorDeal, key: str, **fields) -> AgentProposal:
+    """Creates the suggestion for `key`, or updates it in place when the founder's agent's task for this message holds
+    the key (a deal has one suggestion per key: the task becomes the finished reply)."""
+    p = (await db.execute(select(AgentProposal).where(AgentProposal.deal_id == d.deal_id, AgentProposal.key == key))).scalar_one_or_none()
+    if p is None:
+        p = AgentProposal(campaign_id=d.campaign_id, deal_id=d.deal_id, key=key, status="pending", **fields)
+        db.add(p)
+        return p
+    for k, v in fields.items():
+        setattr(p, k, v)
+    p.status, p.decided_at, p.result = "pending", None, None
+    return p
+
+
+async def _agent_task(db: AsyncSession, d: CreatorDeal, reply: DealEvent, r) -> dict:
+    """The founder's own agent writes this reply (campaign setting): ReachAI only read it. The task waits in `inbox`."""
+    reply.payload = {**(reply.payload or {}), "agent": {"action": "none", "reasons": [r.reason]}}
+    await _stale_suggestions(db, d)
+    await _put(db, d, f"nego:{reply.event_id}", kind="agent_task", title="Your agent writes the reply", reason=r.reason,
+               payload={"mode": "reply", "reply_event_id": reply.event_id, "signals": r.signals, "tries": 0})
+    return {"action": "none", "reasons": [r.reason]}
+
+
 async def negotiate(db: AsyncSession, d: CreatorDeal, reply: DealEvent, *, lead: dict, details: dict, user_id: str,
                     agent=None, send_mail=None) -> dict:
     """Runs the reply agent (app/replies/agent.py) on the creator's latest message (`reply`), records what they
     asked for, and adds the next step (replacing an older pending one). The caller commits. → {"action", "reasons"}"""
     from app.replies import agent as RA
-    from app.replies import ask as ASK
 
     text = (reply.payload or {}).get("text") or ""
+    agent_writes = await _writer(db, d) == "agent"
     try:
         async with db.begin_nested():  # a failed read here must not abort the transaction that saves their reply
             ctx = await _context(db, d, lead, details, user_id=user_id, text=text, mode="reply")
-        r = await (agent or RA.reply)(ctx, context=CostContext(user_id=user_id, campaign_id=d.campaign_id))
+        r = await (agent or RA.reply)(ctx, context=CostContext(user_id=user_id, campaign_id=d.campaign_id),
+                                      **({"read_only": True} if agent_writes else {}))
     except Exception:
         logger.exception("reply agent failed for deal %s", d.deal_id)
         r = None
@@ -132,6 +167,16 @@ async def negotiate(db: AsyncSession, d: CreatorDeal, reply: DealEvent, *, lead:
         return {"action": "none", "reasons": [reason]}
     if r.outcome == "opt_out":
         return await _opted_out(db, d, reply, user_id)
+
+    if r.outcome == "agent_task":
+        return await _agent_task(db, d, reply, r)
+    return await _apply_result(db, d, reply, r, lead=lead, user_id=user_id, text=text, send_mail=send_mail)
+
+async def _apply_result(db: AsyncSession, d: CreatorDeal, reply: DealEvent, r, *, lead: dict, user_id: str, text: str,
+                        send_mail=None, source: str = "ai") -> dict:
+    """Turns a ReplyResult into what the founder sees: the action on their message and the next suggestion. Shared by
+    our own AI's replies and the drafts the founder's agent submitted (`source`). The caller commits."""
+    from app.replies import ask as ASK
 
     if r.failed:
         from app.replies.memory import note_failures
@@ -166,9 +211,8 @@ async def negotiate(db: AsyncSession, d: CreatorDeal, reply: DealEvent, *, lead:
         db.add(DealEvent(deal_id=d.deal_id, type="paused", payload={"until": r.resume_on.isoformat(), "reason": r.reason}))
         return {"action": action, "reasons": [r.reason]}
     if r.outcome == "new_contact":
-        db.add(AgentProposal(campaign_id=d.campaign_id, deal_id=d.deal_id, key=key, kind="new_contact", status="pending",
-                             title=f"Write to {draft.new_contact_email} instead", reason=r.reason,
-                             payload={"email": draft.new_contact_email}))
+        await _put(db, d, key, kind="new_contact", title=f"Write to {draft.new_contact_email} instead", reason=r.reason,
+                   payload={"email": draft.new_contact_email})
         return {"action": action, "reasons": [r.reason]}
     if r.outcome == "ask_founder":
         q = await ASK.ask(db, d, user_id=user_id, questions=r.questions, creator_text=text, reply_event_id=reply.event_id,
@@ -177,7 +221,7 @@ async def negotiate(db: AsyncSession, d: CreatorDeal, reply: DealEvent, *, lead:
         reply.payload["agent"]["question_id"] = q.question_id
 
     price = draft.price
-    payload = {"message": draft.message, "source": "ai", "terms": _terms(price), "amounts": _amounts(price),
+    payload = {"message": draft.message, "source": source, "terms": _terms(price), "amounts": _amounts(price),
                "final": False, "strategy": draft.strategy,
                **({"held": HELD_FOR[r.outcome]} if r.outcome in HELD_FOR else {}),
                **({"problems": r.failed} if r.failed else {})}
@@ -203,8 +247,7 @@ async def negotiate(db: AsyncSession, d: CreatorDeal, reply: DealEvent, *, lead:
         kind, title = "send_counter", f"Offer: {price.words()}"
     else:
         kind, title = "reply", "Reply"
-    db.add(AgentProposal(campaign_id=d.campaign_id, deal_id=d.deal_id, key=key, kind=kind, status="pending",
-                         title=title, reason=r.reason, payload=payload))
+    await _put(db, d, key, kind=kind, title=title, reason=r.reason, payload=payload)
     return {"action": action, "reasons": [r.reason]}
 
 
@@ -215,6 +258,9 @@ async def compose_follow_up(db: AsyncSession, p: AgentProposal, d: CreatorDeal, 
     otherwise the plain fallback stays (it's safe, just generic). → True if the AI wrote it."""
     from app.replies import agent as RA
 
+    if await _writer(db, d) == "agent":  # the founder's own agent writes follow-ups: the plain one stays until it does
+        p.payload = {**(p.payload or {}), "composed": True, "source": (p.payload or {}).get("source", "template")}
+        return False
     try:
         async with db.begin_nested():
             ctx = await _context(db, d, lead, details, user_id=user_id, text="", mode="follow_up")

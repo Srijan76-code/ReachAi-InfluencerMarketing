@@ -152,6 +152,8 @@ async def strategy(state: DiscoveryState, runtime: Runtime[Deps]) -> dict:
     try:
         from app.db.database import AsyncSessionLocal
 
+        if brief.agent_strategy or brief.chosen_strategy:  # the founder's agent (MCP) or the founder (preview) gave it: no AI call of ours
+            raise LookupError
         async with (sf or AsyncSessionLocal)() as session:
             reused = (
                 await session.execute(
@@ -161,9 +163,13 @@ async def strategy(state: DiscoveryState, runtime: Runtime[Deps]) -> dict:
                     .limit(1)
                 )
             ).scalar_one_or_none()
+    except LookupError:
+        pass
     except Exception:
         logger.exception("strategy reuse lookup failed")
-    if reused is not None:
+    if brief.agent_strategy or brief.chosen_strategy:
+        out = StrategyOut.model_validate(brief.agent_strategy or brief.chosen_strategy).model_dump()
+    elif reused is not None:
         out = reused.strategy
     else:
         result = await _llm(runtime, "strategy", strategy_prompt(brief, _now(runtime).date()), StrategyOut, _ctx(runtime, state))
@@ -627,6 +633,11 @@ async def reason(state: ReasonState, runtime: Runtime[Deps]) -> dict:
             except Exception as exc:  # noqa: BLE001 - the code pick is always true, just less tailored
                 logger.warning("reason pick failed for %s: %s", c["creator_id"], exc)
 
+        if brief.ai_mode == "agent":  # the founder's own agent words them later (submit_reasons); until then, the facts
+            from app.discovery.reason_check import fact_bullets
+
+            return {"text": "\n".join(f"- {x}" for x in fact_bullets(points)), "points": points}
+
         # 3-4. the LLM words them; Jev checks; a critical miss goes back with feedback
         async def write(prompt_text):
             out = await _llm(runtime, "reasons", prompt_text, None, ctx)
@@ -634,18 +645,22 @@ async def reason(state: ReasonState, runtime: Runtime[Deps]) -> dict:
 
         res = await write_checked(reason_prompt(brief, c.get("display_name", ""), verdict, points), points, verdict,
                                   write=write, judge=judge, parse=reason_bullets)
-        return "\n".join(f"- {x}" for x in res.bullets)
+        return {"text": "\n".join(f"- {x}" for x in res.bullets), "points": None}
 
     try:
         from app.discovery.cache import cached
 
-        text, _ = await cached("llm", {"v": REASON_PROMPT_VERSION, "creator": repo.content_hash(p), "brief": brief.hash(),
-                                "verdict": c.get("deal_status")},
-                               None, compute, session_factory=runtime.context.session_factory)
+        value, _ = await cached("llm", {"v": REASON_PROMPT_VERSION, "fmt": 2, "creator": repo.content_hash(p), "brief": brief.hash(),
+                                 "verdict": c.get("deal_status")},
+                                None, compute, session_factory=runtime.context.session_factory)
+        text, points = value["text"], value.get("points")
     except Exception as exc:
         logger.warning("reason failed for %s: %s", c["creator_id"], exc)
-        text = ""
-    return {"reasons": {c["creator_id"]: text}}
+        text, points = "", None
+    out = {"reasons": {c["creator_id"]: text}}
+    if points:
+        out["reason_facts"] = {c["creator_id"]: {"points": points, "verdict": verdict}}
+    return out
 
 
 async def finalize(state: DiscoveryState, runtime: Runtime[Deps]) -> dict:
@@ -655,11 +670,17 @@ async def finalize(state: DiscoveryState, runtime: Runtime[Deps]) -> dict:
     reasons = state.get("reasons") or {}
     strategy = state.get("strategy") or {}
     topics = match_terms([*(strategy.get("topics") or []), *(strategy.get("youtube_queries") or [])])
+    kept = [r for r in ranked if r["creator_id"] in profiles]
     leads = [
         to_legacy_lead(profiles[r["creator_id"]], profiles[r["creator_id"]].get("metrics") or {}, r,
                        reasons.get(r["creator_id"]), brief.industry, topics=topics)
-        for r in ranked if r["creator_id"] in profiles
+        for r in kept
     ]
+    facts = state.get("reason_facts") or {}
+    for r, lead in zip(kept, leads):  # the founder's agent can word these later and have them checked (F9.6)
+        if r["creator_id"] in facts:
+            lead["reason_facts"] = facts[r["creator_id"]]
+            lead["reason_source"] = "facts"
     try:
         from app.discovery.people_cards import attach_accounts
 

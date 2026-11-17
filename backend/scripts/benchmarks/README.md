@@ -18,3 +18,4 @@ OpenRouter key for the cross-company model comparisons (sent by the environment'
 | `outreach_reply_models.py`, `direct_providers.py` | Which model writes replies |
 | `reason_models.py`, `reason_prompts.py`, `reason_loop.py` | "Why this creator": model, prompt, and the checked loop |
 | `reply_agent.py [runs]` | The whole reply agent against 10 simulated creators (pushy, legal question, out of office, manager, opt-out, injection, decline, follow-up…) |
+| `site_brief.py [sites]` | Brief from a website: Jina read → fill → Jev check, on ten real sites by default |

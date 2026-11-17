@@ -14,6 +14,19 @@ MAX_BIO_CHARS = 600
 # Number of levels in each Score question (must match questions.py; a test checks this).
 SCORE_LEVELS = {"topic_fit": 5, "audience_stage": 4, "safety_risk": 4}
 
+# --- Brief from a website (F1.24): a filled field is kept only when Jev finds the page clearly says it ---------
+SITE_FIELD_MIN = 0.7  # Jev's P(yes) that the page clearly supports a field; lower = cleared, the founder fills it
+SITE_LABEL_FIELDS = ("industry", "business_model")  # labels the AI infers; pages rarely state them in words
+SITE_LABEL_FIELD_MIN = 0.6  # ...so they only need to be a reasonable reading of the page
+SITE_INJECTION_ABOVE = 0.5  # page text aimed at an AI: nothing is filled from it
+SITE_PAGE_CHARS = 6000  # how much of the page Jev reads
+
+# --- Strategies and "why" bullets written by the founder's own agent over MCP (F9.6) -------------------------------
+STRATEGY_ON_TOPIC_MIN = 0.5  # Jev: the searches fit what the buyer watches → below this is sent back
+STRATEGY_SPECIFIC_MIN = 0.5  # Jev: the searches are specific to the niche, not generic words → below is sent back
+AGENT_REASON_ATTEMPTS = 3  # the first try plus REASON_MAX_REWRITES rewrites, then the plain facts stay
+AGENT_STRATEGY_CHECKS_PER_DAY = 6  # Jev strategy checks per campaign per day (each is a paid request)
+
 # --- Fit (spec §4.7) -------------------------------------------------------------------
 FIT_WEIGHTS = {"topic_fit": 0.5, "audience_stage": 0.3, "pain_point": 0.2}
 

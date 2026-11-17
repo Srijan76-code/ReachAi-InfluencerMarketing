@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useApi } from "@/lib/api";
 import { OnboardAgent } from "@/components/OnboardAgent";
+import { AgentPermissions } from "@/components/AgentPermissions";
 
 type ApiKey = {
   key_id: string;
@@ -130,8 +131,8 @@ export default function AgentsPage() {
         </p>
         <OnboardAgent origin={origin} />
         <p className="text-[11px] text-zinc-500">
-          It finds creators, drafts first messages and checks replies. It never sends messages or spends money
-          without you.{" "}
+          It finds creators, drafts first messages and checks replies. It never spends money, and it only sends a reply it wrote after you say yes and
+          have allowed it for that campaign.{" "}
           <Link href="/docs/mcp" className="underline underline-offset-2">
             Docs
           </Link>
@@ -221,6 +222,7 @@ export default function AgentsPage() {
           </ul>
         )}
       </section>
+      <AgentPermissions />
     </main>
   );
 }

@@ -418,3 +418,58 @@ async def test_user_chosen_platforms_skip_the_jev_check_and_probes(sf, monkeypat
     assert state["platforms"]["youtube"]["mode"] == "full" and state["platforms"]["x"]["selected"] is False
     assert any("instagram isn't available yet" in w for w in state["warnings"])
     assert state["final_leads"]
+
+
+@pytest.mark.asyncio
+async def test_agent_mode_uses_the_agents_strategy_and_none_of_our_ai(sf, monkeypatch, cost_log):
+    """Over MCP the founder's own agent wrote the strategy (and words the bullets later): the run makes no AI call of ours."""
+    from tests.discovery.fakes import STRATEGY
+
+    use_recorded_limits(monkeypatch)
+    details = {**BRIEF, "campaign": {**BRIEF["campaign"], "ai_mode": "agent", "agent_strategy": STRATEGY.model_dump()}}
+    deps, counters = make_deps(sf)
+    _, _, state, _ = await run(sf, deps, input_={"run_id": "run-a", "campaign_id": "camp-a", "brief": parse_brief(details).to_dict()})
+    leads = state["final_leads"]
+    assert leads and counters.get("llm:strategy", 0) == 0 and counters.get("llm:reasons", 0) == 0
+    assert state["strategy"]["youtube_queries"] == ["machine learning roadmap for freshers"]
+    with_text = [l for l in leads if l["llm_reasoning"]]
+    assert with_text and all(l["reason_source"] == "facts" and l["reason_facts"]["points"]["watch"] for l in with_text)
+    assert all(len(l["reason_points"]) == 3 for l in with_text)  # the plain checked facts, never wrong, just plainer
+
+
+@pytest.mark.asyncio
+async def test_our_own_mode_is_unchanged(sf, monkeypatch, cost_log):
+    use_recorded_limits(monkeypatch)
+    deps, counters = make_deps(sf)
+    _, _, state, _ = await run(sf, deps)
+    assert counters["llm:strategy"] == 1 and counters["llm:reasons"] >= 1
+    assert not any("reason_facts" in l for l in state["final_leads"])
+
+
+@pytest.mark.asyncio
+async def test_a_search_after_a_preview_makes_no_second_strategy_call(sf, monkeypatch, cost_log):
+    """The strategy preview stores the strategy under the brief's key; the search finds it and spends nothing more on it."""
+    from app.discovery.strategy_preview import brief_key
+    from tests.discovery.fakes import STRATEGY
+
+    use_recorded_limits(monkeypatch)
+    brief = parse_brief(BRIEF)
+    async with sf() as s:
+        s.add(RunStrategy(run_id="preview-1", campaign_id=None, brief_hash=brief_key(brief), strategy=STRATEGY.model_dump()))
+        await s.commit()
+    deps, counters = make_deps(sf)
+    _, _, state, _ = await run(sf, deps)
+    assert counters.get("llm:strategy", 0) == 0 and state["strategy"]["youtube_queries"] == ["machine learning roadmap for freshers"]
+
+
+@pytest.mark.asyncio
+async def test_a_strategy_the_founder_edited_is_used_and_no_ai_writes_one(sf, monkeypatch, cost_log):
+    from tests.discovery.fakes import STRATEGY
+
+    use_recorded_limits(monkeypatch)
+    edited = {**STRATEGY.model_dump(), "topics": ["my own topic", "another topic", "a third"]}
+    details = {**BRIEF, "campaign": {**BRIEF["campaign"], "chosen_strategy": edited}}
+    deps, counters = make_deps(sf)
+    _, _, state, _ = await run(sf, deps, input_={"run_id": "run-c", "campaign_id": "camp-c", "brief": parse_brief(details).to_dict()})
+    assert counters.get("llm:strategy", 0) == 0 and state["strategy"]["topics"] == ["my own topic", "another topic", "a third"]
+    assert state["final_leads"]  # and the search still found creators with it

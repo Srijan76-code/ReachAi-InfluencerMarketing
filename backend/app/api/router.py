@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.routes import api_keys, billing, campaign, deals, gmail, outreach, saved_lead, share, track
+from app.api.routes import api_keys, billing, campaign, deals, device, gmail, grants, outreach, saved_lead, share, track
 
 api_router = APIRouter()
 
@@ -14,3 +14,5 @@ api_router.include_router(track.router, tags=["Track"])
 api_router.include_router(billing.router, prefix="/api/billing", tags=["Billing"])
 api_router.include_router(billing.webhook_router, tags=["Billing"])
 api_router.include_router(api_keys.router, prefix="/api/keys", tags=["API Keys"])
+api_router.include_router(device.router, tags=["Device login"])
+api_router.include_router(grants.router, tags=["Agent permissions"])

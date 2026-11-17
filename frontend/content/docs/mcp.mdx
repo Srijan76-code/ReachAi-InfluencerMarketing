@@ -36,12 +36,15 @@ Then run `/mcp` in Claude Code, choose **reachai** and sign in.
 | Your campaigns | Lists them with status and number of creators found |
 | A campaign's details | Shows the brief and where the search is up to |
 | A new campaign | Creates one from a short brief. It does **not** start the search |
-| A creator search | Starts it, but only after your agent has told you the cost in credits and you agreed. Agents can start 3 a day. Your agent can also check your credits |
+| What's set up | Your credits and plan, whether Gmail is connected, whether payments are open, and what to do next. Your agent can also hand you the link to connect Gmail or to buy credits: you open it and finish on Google's or the payment page, your agent never pays or agrees for you |
+| Your website | Reads your public page as text. Your own agent (not ReachAI's AI) uses it to fill in the brief, asks you for what the page doesn't say (such as the audience country), then creates the campaign. It does **not** start the search |
+| A creator search | Your agent writes the search strategy itself, ReachAI checks it (and tells the agent what to fix), then it starts only after your agent has told you the cost in credits and you agreed. Agents can start 3 a day. Your agent can also check your credits |
 | Search progress | Tells you whether the search has finished |
 | The creators | A ranked table with score, audience, engagement and estimated fair value, with sorting, a minimum score and pages |
-| One creator | Full numbers, score breakdown, recent videos and why they fit |
+| One creator | Full numbers, score breakdown, recent videos and why they fit. For searches your agent started, your agent can also word the "why they fit" points itself: ReachAI checks each one against the facts and sends it back to fix if something isn't supported. After three tries the plain checked facts stay |
 | Saved creators | Lists, saves or removes creators on the campaign's shortlist (the same list as the Saved tab) |
 | A first message | Your agent writes it in your voice; ReachAI checks it (no price above the creator's fair range, no placeholders, no internal terms) and saves it as a **draft in that creator's chat**. You review and send it in ReachAI |
+| Replies and follow-ups | If you switch on **My agent writes replies** in the Autopilot menu, your agent writes the replies and follow-ups with its own AI. It gets the conversation, your voice and the deal's limits, and ReachAI checks each draft (prices only from the deal, never above your limit; nothing invented) and tells your agent what to fix. A passing draft appears in the creator's chat for you to review and send |
 | What needs you | Who replied, which drafts are waiting, where each deal stands, and the Track results: spend, views, signups or sales, late posts and who is due payment |
 
 Scores, audience sizes, prices and results are calculated by ReachAI, not by your agent, so they match what you see in the app. The agent only lays them out.
@@ -50,9 +53,50 @@ If your agent's client supports slash commands, you also get `/reachai-new-campa
 
 ## What it can't do
 
-- Send anything. Drafts are saved for you to send, and nothing your agent does can send a message or move money.
+- Move money, agree a price, close a deal or send a first email. Those stay in ReachAI.
+- Send anything on its own. First messages are saved as drafts for you to send. A reply or follow-up your agent wrote can be sent by your agent only if you turned on **Allow my agent to send** for that campaign, and only after you say yes in your chat with it.
 - Agree terms, set prices or mark a creator paid. Those stay in the app.
-- Reply to a creator. When a creator writes back, the chat in ReachAI suggests the next reply.
+- Send a reply. Your agent can write replies and follow-ups (when you switch it on for a campaign), but they are saved as drafts in the chat: you send them in ReachAI.
+
+## Connecting without copying a key
+
+If your agent can run commands (Claude Code, Codex and similar), it can connect itself with a one-time approval from you:
+
+1. Your agent asks ReachAI for a sign-in code and shows you a short code like `BCDF-GHJK` and a link.
+2. You open the link, sign up or in, check the code matches, and press **Approve**.
+3. Your agent receives its own key and finishes the setup. You can remove it any time on the **Agents** page.
+
+See the [quickstart](/docs/quickstart) for the whole path. You approve it yourself: an agent can't approve its own request. A key also works on a short list of read-only ReachAI web endpoints (your campaigns, credits and Gmail status); everything else, such as changing a plan, agreeing a price or sending, is refused for keys.
+
+## Permissions
+
+Beyond reading and drafting, your agent asks for what it needs, one campaign at a time. It gives you a link and a short code; you open it, read what it allows in plain words, and approve. You can shorten it or make it stricter (never wider), and an agent can't approve its own request.
+
+| Ability | What it allows |
+|---|---|
+| Write replies and follow-ups | Same as the **My agent writes replies** switch in the Autopilot menu |
+| Send replies and follow-ups | Same as **Allow my agent to send**, with an end date and your own daily limit |
+| Send first emails | Send first messages it wrote, one at a time, up to a daily limit |
+| Manage the campaign | Add creators to your deals; set your Track goal; get the signup snippet |
+| Control autopilot | Turn autopilot on or off |
+
+Every permission ends on its date and can be removed any time on the [Agents](/agents) page; removing one switches off what it switched on. Your own switches in the Autopilot menu keep working exactly as before.
+
+## Letting your agent send
+
+By default your agent only saves drafts. If you want it to send too, approve a send permission, or turn on **Allow my agent to send** in the Autopilot menu of that campaign (it works once **My agent writes replies** is on). Then, for a reply or follow-up it wrote:
+
+1. Your agent asks ReachAI for a preview and shows you exactly what would go out: who it goes to, the subject and the full text.
+2. You say yes in your chat with the agent.
+3. Your agent confirms, and ReachAI sends it from your Gmail the same way the Send button does. The preview is only good for 30 minutes and only for that exact text: if you edit the draft in between, the agent has to ask you again.
+
+Limits: 10 messages a day sent by your agent, only drafts it wrote and ReachAI checked, never a price agreement or a closing (those wait for you in ReachAI), and you get an email and a line in the bell for every message it sends. ReachAI can't see what you tell your agent, so only turn this on for an agent you trust, and keep it out of unattended runs: the scheduled routine never sends.
+
+## Run it on a schedule
+
+Most agents can run a prompt on a schedule. Paste the `reachai-run-routine` prompt (or ask your agent to use the ReachAI routine) into your agent's scheduler. Each run reads your inbox, writes a draft for every conversation waiting for your agent, and finishes with a short summary. A scheduled run never sends anything and never asks questions: it only writes drafts. How you set up a schedule depends on your agent, so follow its own instructions.
+
+If a tool answers with an error, the message says what to do next (for example, wait while a search is running, or reconnect Gmail). Your agent can follow it without you.
 
 ## A note on safety
 

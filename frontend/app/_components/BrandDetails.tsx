@@ -5,6 +5,7 @@ import RadioCards3 from "@/components/RadioCards3";
 import SearchAndSelectInput from "@/components/SearchAndSelectInput";
 import { INDUSTRY_ONTOLOGY } from "@/data/INDUSTRY_ONTOLOGY";
 import { useCampaignStore } from "@/store/campaignStore";
+import { useHiddenBySite } from "@/lib/siteBrief";
 import {
   Status,
   StatusIndicator,
@@ -17,6 +18,10 @@ const BrandDetails = () => {
   const businessModel = useCampaignStore((state) => state.businessModel);
   const productPriceRange = useCampaignStore((state) => state.productPriceRange);
   const setField = useCampaignStore((state) => state.setField);
+  const hideName = useHiddenBySite("brand_name");
+  const hideIndustry = useHiddenBySite("industry");
+  const hideModel = useHiddenBySite("business_model");
+  const hidePrice = useHiddenBySite("price_range");
 
   function formatCategory(str: string): string {
     if (!str.includes("_")) return str.charAt(0).toUpperCase() + str.slice(1);
@@ -39,6 +44,8 @@ const BrandDetails = () => {
     { label: "High ($500+)", value: "3" },
   ];
 
+  if (hideName && hideIndustry && hideModel && hidePrice) return null; // the site filled all of it
+
   return (
     <div className="group relative border border-zinc-200 dark:border-zinc-800 p-7 rounded-xl space-y-6 bg-white dark:bg-[#0c0d0e]">
       <div className="-translate-y-1/2 text-[13px] text-foreground font-medium absolute start-3 top-0 z-10 block px-2 bg-white dark:bg-[#0c0d0e]">
@@ -47,28 +54,36 @@ const BrandDetails = () => {
           <StatusLabel className="text-foreground text-[13px]">Brand Details</StatusLabel>
         </Status>
       </div>
-      <NormalInputComponent value={brandName} onChange={(val) => setField("brandName", val)} />
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-7">
-        <SearchAndSelectInput
-          label="Industry"
-          frameworks={industryFrameworks}
-          value={industry}
-          onChange={(val) => setField("industry", val)}
-        />
+      {!hideName && <NormalInputComponent value={brandName} onChange={(val) => setField("brandName", val)} />}
+      {(!hideIndustry || !hideModel) && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-7">
+          {!hideIndustry && (
+            <SearchAndSelectInput
+              label="Industry"
+              frameworks={industryFrameworks}
+              value={industry}
+              onChange={(val) => setField("industry", val)}
+            />
+          )}
+          {!hideModel && (
+            <RadioCards3
+              label="Business model"
+              items={businessModels}
+              value={businessModel}
+              onChange={(val) => setField("businessModel", val)}
+            />
+          )}
+        </div>
+      )}
+      {!hidePrice && (
         <RadioCards3
-          label="Business model"
-          items={businessModels}
-          value={businessModel}
-          onChange={(val) => setField("businessModel", val)}
+          label="Product price range"
+          sublabel="How much does your product cost per customer?"
+          items={offerPricePoints}
+          value={productPriceRange}
+          onChange={(val) => setField("productPriceRange", val)}
         />
-      </div>
-      <RadioCards3
-        label="Product price range"
-        sublabel="How much does your product cost per customer?"
-        items={offerPricePoints}
-        value={productPriceRange}
-        onChange={(val) => setField("productPriceRange", val)}
-      />
+      )}
     </div>
   );
 };

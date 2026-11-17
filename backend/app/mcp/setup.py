@@ -65,6 +65,16 @@ If ChatGPT's sign-in fails, suggest Claude or a local agent instead.
 Server {MCP_URL}, transport Streamable HTTP. Use OAuth if the client supports it (discovery:
 {ORIGIN}/.well-known/oauth-protected-resource/api/mcp). Otherwise send the header "Authorization: Bearer <key>".
 
+### Sign in without copying a key (device login, for an agent that can run shell commands)
+1. `curl -s -X POST {APP_URL}/api/device/start -H 'content-type: application/json' -d '{{"client_name": "<what you are, e.g. Claude Code>"}}'`
+   It returns `device_code` (a secret: keep it, never print it to the human), `user_code`, `verification_url`, `interval`.
+2. Tell the human: "Open {APP_URL}/device (or the verification_url), sign up or in, check the code is <user_code>, and press
+   Approve." They approve it themselves; you never can.
+3. Every `interval` seconds: `curl -s -X POST {APP_URL}/api/device/poll -H 'content-type: application/json' -d '{{"device_code": "<device_code>"}}'`.
+   `pending` or `slow_down`: wait. `approved`: the reply holds `api_key`, shown once: put it into the config or environment
+   variable (never print it back or store it anywhere else), then continue with the steps above. `denied` or `expired`: stop and
+   tell the human; start again only if they ask.
+
 ### API key (fallback)
 Ask the human to create one at {APP_URL}/agents (shown once) and put it into the config or environment variable
 themselves. Never invent a key, never print it back, never paste it into a chat, a commit or a shared file.
@@ -99,12 +109,17 @@ ReachAI is connected as the MCP server `reachai` ({MCP_URL}). Its tools read and
 
 ## The order of steps
 
-1. `list_campaigns` to see what exists. New work: `create_campaign` (ask for what you don't know), then `start_search`.
-2. `start_search` costs the user ReachAI credits (shown before it starts) and is capped per day. Call it with `confirm=false`, tell the user, and only call it with `confirm=true` after they agree. Never start a search on your own.
+Errors from these tools say what to do next. Read them and follow them (for example: wait while a search is running, tell the user when credits or a daily limit run out) instead of retrying blindly.
+
+1. `list_campaigns` to see what exists. New work: `create_campaign` (ask for what you don't know; if the founder gives a website, `read_website` first and fill the brief from it), then `start_search`.
+2. `start_search` costs the user ReachAI credits (shown before it starts) and is capped per day. Call it with `confirm=false`: the reply has the cost and `strategy_task`. **You write the search strategy** (ReachAI uses none of its own AI for it) and send it as `strategy`; ReachAI checks it and replies with `fix_these` if it needs changes, so rewrite and send again. Tell the user the cost, and only call it with `confirm=true` and the same `strategy` after they agree. Never start a search on your own.
 3. Searches take minutes. Poll `campaign_status` about every 30 seconds. Do not loop faster.
 4. `list_creators` for the ranked table. `get_creator` for one creator in detail. `save_creator` for the shortlist.
-5. First messages: `pitch_context`, write the message, `save_draft`. The draft lands in the creator's chat in ReachAI and **nothing is sent**: the founder reviews and sends it in the app.
-6. Later: `inbox` (who replied), `list_deals` (where each deal stands), `track_summary` (spend, views, results, late posts, who to pay).
+   After a search you started, each creator's "Why they fit" shows plain checked facts. To improve them: `get_creator` returns `write_why` (the facts and the prompt); write 3 bullets and send up to 10 creators at a time to `submit_reasons`. ReachAI checks them and says what to fix; after 3 tries the plain facts stay. Don't loop on a creator that is `facts_kept`.
+5. Replies and follow-ups (only in campaigns where the founder switched on "My agent writes replies"): `inbox` lists them under `writes_for_you`. For each: `reply_context`, write the draft, `submit_reply`, and fix what it says (3 tries). `submit_reply` sends nothing: the founder sends in ReachAI. If the founder allowed it for the campaign (`can_send` in `inbox`), `send_message` sends a draft you wrote: call it with `confirm=false`, show the founder exactly what it returns, ask, and call it with `confirm=true` and the `preview_token` only after a clear yes. Never confirm on your own and never in a scheduled run: use the `reachai-run-routine` prompt there; an unattended run only writes drafts. Agreeing a price, closing a deal and taking payments always stay in ReachAI.
+6. To do more than read and draft, ask: `request_permission` (write_replies, send_replies, send_first_emails, autopilot, manage_campaign) for one campaign. You get a link; give it to the human, who reads it and approves in the browser (they can shorten it or make it stricter; you can't approve for them). `my_permissions` shows what you may do. Then `add_to_deals`, `track_setup`, `track_snippet`, `set_autopilot` work, and `send_message` can send what you wrote. Sending 'unattended' needs the human to have chosen that when approving.
+7. First messages: `pitch_context`, write the message, `save_draft`. The draft lands in the creator's chat in ReachAI and **nothing is sent**: the founder reviews and sends it in the app.
+8. Later: `inbox` (who replied), `list_deals` (where each deal stands), `track_summary` (spend, views, results, late posts, who to pay).
 
 ## Showing results
 

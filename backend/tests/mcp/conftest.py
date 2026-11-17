@@ -33,7 +33,7 @@ def _jsonb_as_json(type_, compiler, **kw):  # the app uses Postgres JSONB; SQLit
 
 TABLES = ["users", "campaigns", "saved_leads", "api_keys", "agent_runs", "creator_deals", "deal_events", "agent_proposals", "agent_memory", "founder_questions",
           "deal_posts", "post_stats", "conversions", "tracking_links", "link_clicks",
-          "credit_ledger", "credit_reservations", "subscriptions"]
+          "credit_ledger", "credit_reservations", "subscriptions", "agent_grants"]
 
 LEADS = [
     {"id": "UC_a", "title": "Krish Naik", "subscribers": 1250000, "final_score": 93, "deal_status": "Strong Buy",
@@ -181,3 +181,29 @@ async def call_tool(client, token, name, **arguments):
     resp = await rpc(client, token, "tools/call", {"name": name, "arguments": arguments})
     assert resp.status_code == 200, resp.text
     return resp.json()["result"]
+
+
+@pytest.fixture
+def jev(monkeypatch):
+    """Jev for the strategy and bullet checks: no live call. `jev.scores` sets the answers, `jev.calls` counts requests."""
+    from app.judge.client import Answer, Judgment
+
+    class Fake:
+        calls: list = []
+        scores: dict = {}
+        down = False
+
+    fake = Fake()
+    fake.calls, fake.scores = [], {}
+
+    async def judge(state, questions, **kw):
+        from app.judge.client import JudgeUnavailableError
+
+        fake.calls.append(sorted(questions))
+        if fake.down:
+            raise JudgeUnavailableError("down")
+        return Judgment(answers={q: Answer("noul", fake.scores.get(q, 0.9 if q in ("on_topic", "specific", "agrees", "is_weakness") or q.startswith("grounded") else 0.1))
+                                 for q in questions}, model="jev", source="jev")
+
+    monkeypatch.setattr("app.judge.client.judge", judge)
+    return fake

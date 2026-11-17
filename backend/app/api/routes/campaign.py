@@ -17,6 +17,7 @@ from app.auth.user import get_db_user
 from app.inngest.client import inngest_client
 from app.api.campaign_runs import EnqueueError, start_run
 from app.billing import ledger
+from app.billing.costs import CostContext
 from app.api.campaign_names import EMPTY_DRAFT_HIDDEN_AFTER_DAYS, DEFAULT_NAME, clean_name, is_default, name_from_brief
 from pydantic import BaseModel
 import inngest
@@ -67,6 +68,47 @@ async def get_campaigns(
 
 
 # POST /api/campaigns/create
+class BriefFromUrlBody(BaseModel):
+    url: str
+
+
+# POST /api/campaigns/brief-from-url: read the founder's website into brief fields (F1.24). Creates nothing.
+@router.post("/brief-from-url")
+async def brief_from_url_route(body: BriefFromUrlBody, user: User = Depends(get_db_user), db: AsyncSession = Depends(get_db)):
+    from app.discovery import site_brief
+
+    async def under_the_daily_cap():
+        if await site_brief.reads_today(db, user.user_id) >= site_brief.DAILY_READS:
+            raise site_brief.SiteReadError(
+                f"You've read {site_brief.DAILY_READS} websites today. Fill the brief in by hand, or try again tomorrow.")
+
+    try:
+        r = await site_brief.brief_from_url(body.url, context=CostContext(user_id=user.user_id), guard=under_the_daily_cap)
+    except site_brief.SiteReadError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    # confirmed: Jev found the page clearly says it. unchecked: Jev was down, so every filled field needs a look.
+    # missing: the page didn't clearly say it (or Jev wasn't sure), so the founder fills it in.
+    return {"url": r.url, "details": site_brief.to_details(r.brief), "confirmed": r.confirmed,
+            "unchecked": r.unchecked, "missing": r.missing, "checked": r.checked}
+
+
+class StrategyPreviewBody(BaseModel):
+    details: dict
+
+
+# POST /api/campaigns/strategy-preview: what ReachAI will search for, before spending credits (F1.24b). Creates no campaign.
+@router.post("/strategy-preview")
+async def strategy_preview_route(body: StrategyPreviewBody, user: User = Depends(get_db_user), db: AsyncSession = Depends(get_db)):
+    from app.discovery import strategy_preview
+    from app.discovery.brief import parse_brief, without_agent_mode
+
+    brief = parse_brief(without_agent_mode({**body.details, "campaign": {k: v for k, v in (body.details.get("campaign") or {}).items() if k != "chosen_strategy"}}))
+    if not brief.brand_name or brief.brand_name == "the brand" or not brief.product or not brief.persona:
+        raise HTTPException(422, "Fill in your brand, what you sell and who buys first.")
+    strategy, cached = await strategy_preview.preview(db, brief, user.user_id)
+    return {"strategy": strategy, "cached": cached}
+
+
 @router.post("/create")
 async def create_campaign(
     user: User = Depends(get_db_user),
@@ -188,7 +230,15 @@ async def generate_campaign(
     if not campaign:
         raise HTTPException(404, "Campaign not found")
 
-    details = campaign_details if campaign_details is not None else (campaign.campaign_details or {})
+    from app.discovery.brief import without_agent_mode
+
+    details = without_agent_mode(campaign_details if campaign_details is not None else (campaign.campaign_details or {}))
+    from app.discovery import strategy_preview
+    from app.discovery.brief import parse_brief
+
+    cleaned = strategy_preview.check_chosen(parse_brief(details))  # the founder's edit of the preview: checked before anything starts
+    if cleaned is not None:
+        details = {**details, "campaign": {**(details.get("campaign") or {}), "chosen_strategy": cleaned}}
     try:
         return await start_run(db, campaign, details, user.clerk_id)
     except ledger.NotEnoughCredits as err:

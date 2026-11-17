@@ -108,7 +108,7 @@ def _change_for(p: AgentProposal, d: CreatorDeal) -> dict:
 
 
 async def approve(db: AsyncSession, p: AgentProposal, d: CreatorDeal, message: Optional[str], send=None,
-                  subject: Optional[str] = None, auto: bool = False) -> dict:
+                  subject: Optional[str] = None, auto: bool = False, agent: bool = False) -> dict:
     """Carries out an approved suggestion from its stored payload (never from model text). `send(text)` sends a
     message through the founder's Gmail (→ {"gmail_id", "thread_id"}); without it a message is only recorded as
     sent (the founder copied it). The change is checked before sending, and nothing changes if sending fails.
@@ -131,14 +131,14 @@ async def approve(db: AsyncSession, p: AgentProposal, d: CreatorDeal, message: O
         db.add(DealEvent(deal_id=d.deal_id, type="message_sent",
                          payload={"kind": p.kind, "text": final, **({"subject": subject} if subject else {}), "amounts": keep, "terms": terms, "edited": edited, "final": bool(pl.get("final")),
                                   "proposal_id": p.proposal_id, "via": "gmail" if via else "copied", **(via or {}),
-                                  **({"auto": True} if auto else {})}))
+                                  **({"auto": True} if auto else {}), **({"agent": True} if agent else {})}))
         result = {"message": final, "edited": edited, "sent": bool(via)}
     if p.kind == "new_contact" and pl.get("email"):
         db.add(DealEvent(deal_id=d.deal_id, type="contact_changed", payload={"from": d.contact_email, "to": pl["email"]}))
         d.contact_email = pl["email"]
     apply_change(db, d, change)
     db.add(DealEvent(deal_id=d.deal_id, type="proposal", payload={"kind": p.kind, "title": p.title, "decision": "approved",
-                                                                 "edited": result.get("edited", False), **({"auto": True} if auto else {})}))
+                                                                 "edited": result.get("edited", False), **({"auto": True} if auto else {}), **({"agent": True} if agent else {})}))
     p.status, p.decided_at, p.result = "approved", _now(), result
     return result
 

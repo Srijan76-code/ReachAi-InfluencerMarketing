@@ -62,11 +62,12 @@ CLAUDE_HAIKU_FAST = ModelSpec(provider="openai_compat", model="anthropic/claude-
 ROUTES: dict[str, list[ModelSpec]] = {
     "strategy": WRITING,
     "brief": WRITING,
+    "brief_from_site": WRITING,  # reads a website into brief fields (F1.24)
     "reasons": [CLAUDE_HAIKU_FAST, GEMINI_FLASH_LITE, GROQ_GPT_OSS],
     "pitch": WRITING,
     "reply": WRITING,
     "counter": WRITING,
-    "style": [GPT5_MINI, CLAUDE_HAIKU, GEMINI_FLASH, GROQ_GPT_OSS],  # turning a founder's edit into a style rule
+    "style": WRITING,  # turning a founder's edit into a style rule
     "judge_eval": [GPT5_MINI, GEMINI_FLASH],  # a different family from the writer (independence)
     "fit_fallback": [GROQ_GPT_OSS, GEMINI_FLASH_LITE, CEREBRAS_GPT_OSS],  # only if Jev is down: fast and cheap
 }

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { X } from "lucide-react";
 import { Segmented } from "@/components/ui/segmented";
 import { useCampaignStore } from "@/store/campaignStore";
+import { useHiddenBySite } from "@/lib/siteBrief";
 
 const MAX = 10;
 
@@ -14,6 +15,7 @@ export default function Competitors() {
   const mode = useCampaignStore((s) => s.competitorMode);
   const setField = useCampaignStore((s) => s.setField);
   const [draft, setDraft] = useState("");
+  const hidden = useHiddenBySite("competitors");
 
   const add = () => {
     const name = draft.trim().replace(/,$/, "").slice(0, 60);
@@ -22,6 +24,8 @@ export default function Competitors() {
     }
     setDraft("");
   };
+
+  if (hidden) return null;
 
   return (
     <div className="space-y-2">
