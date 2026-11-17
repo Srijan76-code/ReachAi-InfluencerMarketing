@@ -16,7 +16,7 @@ KINDS = (
 )
 MESSAGE_KINDS = ("reply", "send_counter", "agree", "follow_up", "chase_post", "mark_lost", "hold_terms", "pitch", "confirm_terms")  # approving one sends it
 CHAT_KINDS = ("reply", "send_counter", "agree", "mark_lost", "follow_up", "hold_terms", "pitch", "confirm_terms", "chase_post")  # drafts shown in the chat's message box
-OWN_KEYS = ("nego:", "pitch:", "confirm:", "bounce:")  # suggestions made outside the time-based generator: refresh leaves them alone
+OWN_KEYS = ("nego:", "pitch:", "confirm:", "bounce:", "agent:")  # suggestions made outside the time-based generator (agent: over MCP): refresh leaves them alone
 
 FOLLOW_UP_AFTER_DAYS = 4  # no answer this long after our last message → suggest a follow-up
 MAX_FOLLOW_UPS = 2  # then stop (the second is a polite close)
@@ -60,4 +60,5 @@ HELD = {
     "failed": "Sending failed twice. Check it and send it yourself.",
     "ask_founder": "They asked something ReachAI doesn't know. Answer it and ReachAI writes the reply.",
     "check_failed": "The reply didn't pass ReachAI's checks. Check it and send it yourself.",
+    "from_agent": "Written by your connected agent. Check it and send it yourself.",
 }

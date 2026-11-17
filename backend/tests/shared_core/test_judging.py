@@ -224,3 +224,18 @@ def test_jev_country_answer_decides(choice, conf, unknown, dropped, country):
 def test_country_answer_is_ignored_when_the_platform_lists_a_country():
     s = score_creator(_with_country("other", 0.99), metrics(), country_unknown=False)
     assert not s.dropped and s.country is None
+
+
+def test_big_claims_add_risk_and_a_badge_only_when_jev_is_sure():
+    clean = score_creator(judgment(**GOOD), metrics())
+    unsure = score_creator(judgment(**{**GOOD, "misleading_claims": K.MISLEADING_RISK_FROM - 0.05}), metrics())
+    sure = score_creator(judgment(**{**GOOD, "misleading_claims": 0.9}), metrics())
+    assert unsure.final_score == clean.final_score and "big_claims" not in unsure.flags
+    assert sure.risk == round(K.MISLEADING_RISK_FACTOR * 0.9, 4)
+    assert sure.final_score < clean.final_score and "big_claims" in sure.flags
+    assert not sure.dropped  # a warning, not a drop
+
+
+def test_safety_and_claims_are_separate_questions():
+    q = creator_questions(BRIEF, "youtube")
+    assert "misleading_claims" in q and "clickbait" in q["safety_risk"].instructions

@@ -383,7 +383,7 @@ def register_write_tools(server: MCPServer) -> None:
             body = message.strip()
             subj = (subject or "").strip() or None
             texts = {key: ({"subject": subj or "", "body": body} if key == "email" else {"body": body})}
-            payload = {"message": body, "subject": subj, "texts": texts, "source": "agent", "seen": False}
+            payload = {"message": body, "subject": subj, "texts": texts, "source": "agent", "held": "from_agent", "seen": False}
 
             proposal = (
                 await db.execute(select(AgentProposal).where(AgentProposal.deal_id == deal.deal_id, AgentProposal.key == DRAFT_KEY))

@@ -15,7 +15,7 @@ Set up ReachAI for me. Fetch https://reach-ai-influencer-marketing.vercel.app/ll
 
 Paste it into Claude Code, Codex, Cursor, VS Code or any other agent. It reads the setup steps for itself, adds ReachAI, and asks you to sign in with your ReachAI account. It also installs a short playbook (`/skill.md`) so it uses ReachAI well.
 
-**Claude and ChatGPT apps** can't add connectors on their own; the agent tells you the clicks. In Claude: Settings → Connectors → Add custom connector, paste `https://reach-ai-influencer-marketing.vercel.app/api/mcp`, then **Connect** and sign in. No key needed.
+**Claude and ChatGPT apps** can't add connectors on their own; the agent tells you the clicks. In Claude: Settings → Connectors → Add custom connector, paste `https://reach-ai-influencer-marketing.vercel.app/api/mcp`, then **Connect** and sign in with your ReachAI account. No key needed.
 
 ### By hand
 
@@ -36,13 +36,16 @@ Then run `/mcp` in Claude Code, choose **reachai** and sign in.
 | Your campaigns | Lists them with status and number of creators found |
 | A campaign's details | Shows the brief and where the search is up to |
 | A new campaign | Creates one from a short brief. It does **not** start the search |
-| A creator search | Starts it, but only after your agent has told you the cost in credits and you agreed. Agents can start 3 a day. Your agent can also check your credits |
+| A creator search | Starts it, but only after your agent has told you the cost in credits and you agreed. Agents can start 10 a day. Your agent can also check your credits |
 | Search progress | Tells you whether the search has finished |
 | The creators | A ranked table with score, audience, engagement and estimated fair value, with sorting, a minimum score and pages |
 | One creator | Full numbers, score breakdown, recent videos and why they fit |
 | Saved creators | Lists, saves or removes creators on the campaign's shortlist (the same list as the Saved tab) |
 | A first message | Your agent writes it in your voice; ReachAI checks it (no price above the creator's fair range, no placeholders, no internal terms) and saves it as a **draft in that creator's chat**. You review and send it in ReachAI |
 | What needs you | Who replied, which drafts are waiting, where each deal stands, and the Track results: spend, views, signups or sales, late posts and who is due payment |
+| A reply | Your agent writes a reply to a creator you're already talking to. ReachAI checks it (no prices, no placeholders) and puts it in that creator's chat. **You press Send** |
+| Agreeing a price | Your agent proposes a price and the message that agrees it. ReachAI checks the price against the creator's hard limit (at most 15% over the fair range, never above your budget left, never below an earlier offer). It shows in the chat as **Send and agree**, for you to confirm |
+| Recording a payment | After you've paid a creator, your agent can fill in the amount, method and reference. It shows on that creator's row in **Track → To pay** as **Confirm paid**, for you to click |
 
 Scores, audience sizes, prices and results are calculated by ReachAI, not by your agent, so they match what you see in the app. The agent only lays them out.
 
@@ -50,9 +53,11 @@ If your agent's client supports slash commands, you also get `/reachai-new-campa
 
 ## What it can't do
 
-- Send anything. Drafts are saved for you to send, and nothing your agent does can send a message or move money.
-- Agree terms, set prices or mark a creator paid. Those stay in the app.
-- Reply to a creator. When a creator writes back, the chat in ReachAI suggests the next reply.
+- Send, agree or record anything by itself. Every message, agreed price and payment waits for you to confirm it in ReachAI.
+- Move money. ReachAI never does; you pay creators yourself.
+- Make its own price offers. New offers come from ReachAI's reply agent, which checks every number. Your agent can only ask you to agree a price within the creator's hard limit.
+
+Messages your agent writes are never sent by autopilot, even when autopilot is on: they wait for you with the note "Written by your connected agent".
 
 ## A note on safety
 
@@ -60,5 +65,4 @@ Creator names, bios and summaries come from the internet. ReachAI marks them as 
 
 ## Coming soon
 
-- One-click sign-in for Claude (web and desktop) and ChatGPT, without a key.
 - Creator tables shown as interactive cards inside Claude.

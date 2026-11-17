@@ -4,7 +4,8 @@ Bump QUESTIONS_VERSION whenever a question's wording changes: saved Jev answers 
 so changed questions are never mixed with old answers.
 """
 
-QUESTIONS_VERSION = "creator-v2"  # v2: audience-country question for creators with no listed country
+QUESTIONS_VERSION = "creator-v3"  # v3 (K6, Nov 17): safety judged on how posts treat a subject, not the subject;
+# exaggerated promises asked on their own (misleading_claims); trend means a post is mainly about a trend topic
 
 # How much creator text goes into one Jev request (keeps requests small and cheap).
 MAX_POSTS_IN_STATE = 12
@@ -36,6 +37,12 @@ TREND_BONUS = 0.05
 COMPETITOR_BONUS = 0.06
 TREND_THRESHOLD = 0.6
 PROMO_RISK_FACTOR = 0.5  # "mostly ads" counts half as much as a safety problem
+# Exaggerated promises (guaranteed jobs, get-rich-quick, miracle cures), split from safety in K6. Checked on 72 judged
+# creators (Nov 17, scripts/benchmarks/jev_safety_trend.py): from 0.75 it caught the clear cases (₹2,000-a-day job
+# ads, "₹7 crore a month with one AI app", "100% placement guarantee") and left out "comment X for the link" posts
+# and plain job boards, which sat at 0.6-0.73. It counts like "mostly ads" and shows a "Big claims" badge.
+MISLEADING_RISK_FROM = 0.75
+MISLEADING_RISK_FACTOR = 0.5
 ANOMALY_RISK_FROM = 0.6  # anomaly scores below this add no risk
 
 # --- Hard drops (spec §4.7). Each is (question id, comparison, threshold) ---------------------

@@ -35,7 +35,7 @@ async def test_api_key_lists_all_tools(client, db):
         "list_campaigns", "get_campaign", "campaign_status", "list_creators",
         "get_creator", "list_saved", "save_creator", "unsave_creator", "credits",
         "create_campaign", "start_search", "pitch_context", "save_draft",
-        "inbox", "list_deals", "track_summary",
+        "inbox", "list_deals", "track_summary", "request_send", "request_agree", "request_mark_paid",
     }
     assert tools["list_creators"]["annotations"]["readOnlyHint"] is True
     assert tools["save_creator"]["annotations"]["readOnlyHint"] is False

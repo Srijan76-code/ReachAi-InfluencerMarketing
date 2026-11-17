@@ -18,3 +18,4 @@ OpenRouter key for the cross-company model comparisons (sent by the environment'
 | `outreach_reply_models.py`, `direct_providers.py` | Which model writes replies |
 | `reason_models.py`, `reason_prompts.py`, `reason_loop.py` | "Why this creator": model, prompt, and the checked loop |
 | `reply_agent.py [runs]` | The whole reply agent against 10 simulated creators (pushy, legal question, out of office, manager, opt-out, injection, decline, follow-up…) |
+| `jev_safety_trend.py [limit]` | K6: old vs new Jev safety and trend wording on creators already judged (reads an export of `EXPORT_SQL` in `results/judged_creators.json`) |

@@ -1,4 +1,4 @@
-import { TrendingUp, Flame, AlertTriangle, Globe, Clock, Swords } from "lucide-react";
+import { TrendingUp, Flame, AlertTriangle, Globe, Clock, Swords, Megaphone } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 /** Labels the discovery engine attaches to a creator (`flags` on each result). */
@@ -19,6 +19,12 @@ export const BADGES: Record<string, { label: string; help: string; icon: typeof 
     label: "Check engagement",
     help: "Views, likes or comments look unusual for a channel this size. Ask for audience stats before paying.",
     icon: AlertTriangle,
+    className: "text-rose-600 dark:text-rose-400 bg-rose-500/10 border-rose-500/20",
+  },
+  big_claims: {
+    label: "Big claims",
+    help: "Some posts promise more than seems real, like guaranteed jobs or quick riches. Read a few before you pay.",
+    icon: Megaphone,
     className: "text-rose-600 dark:text-rose-400 bg-rose-500/10 border-rose-500/20",
   },
   data_expired: {

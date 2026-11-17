@@ -1,4 +1,5 @@
-"""Checks an agent-written first message before it is saved (spec §15.5).
+"""Checks agent-written messages before they are saved for the founder (spec §15.5): first messages, and the
+replies and agree messages of F9.5.
 
 The agent writes the words. These checks keep the parts that must come from code: the message may not
 quote a price above the creator's fair-high figure, expose internal scoring fields or package details,
@@ -46,19 +47,10 @@ def _mentions_name(text_lower: str, name: str) -> bool:
     return len(first) >= _FIRST_NAME_MIN and re.search(rf"\b{re.escape(first)}\b", text_lower) is not None
 
 
-def check_first_message(
-    body: str,
-    *,
-    subject: str | None = None,
-    brand_name: str = "",
-    creator_name: str = "",
-    fair_high: float | None = None,
-) -> list[str]:
-    """Returns what must change (empty list = fine). Messages are written for the agent to act on."""
+def _house_rules(text: str, subject: str | None) -> list[str]:
+    """Rules every agent-written message follows: length, no placeholders, internal terms, links or stock openers."""
     errors: list[str] = []
-    text = (body or "").strip()
     lower = text.lower()
-
     if len(text) < MIN_CHARS:
         errors.append(f"The message is too short (at least {MIN_CHARS} characters).")
     if len(text) > MAX_CHARS:
@@ -67,17 +59,9 @@ def check_first_message(
         errors.append(f"The subject is too long (at most {MAX_SUBJECT_CHARS} characters).")
     if _PLACEHOLDER.search(text) or (subject and _PLACEHOLDER.search(subject)):
         errors.append("Remove placeholder text such as [Name] or {{brand}}: write the real values.")
-    if brand_name and brand_name.strip().lower() not in lower:
-        errors.append(f"Name the brand ({brand_name.strip()}) in the message.")
-    if creator_name and not _mentions_name(lower, creator_name):
-        errors.append(f"Address the creator by name ({creator_name.strip()}).")
-
     for term in INTERNAL_TERMS:
         if re.search(rf"\b{re.escape(term)}\b", lower):
             errors.append(f"Do not mention internal scoring fields ({term}).")
-    for pattern, description in PACKAGE_DETAIL_PATTERNS:
-        if re.search(pattern, lower):
-            errors.append(f"Do not spell out package details in a first message ({description}).")
     for opener in FORMULAIC_OPENERS:
         if opener in lower:
             errors.append(f'Do not use the stock opener "{opener}".')
@@ -88,6 +72,28 @@ def check_first_message(
         errors.append(f"Ask at most {MAX_QUESTIONS} questions.")
     if len(_LINK.findall(text)) > MAX_LINKS:
         errors.append(f"Include at most {MAX_LINKS} links.")
+    return errors
+
+
+def check_first_message(
+    body: str,
+    *,
+    subject: str | None = None,
+    brand_name: str = "",
+    creator_name: str = "",
+    fair_high: float | None = None,
+) -> list[str]:
+    """Returns what must change (empty list = fine). Messages are written for the agent to act on."""
+    text = (body or "").strip()
+    lower = text.lower()
+    errors = _house_rules(text, subject)
+    if brand_name and brand_name.strip().lower() not in lower:
+        errors.append(f"Name the brand ({brand_name.strip()}) in the message.")
+    if creator_name and not _mentions_name(lower, creator_name):
+        errors.append(f"Address the creator by name ({creator_name.strip()}).")
+    for pattern, description in PACKAGE_DETAIL_PATTERNS:
+        if re.search(pattern, lower):
+            errors.append(f"Do not spell out package details in a first message ({description}).")
 
     stated = amounts_in(text)
     if stated:
@@ -97,5 +103,25 @@ def check_first_message(
             errors.append(
                 f"The message states ${max(stated):,.0f}, above this creator's fair-high price of ${fair_high:,.2f}. "
                 "Prices come from ReachAI: lower it, or leave the price out of a first message."
+            )
+    return errors
+
+
+def check_message(body: str, *, subject: str | None = None, allowed_amounts: tuple[float, ...] = ()) -> list[str]:
+    """A message in an ongoing conversation (F9.5). It may only state amounts already decided in code: the agreed
+    price, or the price the agent asks the founder to agree (`allowed_amounts`). New offers stay with ReachAI's
+    reply agent, whose numbers are checked against the fair range and the budget."""
+    text = (body or "").strip()
+    errors = _house_rules(text, subject)
+    allowed = {round(a) for a in allowed_amounts}
+    extra = [a for a in amounts_in(text) if round(a) not in allowed]
+    if extra:
+        if allowed:
+            say = ", ".join(f"${a:,.0f}" for a in sorted(allowed))
+            errors.append(f"The message states ${extra[0]:,.0f}. The only price it may state is {say}.")
+        else:
+            errors.append(
+                f"The message states ${extra[0]:,.0f}. Prices come from ReachAI: leave them out, or use "
+                "request_agree to ask the founder to agree a price."
             )
     return errors

@@ -100,7 +100,9 @@ def score_creator(j: Judgment, metrics: Metrics, *, exclude_kids_content: bool =
     safety = _score(j, "safety_risk")
     promo = _noul(j, "promo_heavy", 0.0)
     anomaly = metrics.anomaly_score if metrics.anomaly_score >= K.ANOMALY_RISK_FROM else 0.0
-    risk = max(safety, K.PROMO_RISK_FACTOR * promo, anomaly)  # "something is wrong" -> max, not average
+    big_claims = _noul(j, "misleading_claims", 0.0) >= K.MISLEADING_RISK_FROM
+    claims = K.MISLEADING_RISK_FACTOR * _noul(j, "misleading_claims", 0.0) if big_claims else 0.0
+    risk = max(safety, K.PROMO_RISK_FACTOR * promo, claims, anomaly)  # "something is wrong" -> max, not average
 
     trend = _noul(j, "posts_on_trend", 0.0)
     bonus = (K.RISING_BONUS if metrics.rising else 0.0) + (K.TREND_BONUS if trend > K.TREND_THRESHOLD else 0.0)
@@ -140,6 +142,8 @@ def score_creator(j: Judgment, metrics: Metrics, *, exclude_kids_content: bool =
         flags.append("trend")
     if metrics.anomaly_score >= K.ANOMALY_RISK_FROM:
         flags.append("suspicious")
+    if big_claims:
+        flags.append("big_claims")
     if country_unknown:
         flags.append("country_unknown")
     if country:

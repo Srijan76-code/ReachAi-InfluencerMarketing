@@ -79,6 +79,8 @@ def hold_reason(p, d, lead: Optional[dict], s: Settings, *, email_route: bool) -
         return "manual"
     if pl.get("auto_failures", 0) >= A.MAX_AUTO_FAILURES:
         return "failed"
+    if pl.get("source") == "agent":  # written over MCP: the founder always sends it (spec §15.5)
+        return "from_agent"
     if p.kind == "pitch":
         if s.review_first:
             return "review_first"

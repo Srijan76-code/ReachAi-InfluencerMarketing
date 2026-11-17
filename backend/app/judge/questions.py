@@ -104,15 +104,25 @@ def creator_questions(brief: JudgeBrief, platform: str, ask_country: bool = Fals
         ),
         "safety_risk": Score(
             instructions=(
-                "Would a brand with safety level `brief.safety_level` be uncomfortable being associated "
-                "with `creator.recent_posts`?"
+                "Would a brand with safety level `brief.safety_level` be uncomfortable sponsoring "
+                "`creator.recent_posts`? Judge how the posts treat their subject, not the subject itself: "
+                "tutorials, reviews, explainers, news and business content are level 0 even when they cover AI, "
+                "hacking, money, health or politics. A catchy or clickbait title alone is not a risk. "
+                "Exaggerated promises are asked separately; leave them out here."
             ),
             criteria=[
-                "Nothing a cautious brand would mind",
-                "Occasional edgy jokes or strong language",
-                "Frequent controversy, explicit or divisive content",
-                "Hate, harassment, scams or illegal content",
+                "Nothing a cautious brand would mind, including technical, educational and opinion posts",
+                "Occasional swearing, crude jokes or heated takes",
+                "Regular controversy: attacking people or groups, explicit content, or divisive politics as the main theme",
+                "Hate, harassment, scams, or promoting illegal or dangerous acts",
             ],
+        ),
+        "misleading_claims": Noul(
+            instructions=(
+                "Do `creator.recent_posts` present false or exaggerated promises as fact, such as guaranteed "
+                "income or job offers, get-rich-quick schemes, miracle health or weight-loss cures, or fake "
+                "giveaways? Catchy titles, opinions and honest results someone got don't count."
+            )
         ),
         "promo_heavy": Noul(
             instructions="Are more than half of `creator.recent_posts` paid promotions or ads?"
@@ -130,7 +140,11 @@ def creator_questions(brief: JudgeBrief, platform: str, ask_country: bool = Fals
     }
     if brief.trend_topics:
         q["posts_on_trend"] = Noul(
-            instructions="Does any of the first five items in `creator.recent_posts` discuss one of `brief.trend_topics`?"
+            instructions=(
+                "Is at least one of the first five items in `creator.recent_posts` mainly about one of "
+                "`brief.trend_topics`? A passing mention, or a post in the same broad field on a different topic, "
+                "doesn't count."
+            )
         )
     if platform in ("x", "linkedin", "instagram"):
         q["audience_role"] = Choice(

@@ -134,6 +134,9 @@ async def get_track(campaign_id: str, request: Request, user: User = Depends(get
     t = _track(camp.campaign_details)
     goal_kind = t.get("goal_kind") or ("sales" if ((camp.campaign_details or {}).get("campaign") or {}).get("goal") == "sales" else "signups")
     out = R.build(rows, {"kind": goal_kind, "count": t.get("goal_count"), "value_each": t.get("value_each")}, series)
+    asks = await _pay_requests(db, campaign_id)
+    for c in out["creators"]:
+        c["pay_request"] = asks.get(c["deal_id"])
     out.update({"snippet": {"key": key, "src": f"{base}/t.js", "endpoint": f"{base}/api/t/{key}", "seen_at": t.get("snippet_seen_at"),
                             "last_conversion_at": t.get("last_conversion_at"),
                             "site": ((camp.campaign_details or {}).get("brand") or {}).get("website")},
@@ -268,6 +271,19 @@ class PaidIn(BaseModel):
     note: Optional[str] = None
 
 
+async def _pay_requests(db: AsyncSession, campaign_id: str) -> dict:
+    """Payments a connected agent asked the founder to record (MCP request_mark_paid), by deal."""
+    from app.models.deal import AgentProposal
+
+    rows = (await db.execute(select(AgentProposal).where(
+        AgentProposal.campaign_id == campaign_id, AgentProposal.key == PAY_REQUEST_KEY,
+        AgentProposal.status == "pending"))).scalars().all()
+    return {p.deal_id: {k: (p.payload or {}).get(k) for k in ("amount", "method", "note")} for p in rows}
+
+
+PAY_REQUEST_KEY = "agent:paid"
+
+
 @router.post("/api/deals/{deal_id}/paid")
 async def mark_paid(deal_id: str, body: PaidIn, user: User = Depends(get_db_user), db: AsyncSession = Depends(get_db)):
     """Records a payment the founder made (ReachAI never moves money)."""
@@ -277,6 +293,11 @@ async def mark_paid(deal_id: str, body: PaidIn, user: User = Depends(get_db_user
     when = datetime.combine(body.paid_on or date.today(), datetime.min.time(), tzinfo=timezone.utc)
     apply_change(db, d, {"stage": "paid", "paid_amount": body.amount, "paid_at": when, "payment_ref": (body.note or "").strip()[:300] or None})
     d.pay_method = body.method
+    from app.models.deal import AgentProposal
+
+    await db.execute(update(AgentProposal).where(AgentProposal.deal_id == deal_id, AgentProposal.key == PAY_REQUEST_KEY,
+                                                 AgentProposal.status == "pending")
+                     .values(status="approved", decided_at=datetime.now(timezone.utc)))
     await db.commit()
     return {"paid": deal_id}
 

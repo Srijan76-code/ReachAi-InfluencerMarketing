@@ -33,6 +33,9 @@ def test_what_goes_out_by_itself():
     assert AP.hold_reason(P(), None, {}, ON, email_route=True) is None
     assert AP.hold_reason(P("send_counter"), None, {}, ON, email_route=True) is None
     assert AP.hold_reason(P("follow_up"), None, {}, ON, email_route=True) is None
+    # anything a connected agent wrote over MCP waits for the founder, even a first message (F9.5)
+    assert AP.hold_reason(P(source="agent"), None, {}, ON, email_route=True) == "from_agent"
+    assert AP.hold_reason(P("reply", source="agent"), None, {}, ON, email_route=True) == "from_agent"
     # decisions are always the founder's
     assert AP.hold_reason(P("agree"), None, {}, ON, email_route=True) == "manual"
     assert AP.hold_reason(P("mark_lost"), None, {}, ON, email_route=True) == "manual"

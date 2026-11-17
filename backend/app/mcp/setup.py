@@ -105,6 +105,7 @@ ReachAI is connected as the MCP server `reachai` ({MCP_URL}). Its tools read and
 4. `list_creators` for the ranked table. `get_creator` for one creator in detail. `save_creator` for the shortlist.
 5. First messages: `pitch_context`, write the message, `save_draft`. The draft lands in the creator's chat in ReachAI and **nothing is sent**: the founder reviews and sends it in the app.
 6. Later: `inbox` (who replied), `list_deals` (where each deal stands), `track_summary` (spend, views, results, late posts, who to pay).
+7. Asking the founder to act: `request_send` (a reply in an ongoing conversation), `request_agree` (agree a price, with the message that says so), `request_mark_paid` (after the founder paid a creator). Each one only leaves a request in ReachAI; **nothing is sent, agreed or recorded** until the founder confirms it in the app.
 
 ## Showing results
 
@@ -124,7 +125,8 @@ ReachAI is connected as the MCP server `reachai` ({MCP_URL}). Its tools read and
 
 - Don't promise results, views, signups or sales. Forecasts are estimates.
 - Don't say a message was sent. Drafts are saved, not sent.
-- Don't agree terms, set prices or mark anything paid on the user's behalf: those need the founder in the ReachAI app.
+- Don't say a message was sent, a price agreed or a creator paid. `request_send`, `request_agree` and `request_mark_paid` leave a request: say "waiting for you in ReachAI".
+- `request_send` may not state a price. `request_agree` is checked against the creator's hard limit (15% over the fair range at most, never above the budget left, never below an earlier offer) and its message may only state that price. If either refuses, fix exactly what it lists.
 
 ## Safety
 

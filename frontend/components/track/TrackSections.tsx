@@ -108,11 +108,11 @@ function CountDialog({ c, api, open, onOpenChange, onDone }: { c: TrackCreator; 
 }
 
 /** Record a payment (ReachAI never moves money). */
-function PayDialog({ who, api, open, onOpenChange, onDone }: { who: Track["to_pay"][number]; api: Api; open: boolean; onOpenChange: (v: boolean) => void; onDone: () => void }) {
-  const [amount, setAmount] = useState(String(who.amount));
+function PayDialog({ who, request, api, open, onOpenChange, onDone }: { who: Track["to_pay"][number]; request?: TrackCreator["pay_request"]; api: Api; open: boolean; onOpenChange: (v: boolean) => void; onDone: () => void }) {
+  const [amount, setAmount] = useState(String(request?.amount ?? who.amount));
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
-  const [method, setMethod] = useState("paypal");
-  const [note, setNote] = useState("");
+  const [method, setMethod] = useState(request?.method ?? "paypal");
+  const [note, setNote] = useState(request?.note ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const save = async () => {
@@ -133,7 +133,10 @@ function PayDialog({ who, api, open, onOpenChange, onDone }: { who: Track["to_pa
       <DialogContent className="sm:max-w-sm bg-white dark:bg-[#0c0d0e]">
         <DialogHeader>
           <DialogTitle className="text-[14px] font-medium">Mark {who.name} paid</DialogTitle>
-          <DialogDescription className="text-xs">Pay them the way you agreed, then record it here. ReachAI doesn&apos;t move money.</DialogDescription>
+          <DialogDescription className="text-xs">
+            {request ? "Your connected agent says you paid them. Check the details, then confirm. " : "Pay them the way you agreed, then record it here. "}
+            ReachAI doesn&apos;t move money.
+          </DialogDescription>
         </DialogHeader>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Amount">
@@ -198,9 +201,9 @@ export function CreatorsTab({ track, api, campaignId, onChanged, initialFilter }
     for (const p of track.posts) m.set(p.deal_id, [...(m.get(p.deal_id) ?? []), p]);
     return m;
   }, [track.posts]);
-  const counts = { pay: track.creators.filter((c) => c.to_pay).length, late: track.creators.filter((c) => c.late_posts).length, rebook: track.creators.filter((c) => c.verdict === "rebook").length };
+  const counts = { pay: track.creators.filter((c) => c.to_pay || c.pay_request).length, late: track.creators.filter((c) => c.late_posts).length, rebook: track.creators.filter((c) => c.verdict === "rebook").length };
   const rows = track.creators
-    .filter((c) => filter === "all" || (filter === "pay" && c.to_pay) || (filter === "late" && c.late_posts) || (filter === "rebook" && c.verdict === "rebook"))
+    .filter((c) => filter === "all" || (filter === "pay" && (c.to_pay || c.pay_request)) || (filter === "late" && c.late_posts) || (filter === "rebook" && c.verdict === "rebook"))
     .slice()
     .sort((a, b) => sort === "value" ? 0 : sort === "results" ? b.results - a.results : sort === "views" ? b.views - a.views : sort === "cost" ? b.cost - a.cost
       : (b.to_pay?.amount ?? -1) - (a.to_pay?.amount ?? -1));
@@ -250,6 +253,8 @@ export function CreatorsTab({ track, api, campaignId, onChanged, initialFilter }
                   <div className="flex items-center justify-end gap-1">
                     {c.paid ? (
                       <span className="text-[11px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1 whitespace-nowrap"><Check size={12} /> Paid {money(c.paid_amount)}</span>
+                    ) : c.pay_request ? (
+                      <button type="button" onClick={() => setPaying(c)} className={btnPrimary} title="Your connected agent says this was paid. Check and confirm.">Confirm paid {money(c.pay_request.amount)}</button>
                     ) : c.to_pay ? (
                       <button type="button" onClick={() => setPaying(c)} className={btnPrimary} title={c.to_pay.why}>Pay {money(c.to_pay.amount)}</button>
                     ) : c.late_posts ? (
@@ -294,7 +299,7 @@ export function CreatorsTab({ track, api, campaignId, onChanged, initialFilter }
         </AnimatePresence>
       </div>
       {counting && <CountDialog c={counting} api={api} open onOpenChange={(v) => !v && setCounting(null)} onDone={onChanged} />}
-      {paying && <PayDialog who={{ deal_id: paying.deal_id, name: paying.name, avatar_url: paying.avatar_url, amount: paying.to_pay?.amount ?? paying.cost, why: "" }} api={api} open
+      {paying && <PayDialog who={{ deal_id: paying.deal_id, name: paying.name, avatar_url: paying.avatar_url, amount: paying.to_pay?.amount ?? paying.cost, why: "" }} request={paying.pay_request} api={api} open
         onOpenChange={(v) => !v && setPaying(null)} onDone={onChanged} />}
     </section>
   );

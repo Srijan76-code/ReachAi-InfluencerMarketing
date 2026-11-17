@@ -77,6 +77,8 @@ export type TrackCreator = {
   paid_at: string | null;
   pay_method: string | null;
   to_pay: { amount: number; why: string } | null;
+  /** A connected agent says this creator was paid (MCP request_mark_paid): waits for the founder to confirm. */
+  pay_request?: { amount: number; method: string | null; note: string | null } | null;
 };
 
 export type Insight = { kind: string; text: string; tone: "good" | "bad" | "plain"; action: "remind" | "setup" | null };
